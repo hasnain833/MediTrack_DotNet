@@ -1,0 +1,24 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MediTrack", "MediTrack.csproj", "{25EC4AA7-0817-485D-9A32-8FED53316DC8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{25EC4AA7-0817-485D-9A32-8FED53316DC8}.Debug|x64.ActiveCfg = Debug|x64
+		{25EC4AA7-0817-485D-9A32-8FED53316DC8}.Debug|x64.Build.0 = Debug|x64
+		{25EC4AA7-0817-485D-9A32-8FED53316DC8}.Debug|x64.Deploy.0 = Debug|x64
+		{25EC4AA7-0817-485D-9A32-8FED53316DC8}.Release|x64.ActiveCfg = Release|x64
+		{25EC4AA7-0817-485D-9A32-8FED53316DC8}.Release|x64.Build.0 = Release|x64
+		{25EC4AA7-0817-485D-9A32-8FED53316DC8}.Release|x64.Deploy.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

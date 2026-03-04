@@ -1,0 +1,48 @@
+<Application
+    x:Class="MediTrack.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:MediTrack"
+    xmlns:utils="using:MediTrack.Utils">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.UI.Controls.DataGrid/DataGrid/DataGrid.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <utils:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+            <utils:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+            <utils:CurrencyConverter x:Key="CurrencyConverter"/>
+            <utils:DateConverter x:Key="DateConverter"/>
+            <utils:PositiveToColorConverter x:Key="PositiveToColorConverter"/>
+
+            <!-- Premium Design System Tokens -->
+            <Color x:Key="GlassBlue">#A01E3C72</Color>
+            <Color x:Key="GlassTeal">#A02A5298</Color>
+            <Color x:Key="AccentAccent">#00D2FF</Color>
+            
+            <LinearGradientBrush x:Key="PremiumBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#1E3C72" Offset="0.0" />
+                <GradientStop Color="#2A5298" Offset="1.0" />
+            </LinearGradientBrush>
+
+            <Style x:Key="GlassBorderStyle" TargetType="Border">
+                <Setter Property="Background" Value="#20FFFFFF"/>
+                <Setter Property="BorderBrush" Value="#40FFFFFF"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="12"/>
+            </Style>
+
+            <!-- Accent Button Styling -->
+            <Style x:Key="PremiumButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Background" Value="{StaticResource PremiumBackgroundBrush}"/>
+                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Padding" Value="16,8"/>
+                <Setter Property="BorderThickness" Value="0"/>
+            </Style>
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
