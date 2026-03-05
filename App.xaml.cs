@@ -25,10 +25,7 @@ namespace MediTrack
         private static IServiceProvider ConfigureServices()
         {
             var services = new ServiceCollection();
-
-            // Core - UPDATE DATABASE CREDENTIALS HERE
-            // If you have a MySQL root password, enter it in the 4th parameter below
-            services.AddSingleton(new DatabaseService("localhost", "medical_store", "root", "H")); 
+            services.AddSingleton(new DatabaseService()); 
 
             // Repositories
             services.AddSingleton<UserRepository>();
@@ -38,6 +35,7 @@ namespace MediTrack
 
             // Services
             services.AddSingleton<AuthService>();
+            services.AddSingleton<AuthorizationService>();
             services.AddSingleton<NavigationService>();
 
             // ViewModels
@@ -60,6 +58,7 @@ namespace MediTrack
             _window.Content = rootFrame;
             
             var navService = Services.GetRequiredService<NavigationService>();
+            navService.InitializeRoot(rootFrame);
             navService.Initialize(rootFrame);
             
             // Navigate to login page initially

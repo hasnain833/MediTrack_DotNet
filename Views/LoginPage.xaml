@@ -8,30 +8,67 @@
     mc:Ignorable="d">
 
     <Grid Background="{ThemeResource PremiumBackgroundBrush}">
-        <Border Width="450" VerticalAlignment="Center" HorizontalAlignment="Center"
-                Style="{StaticResource GlassBorderStyle}" Padding="40" Margin="20">
-            <StackPanel Spacing="24">
-                <TextBlock Text="MediTrack" FontSize="42" FontWeight="Bold" 
-                           Foreground="White" HorizontalAlignment="Center"/>
-                <TextBlock Text="Secure Login" FontSize="18" Foreground="#CCFFFFFF" 
-                           HorizontalAlignment="Center" Margin="0,-10,0,10"/>
+        <Grid.ChildrenTransitions>
+            <TransitionCollection>
+                <EntranceThemeTransition FromVerticalOffset="50" IsStaggeringEnabled="True"/>
+            </TransitionCollection>
+        </Grid.ChildrenTransitions>
 
-                <TextBox Header="Username" Text="{x:Bind ViewModel.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         Foreground="White" PlaceholderText="Enter username"/>
-                
-                <PasswordBox Header="Password" Password="{x:Bind ViewModel.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             Foreground="White" PlaceholderText="Enter password"/>
+        <Border Width="480" VerticalAlignment="Center" HorizontalAlignment="Center"
+                Background="White" CornerRadius="24" Padding="54" Margin="24">
+            <Border.Shadow>
+                <ThemeShadow />
+            </Border.Shadow>
+            <StackPanel Spacing="36">
+                <!-- Branding Section -->
+                <StackPanel Spacing="12">
+                    <TextBlock Text="D. Chemist" FontSize="44" FontWeight="ExtraBold" 
+                               HorizontalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}"
+                               FontFamily="Segoe UI Variable Display"/>
+                    <TextBlock Text="PREMIUM MEDICAL MANAGEMENT" FontSize="11" FontWeight="Bold"
+                               CharacterSpacing="200" Foreground="{StaticResource TextSecondaryBrush}" 
+                               HorizontalAlignment="Center" Opacity="0.8"/>
+                </StackPanel>
 
-                <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}" 
-                           Foreground="#FF4444" 
-                           Visibility="{x:Bind ViewModel.ErrorMessage, Converter={StaticResource StringToVisibilityConverter}, Mode=OneWay}"
-                           TextWrapping="Wrap"/>
+                <!-- Input Section -->
+                <StackPanel Spacing="28">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Username" FontSize="13" FontWeight="SemiBold" 
+                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="2,0"/>
+                        <TextBox PlaceholderText="Enter your username"
+                                 Text="{x:Bind ViewModel.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 Height="44"/>
+                    </StackPanel>
+                    
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Password" FontSize="13" FontWeight="SemiBold" 
+                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="2,2"/>
+                        <PasswordBox PlaceholderText="Enter your password"
+                                     Password="{x:Bind ViewModel.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Height="44"/>
+                    </StackPanel>
+                </StackPanel>
 
-                <Button Content="LOGIN" Command="{x:Bind ViewModel.LoginCommand}" 
-                        HorizontalAlignment="Stretch" Style="{StaticResource PremiumButtonStyle}"/>
+                <!-- Action Section -->
+                <StackPanel Spacing="24">
+                    <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}" 
+                               Foreground="#EF4444" 
+                               FontSize="13"
+                               Visibility="{x:Bind ViewModel.ErrorMessage, Converter={StaticResource StringToVisibilityConverter}, Mode=OneWay}"
+                               TextWrapping="Wrap"
+                               HorizontalAlignment="Center"
+                               FontWeight="Medium"/>
 
-                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Foreground="{StaticResource AccentAccent}"
-                              HorizontalAlignment="Center" Width="40" Height="40"/>
+                    <Button Content="SIGN IN TO DASHBOARD" 
+                            Command="{x:Bind ViewModel.LoginCommand}" 
+                            Style="{StaticResource PremiumButtonStyle}"
+                            Height="48"
+                            CornerRadius="10"/>
+                    
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" 
+                                  Foreground="{StaticResource AccentAccent}"
+                                  HorizontalAlignment="Center" Width="28" Height="28"/>
+                </StackPanel>
             </StackPanel>
         </Border>
     </Grid>

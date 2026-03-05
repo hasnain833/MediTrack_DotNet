@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using MediTrack.Database;
 using MediTrack.Models;
-using MySql.Data.MySqlClient;
+using Microsoft.Data.Sqlite;
 
 namespace MediTrack.Repositories
 {
@@ -22,20 +22,25 @@ namespace MediTrack.Repositories
             {
                 { "@username", username }
             };
-
             return await _db.FetchOneAsync(query, MapUser, parameters);
         }
 
-        private static User MapUser(MySqlDataReader reader)
+        public async Task<System.Collections.Generic.List<User>> GetAllUsersAsync()
+        {
+            const string query = "SELECT * FROM users";
+            return await _db.FetchAllAsync(query, MapUser);
+        }
+
+        private static User MapUser(SqliteDataReader reader)
         {
             return new User
             {
-                Id = Convert.ToInt32(reader["id"]),
+                Id       = Convert.ToInt32(reader["id"]),
                 Username = reader["username"].ToString() ?? string.Empty,
                 Password = reader["password"].ToString() ?? string.Empty,
                 FullName = reader["full_name"].ToString() ?? string.Empty,
-                Role = reader["role"].ToString() ?? string.Empty,
-                Status = reader["status"].ToString() ?? "Active"
+                Role     = reader["role"].ToString() ?? string.Empty,
+                Status   = reader["status"].ToString() ?? "Active"
             };
         }
     }

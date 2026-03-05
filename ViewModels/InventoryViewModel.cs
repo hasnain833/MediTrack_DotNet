@@ -1,10 +1,11 @@
 using System;
-using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using MediTrack.Models;
 using MediTrack.Repositories;
+using MediTrack.Services;
 using MediTrack.Utils;
 
 namespace MediTrack.ViewModels
@@ -12,12 +13,14 @@ namespace MediTrack.ViewModels
     public class InventoryViewModel : ViewModelBase
     {
         private readonly MedicineRepository _medicineRepository;
+        private readonly AuthorizationService _auth;
         private string _searchText = string.Empty;
         private bool _isBusy;
 
-        public InventoryViewModel(MedicineRepository medicineRepository)
+        public InventoryViewModel(MedicineRepository medicineRepository, AuthorizationService auth)
         {
             _medicineRepository = medicineRepository;
+            _auth = auth;
             Medicines = new ObservableCollection<Medicine>();
             RefreshCommand = new RelayCommand(async _ => await RefreshAsync());
             
@@ -25,6 +28,7 @@ namespace MediTrack.ViewModels
         }
 
         public ObservableCollection<Medicine> Medicines { get; }
+        public bool IsAdmin => _auth.IsAdmin;
 
         public string SearchText
         {

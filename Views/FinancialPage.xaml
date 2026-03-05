@@ -8,14 +8,14 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Background="White">
+    <Grid Background="{ThemeResource AppBackgroundBrush}" Padding="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="Financial Overview" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,24"/>
+        <TextBlock Text="Financial Overview" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,24"/>
 
         <!-- Revenue Stats -->
         <ItemsControl Grid.Row="1" ItemsSource="{x:Bind ViewModel.RevenueStats}" Margin="0,0,0,32">
@@ -26,11 +26,11 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:RevenueStat">
-                    <Border Width="200" Background="#F9F9F9" CornerRadius="12" Padding="20" BorderThickness="1" BorderBrush="#E0E0E0">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="{x:Bind Label}" Foreground="#666666" FontSize="12"/>
-                            <TextBlock Text="{x:Bind Value}" FontSize="20" FontWeight="Bold"/>
-                            <TextBlock Text="{x:Bind Change}" Foreground="#2ECC71" FontSize="11" FontWeight="SemiBold"/>
+                    <Border Width="220" Style="{StaticResource PremiumCardStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{x:Bind Label}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" FontWeight="Medium"/>
+                            <TextBlock Text="{x:Bind Value}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{x:Bind Change}" Foreground="#10B981" FontSize="12" FontWeight="SemiBold"/>
                         </StackPanel>
                     </Border>
                 </DataTemplate>
@@ -44,20 +44,30 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
             
-            <TextBlock Text="Recent Transactions" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,16"/>
+            <TextBlock Text="Recent Transactions" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,20"/>
 
-            <controls:DataGrid Grid.Row="1" AutoGenerateColumns="False"
-                               ItemsSource="{x:Bind ViewModel.SalesHistory}"
-                               GridLinesVisibility="Horizontal" HeadersVisibility="All"
-                               RowHeight="48" BorderThickness="0">
-                <controls:DataGrid.Columns>
-                    <controls:DataGridTextColumn Header="Bill No" Binding="{Binding BillNo}" Width="150"/>
-                    <controls:DataGridTextColumn Header="Customer" Binding="{Binding Customer}" Width="*"/>
-                    <controls:DataGridTextColumn Header="Amount" Binding="{Binding Amount, Converter={StaticResource CurrencyConverter}}" Width="120"/>
-                    <controls:DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="150"/>
-                    <controls:DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
-                </controls:DataGrid.Columns>
-            </controls:DataGrid>
+            <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="0">
+                <controls:DataGrid AutoGenerateColumns="False"
+                                   ItemsSource="{x:Bind ViewModel.SalesHistory}"
+                                   GridLinesVisibility="Horizontal" HeadersVisibility="All"
+                                   RowHeight="54" BorderThickness="0" Background="Transparent">
+                    <controls:DataGrid.Columns>
+                        <controls:DataGridTextColumn Header="Bill No" Binding="{Binding BillNo}" Width="150"/>
+                        <controls:DataGridTextColumn Header="Customer" Binding="{Binding Customer}" Width="*"/>
+                        <controls:DataGridTextColumn Header="Amount" Binding="{Binding Amount, Converter={StaticResource CurrencyConverter}}" Width="120"/>
+                        <controls:DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="180"/>
+                        <controls:DataGridTemplateColumn Header="Status" Width="120">
+                            <controls:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <Border Background="#ECFDF5" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" Margin="12,0">
+                                        <TextBlock Text="{Binding Status}" Foreground="#059669" FontSize="12" FontWeight="SemiBold"/>
+                                    </Border>
+                                </DataTemplate>
+                            </controls:DataGridTemplateColumn.CellTemplate>
+                        </controls:DataGridTemplateColumn>
+                    </controls:DataGrid.Columns>
+                </controls:DataGrid>
+            </Border>
         </Grid>
     </Grid>
 </Page>

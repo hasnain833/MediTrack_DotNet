@@ -57,6 +57,10 @@ namespace MediTrack.ViewModels
                     ErrorMessage = "Invalid username or password.";
                 }
             }
+            catch (Microsoft.Data.Sqlite.SqliteException ex)
+            {
+                ErrorMessage = $"Database Error: {ex.Message}";
+            }
             catch (System.Exception ex)
             {
                 ErrorMessage = $"Critical Error: {ex.Message}";

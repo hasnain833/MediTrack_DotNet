@@ -8,30 +8,52 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Background="White">
+    <Grid Background="{ThemeResource AppBackgroundBrush}" Padding="32">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Text="User Administration" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,24"/>
+        <TextBlock Text="User Administration" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,24"/>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="12" Margin="0,0,0,24">
-            <Button Content="Add New User" Style="{StaticResource PremiumButtonStyle}"/>
-            <Button Content="Roles &amp; Permissions" Background="Transparent" BorderBrush="#E0E0E0"/>
-        </StackPanel>
+        <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Margin="0,0,0,24">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <Button Content="Add New User" Style="{StaticResource PremiumButtonStyle}" Width="180"/>
+                <Button Command="{x:Bind ViewModel.RefreshCommand, Mode=OneWay}" 
+                        Style="{StaticResource TextBlockButtonStyle}" Padding="12,8">
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="{StaticResource AccessKeySecondaryForeground}"/>
+                        <TextBlock Text="Refresh List" VerticalAlignment="Center" FontWeight="Medium"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Border>
 
-        <controls:DataGrid Grid.Row="2" AutoGenerateColumns="False"
-                           ItemsSource="{x:Bind ViewModel.Users}"
-                           GridLinesVisibility="Horizontal" HeadersVisibility="All"
-                           RowHeight="48" BorderThickness="0">
-            <controls:DataGrid.Columns>
-                <controls:DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="*"/>
-                <controls:DataGridTextColumn Header="Full Name" Binding="{Binding FullName}" Width="*"/>
-                <controls:DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="150"/>
-                <controls:DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120"/>
-            </controls:DataGrid.Columns>
-        </controls:DataGrid>
+        <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0">
+            <controls:DataGrid AutoGenerateColumns="False"
+                               ItemsSource="{x:Bind ViewModel.Users}"
+                               GridLinesVisibility="Horizontal" HeadersVisibility="All"
+                               RowHeight="54" BorderThickness="0" Background="Transparent">
+                <controls:DataGrid.Columns>
+                    <controls:DataGridTextColumn Header="Username" Binding="{Binding Username}" Width="*"/>
+                    <controls:DataGridTextColumn Header="Full Name" Binding="{Binding FullName}" Width="*"/>
+                    <controls:DataGridTextColumn Header="Role" Binding="{Binding Role}" Width="150"/>
+                    <controls:DataGridTemplateColumn Header="Status" Width="120">
+                        <controls:DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Border Background="#EFF6FF" CornerRadius="4" Padding="8,4" HorizontalAlignment="Left" Margin="12,0">
+                                    <TextBlock Text="{Binding Status}" Foreground="#2563EB" FontSize="12" FontWeight="SemiBold"/>
+                                </Border>
+                            </DataTemplate>
+                        </controls:DataGridTemplateColumn.CellTemplate>
+                    </controls:DataGridTemplateColumn>
+                </controls:DataGrid.Columns>
+            </controls:DataGrid>
+        </Border>
+
+        <ProgressRing Grid.Row="2" IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" 
+                       VerticalAlignment="Center" HorizontalAlignment="Center"
+                       Foreground="{StaticResource AccentAccent}" Width="40" Height="40"/>
     </Grid>
 </Page>

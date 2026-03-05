@@ -7,7 +7,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer>
+    <ScrollViewer Padding="32">
         <StackPanel Spacing="32">
             <!-- Grid for Metric Cards -->
             <GridView ItemsSource="{x:Bind ViewModel.Metrics}" SelectionMode="None">
@@ -18,19 +18,19 @@
                 </GridView.ItemsPanel>
                 <GridView.ItemTemplate>
                     <DataTemplate x:DataType="vm:MetricItem">
-                        <Grid Width="260" Height="140" Margin="0,0,16,16">
-                            <Border Background="White" CornerRadius="12" Padding="20" BorderThickness="1" BorderBrush="#EAEAEA">
+                        <Grid Width="280" Height="140" Margin="0,0,16,16">
+                            <Border Style="{StaticResource PremiumCardStyle}">
                                 <Grid>
-                                    <StackPanel Spacing="4" VerticalAlignment="Top">
-                                        <TextBlock Text="{x:Bind Title}" Foreground="#666666" FontSize="13"/>
-                                        <TextBlock Text="{x:Bind Value}" FontSize="24" FontWeight="Bold" Foreground="#222222"/>
+                                    <StackPanel Spacing="6" VerticalAlignment="Top">
+                                        <TextBlock Text="{x:Bind Title}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" FontWeight="Medium"/>
+                                        <TextBlock Text="{x:Bind Value}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                                     </StackPanel>
-                                    <Border HorizontalAlignment="Right" VerticalAlignment="Top" Width="40" Height="40" 
-                                            Background="#F0F5FF" CornerRadius="8">
+                                    <Border HorizontalAlignment="Right" VerticalAlignment="Top" Width="44" Height="44" 
+                                            Background="#F0F7FF" CornerRadius="10">
                                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Icon}" 
-                                                  Foreground="#1E3C72" FontSize="18"/>
+                                                  Foreground="{StaticResource AccentAccent}" FontSize="20"/>
                                     </Border>
-                                    <TextBlock Text="{x:Bind Trend}" VerticalAlignment="Bottom" FontSize="11"
+                                    <TextBlock Text="{x:Bind Trend}" VerticalAlignment="Bottom" FontSize="12" FontWeight="SemiBold"
                                                Foreground="{x:Bind Positive, Converter={StaticResource PositiveToColorConverter}}"/>
                                 </Grid>
                             </Border>
@@ -40,22 +40,22 @@
             </GridView>
 
             <!-- Bottom Section: Recent Activity -->
-            <Grid Padding="0,0,16,0">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="2*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.Column="0" Background="White" CornerRadius="12" Padding="24" Margin="0,0,16,0">
-                    <StackPanel Spacing="16">
-                        <TextBlock Text="Recent Activity" FontSize="18" FontWeight="SemiBold"/>
+                <Border Grid.Column="0" Style="{StaticResource PremiumCardStyle}" Margin="0,0,16,0">
+                    <StackPanel Spacing="20">
+                        <TextBlock Text="Recent Activity" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
                         <ListView ItemsSource="{x:Bind ViewModel.RecentActivities}" SelectionMode="None">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Padding="0,8">
-                                        <StackPanel Orientation="Horizontal" Spacing="12">
-                                            <Ellipse Width="8" Height="8" Fill="{ThemeResource AccentAAFillColorDefaultBrush}"/>
-                                            <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                                    <Grid Padding="0,12" BorderBrush="#F0F0F0" BorderThickness="0,0,0,1">
+                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                            <FontIcon Glyph="&#xE91F;" FontSize="12" Foreground="{StaticResource AccentAccent}"/>
+                                            <TextBlock Text="{Binding}" VerticalAlignment="Center" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14"/>
                                         </StackPanel>
                                     </Grid>
                                 </DataTemplate>
@@ -64,17 +64,17 @@
                     </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1" Background="{ThemeResource PremiumBackgroundBrush}" CornerRadius="12" Padding="24">
-                    <StackPanel Spacing="16">
-                        <TextBlock Text="System Health" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
+                <Border Grid.Column="1" Background="{StaticResource SidebarBackgroundBrush}" CornerRadius="12" Padding="24">
+                    <StackPanel Spacing="24">
+                        <TextBlock Text="System Health" FontSize="18" FontWeight="Bold" Foreground="White"/>
                         <StackPanel Spacing="20">
                             <StackPanel Spacing="4">
-                                <TextBlock Text="Database Connection" Foreground="#AAFFFFFF" FontSize="12"/>
-                                <TextBlock Text="Stable" Foreground="White" FontWeight="Bold"/>
+                                <TextBlock Text="Database Connection" Foreground="#88FFFFFF" FontSize="12" FontWeight="Medium"/>
+                                <TextBlock Text="Stable" Foreground="White" FontWeight="Bold" FontSize="16"/>
                             </StackPanel>
                             <StackPanel Spacing="4">
-                                <TextBlock Text="Backup Service" Foreground="#AAFFFFFF" FontSize="12"/>
-                                <TextBlock Text="Active (2h ago)" Foreground="White" FontWeight="Bold"/>
+                                <TextBlock Text="Backup Service" Foreground="#88FFFFFF" FontSize="12" FontWeight="Medium"/>
+                                <TextBlock Text="Active (2h ago)" Foreground="White" FontWeight="Bold" FontSize="16"/>
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>

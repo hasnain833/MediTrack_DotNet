@@ -8,10 +8,10 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Background="White">
+    <Grid Background="{ThemeResource AppBackgroundBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="400"/>
+            <ColumnDefinition Width="420"/>
         </Grid.ColumnDefinitions>
 
         <!-- Left: Cart & Search -->
@@ -22,86 +22,122 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <TextBlock Text="New Bill Generation" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,24"/>
+            <TextBlock Text="New Bill Generation" FontSize="22" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,0,24"/>
 
-            <StackPanel Grid.Row="1" Spacing="12" Margin="0,0,0,24">
-                <AutoSuggestBox Header="Search Medicine" PlaceholderText="Type medicine name..."
-                                Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                QueryIcon="Find" ItemsSource="{x:Bind ViewModel.MedicineResults}"
-                                x:Name="MedicineSearchBox">
-                    <AutoSuggestBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Spacing="20">
-                                <TextBlock Text="{Binding MedicineName}" FontWeight="SemiBold" Width="200"/>
-                                <TextBlock Text="{Binding Category}" Opacity="0.6" Width="100"/>
-                                <TextBlock Text="{Binding Price, Converter={StaticResource CurrencyConverter}}" Foreground="{ThemeResource AccentAAFillColorDefaultBrush}"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </AutoSuggestBox.ItemTemplate>
-                </AutoSuggestBox>
-                <Button Content="Add to Cart" Command="{x:Bind ViewModel.AddToCartCommand}" 
-                        Style="{StaticResource PremiumButtonStyle}" HorizontalAlignment="Right"/>
-            </StackPanel>
-
-            <controls:DataGrid Grid.Row="2" AutoGenerateColumns="False"
-                               ItemsSource="{x:Bind ViewModel.CartItems}"
-                               GridLinesVisibility="Horizontal" HeadersVisibility="All"
-                               RowHeight="48" BorderThickness="0">
-                <controls:DataGrid.Columns>
-                    <controls:DataGridTextColumn Header="Medicine" Binding="{Binding MedicineName}" Width="*"/>
-                    <controls:DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, Converter={StaticResource CurrencyConverter}}" Width="100"/>
-                    <controls:DataGridTemplateColumn Header="Qty" Width="100">
-                        <controls:DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate x:DataType="vm:SaleItemViewModel">
-                                <TextBox Text="{x:Bind Quantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
-                                         HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="4"/>
+            <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Margin="0,0,0,24">
+                <StackPanel Spacing="16">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Search Medicine" FontSize="13" FontWeight="SemiBold" 
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <AutoSuggestBox PlaceholderText="Type medicine name..."
+                                        Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                        QueryIcon="Find" ItemsSource="{x:Bind ViewModel.MedicineResults}"
+                                        x:Name="MedicineSearchBox">
+                            <AutoSuggestBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="200"/>
+                                        <ColumnDefinition Width="100"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding MedicineName}" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Category}" Foreground="{StaticResource TextSecondaryBrush}" Opacity="0.8"/>
+                                    <TextBlock Grid.Column="2" Text="{Binding Price, Converter={StaticResource CurrencyConverter}}" 
+                                               Foreground="{StaticResource AccentAccent}" HorizontalAlignment="Right" FontWeight="Bold"/>
+                                </Grid>
                             </DataTemplate>
-                        </controls:DataGridTemplateColumn.CellTemplate>
-                    </controls:DataGridTemplateColumn>
-                    <controls:DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, Converter={StaticResource CurrencyConverter}}" Width="120"/>
-                </controls:DataGrid.Columns>
-            </controls:DataGrid>
+                        </AutoSuggestBox.ItemTemplate>
+                        </AutoSuggestBox>
+                    </StackPanel>
+                    <Button Content="Add to Cart" Command="{x:Bind ViewModel.AddToCartCommand}" 
+                            Style="{StaticResource PremiumButtonStyle}" HorizontalAlignment="Right" Width="150"/>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0">
+                <controls:DataGrid AutoGenerateColumns="False"
+                                   ItemsSource="{x:Bind ViewModel.CartItems}"
+                                   GridLinesVisibility="Horizontal" HeadersVisibility="All"
+                                   RowHeight="54" BorderThickness="0"
+                                   Background="Transparent">
+                    <controls:DataGrid.Columns>
+                        <controls:DataGridTextColumn Header="Medicine" Binding="{Binding MedicineName}" Width="*"/>
+                        <controls:DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, Converter={StaticResource CurrencyConverter}}" Width="100"/>
+                        <controls:DataGridTemplateColumn Header="Qty" Width="100">
+                            <controls:DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate x:DataType="vm:SaleItemViewModel">
+                                    <TextBox Text="{x:Bind Quantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                             HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="8,4"
+                                             TextAlignment="Center"/>
+                                </DataTemplate>
+                            </controls:DataGridTemplateColumn.CellTemplate>
+                        </controls:DataGridTemplateColumn>
+                        <controls:DataGridTextColumn Header="Subtotal" Binding="{Binding Subtotal, Converter={StaticResource CurrencyConverter}}" Width="120"/>
+                    </controls:DataGrid.Columns>
+                </controls:DataGrid>
+            </Border>
         </Grid>
 
         <!-- Right: Summary & Customer -->
-        <Border Grid.Column="1" Background="#F9F9F9" CornerRadius="12" Padding="24">
-            <StackPanel Spacing="24">
-                <TextBlock Text="Customer Information" FontSize="16" FontWeight="SemiBold"/>
-                <TextBox Header="Customer Name" Text="{x:Bind ViewModel.CustomerName, Mode=TwoWay}"/>
-                <TextBox Header="Phone Number" Text="{x:Bind ViewModel.CustomerPhone, Mode=TwoWay}"/>
-
-                <Border Height="1" Background="#E0E0E0"/>
-
-                <TextBlock Text="Order Summary" FontSize="16" FontWeight="SemiBold"/>
-                <Grid>
-                    <StackPanel Spacing="12">
-                        <Grid>
-                            <TextBlock Text="Subtotal" Foreground="#666666"/>
-                            <TextBlock Text="{x:Bind ViewModel.TotalAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" HorizontalAlignment="Right"/>
-                        </Grid>
-                        <Grid>
-                            <TextBlock Text="Tax (18%)" Foreground="#666666"/>
-                            <TextBlock Text="{x:Bind ViewModel.TaxAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" HorizontalAlignment="Right"/>
-                        </Grid>
-                        <Grid>
-                            <TextBlock Text="Discount" Foreground="#666666"/>
-                            <TextBox Text="{x:Bind ViewModel.DiscountAmount, Mode=TwoWay}" Width="100" HorizontalAlignment="Right" TextAlignment="Right"/>
-                        </Grid>
-                        <Border Height="1" Background="#E0E0E0" Margin="0,12"/>
-                        <Grid>
-                            <TextBlock Text="Grand Total" FontSize="18" FontWeight="Bold"/>
-                            <TextBlock Text="{x:Bind ViewModel.GrandTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
-                                       FontSize="18" FontWeight="Bold" Foreground="{ThemeResource AccentAAFillColorDefaultBrush}"
-                                       HorizontalAlignment="Right"/>
-                        </Grid>
+        <Border Grid.Column="1" Style="{StaticResource PremiumCardStyle}" Margin="0">
+            <StackPanel Spacing="28">
+                <StackPanel Spacing="20">
+                    <TextBlock Text="Customer Information" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Customer Name" FontSize="13" FontWeight="SemiBold" 
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBox Text="{x:Bind ViewModel.CustomerName, Mode=TwoWay}"
+                                 PlaceholderText="Internal Sale" Style="{StaticResource DefaultTextBoxStyle}"/>
                     </StackPanel>
-                </Grid>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Phone Number" FontSize="13" FontWeight="SemiBold" 
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                        <TextBox Text="{x:Bind ViewModel.CustomerPhone, Mode=TwoWay}"
+                                 PlaceholderText="Optional"/>
+                    </StackPanel>
+                </StackPanel>
 
-                <Button Content="COMPLETE SALE" Command="{x:Bind ViewModel.CompleteSaleCommand}"
-                        Style="{StaticResource PremiumButtonStyle}" Height="50" HorizontalAlignment="Stretch"
-                        Margin="0,20,0,0"/>
-                
-                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" HorizontalAlignment="Center"/>
+                <Border Height="1" Background="#F0F0F0"/>
+
+                <StackPanel Spacing="20">
+                    <TextBlock Text="Order Summary" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <Grid>
+                        <StackPanel Spacing="14">
+                            <Grid>
+                                <TextBlock Text="Subtotal" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Medium"/>
+                                <TextBlock Text="{x:Bind ViewModel.TotalAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
+                                           HorizontalAlignment="Right" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid>
+                                <TextBlock Text="Tax (18%)" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Medium"/>
+                                <TextBlock Text="{x:Bind ViewModel.TaxAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
+                                           HorizontalAlignment="Right" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Grid>
+                                <TextBlock Text="Discount" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Medium" VerticalAlignment="Center"/>
+                                <TextBox Text="{x:Bind ViewModel.DiscountAmount, Mode=TwoWay}" Width="100" 
+                                         HorizontalAlignment="Right" TextAlignment="Right"/>
+                            </Grid>
+                            <Border Height="1" Background="#F0F0F0" Margin="0,12"/>
+                            <Grid>
+                                <TextBlock Text="Grand Total" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.GrandTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
+                                           FontSize="24" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"
+                                           HorizontalAlignment="Right"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </StackPanel>
+
+                <StackPanel Spacing="16" Margin="0,12,0,0">
+                    <Button Content="COMPLETE SALE" Command="{x:Bind ViewModel.CompleteSaleCommand}"
+                            Style="{StaticResource PremiumButtonStyle}" Height="54" HorizontalAlignment="Stretch"
+                            FontSize="16" FontWeight="Bold"/>
+                    
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" 
+                                  Foreground="{StaticResource AccentAccent}" HorizontalAlignment="Center"/>
+                </StackPanel>
             </StackPanel>
         </Border>
     </Grid>

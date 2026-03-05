@@ -9,7 +9,7 @@ namespace MediTrack
             this.InitializeComponent();
             
             // Set window custom title bar or icon if needed in future
-            this.Title = "MediTrack - Premium Medical Management";
+            this.Title = "D. Chemist - Premium Medical Management";
         }
     }
 }
