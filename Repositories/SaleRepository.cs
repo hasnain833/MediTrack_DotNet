@@ -22,7 +22,7 @@ namespace MediTrack.Repositories
         public async Task CreateTransactionAsync(string billNo, int userId, int? customerId, List<SaleItem> items,
             decimal total, decimal tax, decimal discount, decimal grandTotal)
         {
-            _auth.EnforceCashierOrAdmin();
+            _auth.EnforceAdmin();
             using var connection = _db.GetConnection();
             await connection.OpenAsync();
             using var transaction = connection.BeginTransaction();

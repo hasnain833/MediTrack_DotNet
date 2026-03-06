@@ -14,7 +14,7 @@ namespace MediTrack.Database
         public DatabaseService()
         {
             string appDataPath = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            string dbFolder = Path.Combine(appDataPath, "MediTrack");
+            string dbFolder = Path.Combine(appDataPath, "DChemist");
             
             if (!Directory.Exists(dbFolder))
             {
@@ -41,7 +41,7 @@ namespace MediTrack.Database
                     username    TEXT NOT NULL UNIQUE,
                     password    TEXT NOT NULL,
                     full_name   TEXT NOT NULL,
-                    role        TEXT NOT NULL DEFAULT 'Cashier',
+                    role        TEXT NOT NULL DEFAULT 'Admin',
                     status      TEXT NOT NULL DEFAULT 'Active',
                     created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now'))
                 );
@@ -119,20 +119,6 @@ namespace MediTrack.Database
                     const string insertQuery = @"
                         INSERT INTO users (username, password, full_name, role, status)
                         VALUES ('admin', '$2a$11$s.PnrFnkBJfz7HDCA3ZMB.0gTbSAe4f2blKoW5y3wGEwJXqSi/P/2', 'Administrator', 'Admin', 'Active')";
-                    using var insertCmd = new SqliteCommand(insertQuery, connection);
-                    insertCmd.ExecuteNonQuery();
-                }
-            }
-
-            using (var checkCmd = new SqliteCommand("SELECT COUNT(*) FROM users WHERE username = 'cashier'", connection))
-            {
-                var result = checkCmd.ExecuteScalar();
-                if (result == null || Convert.ToInt64(result) == 0)
-                {
-                    // cashier / cashier123
-                    const string insertQuery = @"
-                        INSERT INTO users (username, password, full_name, role, status)
-                        VALUES ('cashier', '$2a$11$qR7iWcK.q1.B9F0E1G.H.O5B/rB3T.dE7n8m9p0q1r2s3t4u5v6w.', 'Test Cashier', 'Cashier', 'Active')";
                     using var insertCmd = new SqliteCommand(insertQuery, connection);
                     insertCmd.ExecuteNonQuery();
                 }

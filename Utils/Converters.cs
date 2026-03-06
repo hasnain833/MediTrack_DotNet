@@ -44,7 +44,7 @@ namespace MediTrack.Utils
     {
         public object Convert(object value, Type targetType, object parameter, string language)
         {
-            return value is decimal d ? d.ToString("C") : "$0.00";
+            return value is decimal d ? $"PKR {d:N2}" : "PKR 0.00";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language)

@@ -9,14 +9,14 @@
     xmlns:models="using:MediTrack.Models"
     mc:Ignorable="d">
 
-    <Grid Background="{ThemeResource AppBackgroundBrush}">
+    <Grid Background="{StaticResource AppBackgroundBrush}">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="260"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
         <!-- Sidebar -->
-        <Border Grid.Column="0" Background="{ThemeResource SidebarBackgroundBrush}" Padding="0,20">
+        <Border Grid.Column="0" Background="{StaticResource SidebarBackgroundBrush}" Padding="0,20">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -38,8 +38,8 @@
                             <Grid Height="44" Margin="0,2">
                                 <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center" Margin="12,0">
                                     <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Icon}" 
-                                              FontSize="18" Foreground="Inherit"/>
-                                    <TextBlock Text="{x:Bind Title}" FontSize="14" FontWeight="Medium" Foreground="Inherit"/>
+                                              FontSize="18"/>
+                                    <TextBlock Text="{x:Bind Title}" FontSize="14" FontWeight="Medium"/>
                                 </StackPanel>
                             </Grid>
                         </DataTemplate>
@@ -52,8 +52,6 @@
                         <StackPanel Spacing="2">
                             <TextBlock Text="{x:Bind ViewModel.CurrentUser.FullName, Mode=OneWay}" 
                                        Foreground="White" FontWeight="SemiBold" FontSize="14"/>
-                            <TextBlock Text="{x:Bind ViewModel.CurrentUser.Role, Mode=OneWay}" 
-                                       Foreground="#88FFFFFF" FontSize="11"/>
                         </StackPanel>
                         <Button HorizontalAlignment="Right" Command="{x:Bind ViewModel.LogoutCommand}"
                                 Style="{StaticResource TextBlockButtonStyle}" VerticalAlignment="Center">

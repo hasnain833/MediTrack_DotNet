@@ -5,29 +5,50 @@
     xmlns:local="using:MediTrack"
     xmlns:utils="using:MediTrack.Utils"
     xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls"
-    xmlns:primitives="using:CommunityToolkit.WinUI.UI.Controls.Primitives">
+    xmlns:primitives="using:CommunityToolkit.WinUI.UI.Controls.Primitives"
+    xmlns:ui="using:Microsoft.UI">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.UI.Controls.DataGrid/DataGrid/DataGrid.xaml" />
             </ResourceDictionary.MergedDictionaries>
-
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
+                    <!-- Keep all input states white with dark text -->
+                    <SolidColorBrush x:Key="TextControlBackground" Color="White"/>
                     <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="White"/>
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="White"/>
+                    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#F3F4F6"/>
+                    <SolidColorBrush x:Key="TextControlForeground" Color="#111827"/>
+                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#111827"/>
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#111827"/>
-                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource AccentColor}"/>
+                    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#9CA3AF"/>
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#6B7280"/>
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#9CA3AF"/>
+                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#E0E0E0"/>
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#9CA3AF"/>
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#00D2FF"/>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
+                    <!-- Keep all input states white with dark text -->
+                    <SolidColorBrush x:Key="TextControlBackground" Color="White"/>
                     <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="White"/>
                     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="White"/>
+                    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#F3F4F6"/>
+                    <SolidColorBrush x:Key="TextControlForeground" Color="#111827"/>
+                    <SolidColorBrush x:Key="TextControlForegroundPointerOver" Color="#111827"/>
                     <SolidColorBrush x:Key="TextControlForegroundFocused" Color="#111827"/>
-                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource AccentColor}"/>
+                    <SolidColorBrush x:Key="TextControlPlaceholderForeground" Color="#9CA3AF"/>
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundPointerOver" Color="#6B7280"/>
+                    <SolidColorBrush x:Key="TextControlPlaceholderForegroundFocused" Color="#9CA3AF"/>
+                    <SolidColorBrush x:Key="TextControlBorderBrush" Color="#E0E0E0"/>
+                    <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#9CA3AF"/>
+                    <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#00D2FF"/>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
+            <!-- 2. Converters -->
             <utils:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <utils:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
             <utils:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
@@ -35,24 +56,28 @@
             <utils:DateConverter x:Key="DateConverter"/>
             <utils:PositiveToColorConverter x:Key="PositiveToColorConverter"/>
 
-            <!-- Premium Design System Tokens -->
-            <Color x:Key="AccentColor">#00D2FF</Color>
-            <Color x:Key="AccentSecondaryColor">#3a7bd5</Color>
-            
-            <SolidColorBrush x:Key="AccentAccent" Color="{StaticResource AccentColor}"/>
+            <!-- 3. Brushes (Dependent on Tokens) -->
+            <SolidColorBrush x:Key="AccentAccent" Color="#00D2FF"/>
             
             <LinearGradientBrush x:Key="PremiumBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#0F2027" Offset="0.0" />
-                <GradientStop Color="#203A43" Offset="0.5" />
-                <GradientStop Color="#2C5364" Offset="1.0" />
+                <GradientStop Color="#0A1628" Offset="0.0" />
+                <GradientStop Color="#0D2137" Offset="0.4" />
+                <GradientStop Color="#0A2A4A" Offset="0.75" />
+                <GradientStop Color="#0D3347" Offset="1.0" />
             </LinearGradientBrush>
 
             <LinearGradientBrush x:Key="PremiumAccentBrush" StartPoint="0,0" EndPoint="1,0">
-                <GradientStop Color="{StaticResource AccentColor}" Offset="0.0" />
-                <GradientStop Color="{StaticResource AccentSecondaryColor}" Offset="1.0" />
+                <GradientStop Color="#00D2FF" Offset="0.0" />
+                <GradientStop Color="#3a7bd5" Offset="1.0" />
             </LinearGradientBrush>
 
-            <!-- Semantic Semantic Brushes -->
+            <SolidColorBrush x:Key="GlassCardBrush" Color="#25FFFFFF"/>
+            <SolidColorBrush x:Key="GlassBorderBrush" Color="#40FFFFFF"/>
+            <SolidColorBrush x:Key="GlassInputBrush" Color="#15FFFFFF"/>
+            <SolidColorBrush x:Key="GlassInputBorderBrush" Color="#30FFFFFF"/>
+            <SolidColorBrush x:Key="TextOnGlassBrush" Color="#FFFFFFFF"/>
+            <SolidColorBrush x:Key="TextOnGlassSecondaryBrush" Color="#B0D4E8"/>
+
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#111827"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4B5563"/>
             <SolidColorBrush x:Key="TextOnAccentBrush" Color="White"/>
@@ -61,6 +86,7 @@
             <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#22333B"/>
             <SolidColorBrush x:Key="BorderBrush" Color="#E0E0E0"/>
 
+            <!-- 4. Styles (Dependent on Brushes) -->
             <Style x:Key="GlassBorderStyle" TargetType="Border">
                 <Setter Property="Background" Value="White"/>
                 <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
@@ -84,12 +110,24 @@
             </Style>
 
             <!-- Premium Button Styling -->
-            <Style x:Key="PremiumButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Style x:Key="PremiumButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="{StaticResource PremiumAccentBrush}"/>
                 <Setter Property="Foreground" Value="White"/>
                 <Setter Property="CornerRadius" Value="8"/>
                 <Setter Property="Padding" Value="24,10"/>
                 <Setter Property="BorderThickness" Value="0"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            </Style>
+
+            <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="{StaticResource AccentAccent}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource AccentAccent}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Padding" Value="24,10"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="FontSize" Value="14"/>
                 <Setter Property="HorizontalAlignment" Value="Stretch"/>
@@ -128,7 +166,7 @@
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
             </Style>
 
-            <Style x:Key="TextBlockButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Style x:Key="TextBlockButtonStyle" TargetType="Button">
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="Padding" Value="0"/>
@@ -140,6 +178,8 @@
                 <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="RequestedTheme" Value="Light"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
             </Style>
 
             <Style TargetType="PasswordBox">
@@ -148,6 +188,7 @@
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="CornerRadius" Value="8"/>
                 <Setter Property="PasswordRevealMode" Value="Hidden"/>
+                <Setter Property="RequestedTheme" Value="Light"/>
             </Style>
 
             <Style TargetType="AutoSuggestBox">
@@ -155,6 +196,8 @@
                 <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="RequestedTheme" Value="Light"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
             </Style>
 
         </ResourceDictionary>

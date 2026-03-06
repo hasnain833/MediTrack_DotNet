@@ -68,5 +68,36 @@ namespace MediTrack.Repositories
 
             await _db.ExecuteNonQueryAsync(query, parameters);
         }
+
+        public async Task UpdateAsync(Medicine medicine)
+        {
+            _auth.EnforceAdmin();
+            const string query = @"
+                UPDATE inventory 
+                SET medicine_name = @name, category = @cat, price = @price, 
+                    stock_qty = @qty, expiry_date = @expiry, supplier = @supplier
+                WHERE id = @id";
+            
+            var parameters = new Dictionary<string, object>
+            {
+                { "@id", medicine.Id },
+                { "@name", medicine.MedicineName },
+                { "@cat", medicine.Category },
+                { "@price", medicine.Price },
+                { "@qty", medicine.StockQty },
+                { "@expiry", medicine.ExpiryDate.ToString("yyyy-MM-dd HH:mm:ss") },
+                { "@supplier", medicine.Supplier }
+            };
+
+            await _db.ExecuteNonQueryAsync(query, parameters);
+        }
+
+        public async Task DeleteAsync(int id)
+        {
+            _auth.EnforceAdmin();
+            const string query = "DELETE FROM inventory WHERE id = @id";
+            var parameters = new Dictionary<string, object> { { "@id", id } };
+            await _db.ExecuteNonQueryAsync(query, parameters);
+        }
     }
 }

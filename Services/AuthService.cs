@@ -50,22 +50,6 @@ namespace MediTrack.Services
                 }
             }
             
-            if (username.ToLower() == "cashier")
-            {
-                if (password == "cashier123" || password == "cashier")
-                {
-                    CurrentUser = new User 
-                    { 
-                        Id = 2, 
-                        Username = "cashier", 
-                        FullName = "Test Cashier", 
-                        Role = "Cashier",
-                        Status = "Active"
-                    };
-                    return true;
-                }
-            }
-
             return false;
         }
 

@@ -42,6 +42,7 @@ namespace MediTrack.ViewModels
 
         private async Task ExecuteLoginAsync()
         {
+            System.Diagnostics.Debug.WriteLine($"[LoginViewModel] ExecuteLoginAsync: Attempting login for user '{Username}'");
             ErrorMessage = null;
             IsBusy = true;
 
@@ -50,19 +51,23 @@ namespace MediTrack.ViewModels
                 bool success = await _authService.LoginAsync(Username, Password);
                 if (success)
                 {
+                    System.Diagnostics.Debug.WriteLine("[LoginViewModel] ExecuteLoginAsync: Login SUCCESS. Navigating to MainPage...");
                     _navigationService.Navigate("MediTrack.Views.MainPage");
                 }
                 else
                 {
+                    System.Diagnostics.Debug.WriteLine("[LoginViewModel] ExecuteLoginAsync: Login FAILED (Invalid credentials).");
                     ErrorMessage = "Invalid username or password.";
                 }
             }
             catch (Microsoft.Data.Sqlite.SqliteException ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[LoginViewModel] ExecuteLoginAsync: DATABASE ERROR: {ex.Message}");
                 ErrorMessage = $"Database Error: {ex.Message}";
             }
             catch (System.Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[LoginViewModel] ExecuteLoginAsync: CRITICAL ERROR: {ex}");
                 ErrorMessage = $"Critical Error: {ex.Message}";
             }
             finally

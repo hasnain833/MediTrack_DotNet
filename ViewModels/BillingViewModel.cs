@@ -23,6 +23,8 @@ namespace MediTrack.ViewModels
         private decimal _totalAmount;
         private decimal _taxAmount;
         private decimal _discountAmount;
+        private decimal _discountPercentage;
+        private string _discountText = "0";
         private decimal _grandTotal;
         private Medicine? _selectedMedicine;
         private bool _isBusy;
@@ -41,6 +43,7 @@ namespace MediTrack.ViewModels
             SearchCommand = new RelayCommand(async _ => await SearchMedicinesAsync());
             AddToCartCommand = new RelayCommand(_ => ExecuteAddToCart(), _ => SelectedMedicine != null);
             CompleteSaleCommand = new RelayCommand(async _ => await ExecuteCompleteSaleAsync(), _ => CartItems.Any());
+            PrintBillCommand = new RelayCommand(_ => ExecutePrintBill(), _ => CartItems.Any());
         }
 
         public ObservableCollection<SaleItemViewModel> CartItems { get; }
@@ -63,12 +66,29 @@ namespace MediTrack.ViewModels
         public decimal TotalAmount { get => _totalAmount; set => SetProperty(ref _totalAmount, value); }
         public decimal TaxAmount { get => _taxAmount; set => SetProperty(ref _taxAmount, value); }
         public decimal DiscountAmount { get => _discountAmount; set { if (SetProperty(ref _discountAmount, value)) UpdateTotals(); } }
+        public string DiscountText
+        {
+            get => _discountText;
+            set
+            {
+                if (SetProperty(ref _discountText, value))
+                {
+                    if (decimal.TryParse(value, out var d))
+                        _discountPercentage = d;
+                    else if (string.IsNullOrWhiteSpace(value))
+                        _discountPercentage = 0;
+                    
+                    UpdateTotals();
+                }
+            }
+        }
         public decimal GrandTotal { get => _grandTotal; set => SetProperty(ref _grandTotal, value); }
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
 
         public ICommand SearchCommand { get; }
         public ICommand AddToCartCommand { get; }
         public ICommand CompleteSaleCommand { get; }
+        public ICommand PrintBillCommand { get; }
 
         private async Task SearchMedicinesAsync()
         {
@@ -100,7 +120,14 @@ namespace MediTrack.ViewModels
         {
             TotalAmount = CartItems.Sum(i => i.Subtotal);
             TaxAmount = TotalAmount * 0.18m;
+            DiscountAmount = TotalAmount * (_discountPercentage / 100m);
             GrandTotal = TotalAmount + TaxAmount - DiscountAmount;
+        }
+
+        private void ExecutePrintBill()
+        {
+            // TODO: Implement printing logic
+            // For now, this is a placeholder for the print functionality
         }
 
         private async Task ExecuteCompleteSaleAsync()

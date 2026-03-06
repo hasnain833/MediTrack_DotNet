@@ -12,25 +12,18 @@ namespace MediTrack.Services
             _authService = authService;
         }
 
-        public bool IsAdmin => _authService.CurrentUser?.Role == "Admin";
-        public bool IsCashier => _authService.CurrentUser?.Role == "Cashier";
+        public bool IsAdmin => _authService.CurrentUser != null;
 
         public bool CanManageInventory() => IsAdmin;
         public bool CanViewReports() => IsAdmin;
         public bool CanManageUsers() => IsAdmin;
-        public bool CanDoBilling() => IsAdmin || IsCashier;
-        public bool CanViewInventory() => IsAdmin || IsCashier;
+        public bool CanDoBilling() => IsAdmin;
+        public bool CanViewInventory() => IsAdmin;
 
         public void EnforceAdmin()
         {
             if (!IsAdmin)
                 throw new UnauthorizedAccessException("Access denied: Admin only.");
-        }
-
-        public void EnforceCashierOrAdmin()
-        {
-            if (!IsAdmin && !IsCashier)
-                throw new UnauthorizedAccessException("Access denied: Unauthorized.");
         }
     }
 }

@@ -28,8 +28,7 @@ namespace MediTrack.ViewModels
                 new NavigationItem { Title = "Dashboard", Icon = "\uE80F", PageType = "MediTrack.Views.DashboardPage", RequiresAdmin = false },
                 new NavigationItem { Title = "Inventory", Icon = "\uE811", PageType = "MediTrack.Views.InventoryPage", RequiresAdmin = false },
                 new NavigationItem { Title = "Billing", Icon = "\uE825", PageType = "MediTrack.Views.BillingPage", RequiresAdmin = false },
-                new NavigationItem { Title = "Financials", Icon = "\uE8C0", PageType = "MediTrack.Views.FinancialPage", RequiresAdmin = true },
-                new NavigationItem { Title = "Users", Icon = "\uE716", PageType = "MediTrack.Views.UserManagementPage", RequiresAdmin = true }
+                new NavigationItem { Title = "Financials", Icon = "\uE8C0", PageType = "MediTrack.Views.FinancialPage", RequiresAdmin = true }
             };
 
             NavigationItems = new ObservableCollection<NavigationItem>();
@@ -42,9 +41,6 @@ namespace MediTrack.ViewModels
             }
 
             LogoutCommand = new RelayCommand(_ => ExecuteLogout());
-            
-            if (NavigationItems.Count > 0)
-                SelectedItem = NavigationItems[0];
         }
 
         public bool IsAdmin => _auth.IsAdmin;

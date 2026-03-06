@@ -14,12 +14,34 @@ namespace MediTrack
         public IServiceProvider Services { get; }
         public static new App Current => (App)Application.Current;
 
+        public static FrameworkElement? MainRoot { get; private set; }
         private Window? _window;
 
         public App()
         {
-            this.InitializeComponent();
+            // Set up early exception handling
+            this.UnhandledException += (s, e) => 
+            {
+                System.Diagnostics.Debug.WriteLine($"[App] !!! CRITICAL UNHANDLED EXCEPTION: {e.Message}");
+                System.Diagnostics.Debug.WriteLine($"[App] Exception Trace: {e.Exception}");
+                e.Handled = true; 
+            };
+
+            System.Diagnostics.Debug.WriteLine("[App] Constructor: Initializing XAML Components...");
+            try 
+            {
+                this.InitializeComponent();
+                System.Diagnostics.Debug.WriteLine("[App] Constructor: XAML Initialized.");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[App] Constructor: FATAL XAML ERROR: {ex}");
+                throw;
+            }
+
+            System.Diagnostics.Debug.WriteLine("[App] Constructor: Configuring Dependency Injection...");
             Services = ConfigureServices();
+            System.Diagnostics.Debug.WriteLine("[App] Constructor: Services Ready.");
         }
 
         private static IServiceProvider ConfigureServices()
@@ -45,7 +67,6 @@ namespace MediTrack
             services.AddTransient<InventoryViewModel>();
             services.AddTransient<BillingViewModel>();
             services.AddTransient<FinancialViewModel>();
-            services.AddTransient<UserManagementViewModel>();
 
             return services.BuildServiceProvider();
         }
@@ -55,6 +76,7 @@ namespace MediTrack
             _window = new MainWindow();
             
             var rootFrame = new Frame();
+            MainRoot = rootFrame;
             _window.Content = rootFrame;
             
             var navService = Services.GetRequiredService<NavigationService>();
