@@ -15,6 +15,7 @@ namespace MediTrack.ViewModels
         private readonly MedicineRepository _medicineRepository;
         private readonly SaleRepository _saleRepository;
         private readonly CustomerRepository _customerRepository;
+        private readonly BatchRepository _batchRepository;
         private readonly AuthService _authService;
 
         private string _searchMedicineText = string.Empty;
@@ -27,21 +28,23 @@ namespace MediTrack.ViewModels
         private string _discountText = "0";
         private decimal _grandTotal;
         private Medicine? _selectedMedicine;
+        private string _barcodeText = string.Empty;
         private bool _isBusy;
 
         public BillingViewModel(MedicineRepository medicineRepository, SaleRepository saleRepository, 
-                                CustomerRepository customerRepository, AuthService authService)
+                                 CustomerRepository customerRepository, BatchRepository batchRepository, AuthService authService)
         {
             _medicineRepository = medicineRepository;
             _saleRepository = saleRepository;
             _customerRepository = customerRepository;
+            _batchRepository = batchRepository;
             _authService = authService;
 
             CartItems = new ObservableCollection<SaleItemViewModel>();
             MedicineResults = new ObservableCollection<Medicine>();
 
             SearchCommand = new RelayCommand(async _ => await SearchMedicinesAsync());
-            AddToCartCommand = new RelayCommand(_ => ExecuteAddToCart(), _ => SelectedMedicine != null);
+            AddToCartCommand = new RelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
             CompleteSaleCommand = new RelayCommand(async _ => await ExecuteCompleteSaleAsync(), _ => CartItems.Any());
             PrintBillCommand = new RelayCommand(_ => ExecutePrintBill(), _ => CartItems.Any());
         }
@@ -83,6 +86,11 @@ namespace MediTrack.ViewModels
             }
         }
         public decimal GrandTotal { get => _grandTotal; set => SetProperty(ref _grandTotal, value); }
+        public string BarcodeText
+        {
+            get => _barcodeText;
+            set { if (SetProperty(ref _barcodeText, value)) _ = HandleBarcodeScanAsync(); }
+        }
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
 
         public ICommand SearchCommand { get; }
@@ -98,17 +106,45 @@ namespace MediTrack.ViewModels
             foreach (var r in results) MedicineResults.Add(r);
         }
 
-        private void ExecuteAddToCart()
+        private async Task HandleBarcodeScanAsync()
+        {
+            if (string.IsNullOrWhiteSpace(BarcodeText)) return;
+            
+            var medicine = await _medicineRepository.GetByBarcodeAsync(BarcodeText);
+            if (medicine != null)
+            {
+                SelectedMedicine = medicine;
+                await ExecuteAddToCartAsync();
+                BarcodeText = string.Empty; 
+            }
+        }
+
+        private async Task ExecuteAddToCartAsync()
         {
             if (SelectedMedicine == null) return;
-            var existing = CartItems.FirstOrDefault(i => i.MedicineId == SelectedMedicine.Id);
-            if (existing != null) { existing.Quantity++; }
+
+            // Fetch available batches for this medicine
+            var batches = await _batchRepository.GetByMedicineIdAsync(SelectedMedicine.Id);
+            var bestBatch = batches.Where(b => b.StockQty > 0).OrderBy(b => b.ExpiryDate).FirstOrDefault();
+
+            if (bestBatch == null)
+            {
+                // Handle out of stock (could show a message)
+                return;
+            }
+
+            var existing = CartItems.FirstOrDefault(i => i.MedicineId == SelectedMedicine.Id && i.BatchId == bestBatch.Id);
+            if (existing != null)
+            {
+                existing.Quantity++;
+            }
             else
             {
                 CartItems.Add(new SaleItemViewModel { 
                     MedicineId = SelectedMedicine.Id, 
-                    MedicineName = SelectedMedicine.MedicineName, 
-                    UnitPrice = SelectedMedicine.Price, 
+                    BatchId = bestBatch.Id,
+                    MedicineName = SelectedMedicine.Name, 
+                    UnitPrice = bestBatch.SellingPrice, 
                     Quantity = 1 
                 });
             }
@@ -145,7 +181,11 @@ namespace MediTrack.ViewModels
 
                 string billNo = "BILL-" + DateTime.Now.Ticks.ToString().Substring(10);
                 var items = CartItems.Select(i => new SaleItem { 
-                    InventoryId = i.MedicineId, Quantity = i.Quantity, UnitPrice = i.UnitPrice, Subtotal = i.Subtotal 
+                    MedicineId = i.MedicineId, 
+                    BatchId = i.BatchId,
+                    Quantity = i.Quantity, 
+                    UnitPrice = i.UnitPrice, 
+                    Subtotal = i.Subtotal 
                 }).ToList();
 
                 await _saleRepository.CreateTransactionAsync(billNo, _authService.CurrentUser.Id, customerId, items, TotalAmount, TaxAmount, DiscountAmount, GrandTotal);
@@ -164,6 +204,7 @@ namespace MediTrack.ViewModels
     public class SaleItemViewModel : ViewModelBase
     {
         public int MedicineId { get; set; }
+        public int BatchId { get; set; }
         public string MedicineName { get; set; } = string.Empty;
         public decimal UnitPrice { get; set; }
         private int _quantity;

@@ -53,11 +53,10 @@
                                Background="Transparent"
                                FontSize="13">
                 <controls:DataGrid.Columns>
-                    <controls:DataGridTextColumn Header="Medicine Name" Binding="{Binding MedicineName}" Width="*"/>
-                    <controls:DataGridTextColumn Header="Category" Binding="{Binding Category}" Width="150"/>
-                    <controls:DataGridTextColumn Header="Price" Binding="{Binding Price, Converter={StaticResource CurrencyConverter}}" Width="120"/>
-                    <controls:DataGridTextColumn Header="Stock" Binding="{Binding StockQty}" Width="100"/>
-                    <controls:DataGridTextColumn Header="Expiry Date" Binding="{Binding ExpiryDate, Converter={StaticResource DateConverter}}" Width="150"/>
+                    <controls:DataGridTextColumn Header="Medicine Name" Binding="{Binding Name}" Width="*"/>
+                    <controls:DataGridTextColumn Header="Barcode" Binding="{Binding Barcode}" Width="130"/>
+                    <controls:DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="150"/>
+                    <controls:DataGridTextColumn Header="Manufacturer" Binding="{Binding ManufacturerName}" Width="150"/>
                     
                     <controls:DataGridTemplateColumn Header="Actions" Width="100">
                         <controls:DataGridTemplateColumn.CellTemplate>

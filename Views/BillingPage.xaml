@@ -32,18 +32,30 @@
                         HorizontalAlignment="Right" VerticalAlignment="Center"/>
             </Grid>
 
-            <!-- Full-Width Search Bar -->
-            <AutoSuggestBox Grid.Row="1"
-                x:Name="MedicineSearchBox"
-                PlaceholderText="Search medicine by name..."
-                QueryIcon="Find"
-                TextMemberPath="MedicineName"
-                Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                ItemsSource="{x:Bind ViewModel.MedicineResults, Mode=OneWay}"
-                Height="40"
-                Margin="0,0,16,16"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Stretch">
+            <!-- Barcode and Search -->
+            <Grid Grid.Row="1" Margin="0,0,16,16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBox x:Name="BarcodeScannerBox"
+                         PlaceholderText="Scan Barcode here..."
+                         Header="Barcode / QR Scanner"
+                         Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Margin="0,0,12,0"
+                         VerticalAlignment="Bottom"/>
+
+                <AutoSuggestBox Grid.Column="1"
+                    x:Name="MedicineSearchBox"
+                    PlaceholderText="Search medicine by name..."
+                    Header="Manual Search"
+                    QueryIcon="Find"
+                    TextMemberPath="Name"
+                    Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                    ItemsSource="{x:Bind ViewModel.MedicineResults, Mode=OneWay}"
+                    Height="60"
+                    VerticalAlignment="Bottom">
                 <AutoSuggestBox.ItemTemplate>
                     <DataTemplate>
                         <Grid Padding="4,6">
@@ -52,7 +64,7 @@
                                 <ColumnDefinition Width="90"/>
                                 <ColumnDefinition Width="110"/>
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding MedicineName}" FontWeight="SemiBold"
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
                                        Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" Text="{Binding Category}"
                                        Foreground="{StaticResource TextSecondaryBrush}"
@@ -64,6 +76,7 @@
                     </DataTemplate>
                 </AutoSuggestBox.ItemTemplate>
             </AutoSuggestBox>
+        </Grid>
 
             <!-- Cart Table -->
             <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="0,0,16,16">

@@ -2,7 +2,7 @@ using System;
 using System.Threading.Tasks;
 using MediTrack.Database;
 using MediTrack.Models;
-using Microsoft.Data.Sqlite;
+using Npgsql;
 
 namespace MediTrack.Repositories
 {
@@ -31,7 +31,7 @@ namespace MediTrack.Repositories
             return await _db.FetchAllAsync(query, MapUser);
         }
 
-        private static User MapUser(SqliteDataReader reader)
+        private static User MapUser(NpgsqlDataReader reader)
         {
             return new User
             {

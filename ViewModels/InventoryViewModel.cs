@@ -7,6 +7,7 @@ using MediTrack.Models;
 using MediTrack.Repositories;
 using MediTrack.Services;
 using MediTrack.Utils;
+using Microsoft.UI.Xaml.Controls;
 
 namespace MediTrack.ViewModels
 {
@@ -85,6 +86,7 @@ namespace MediTrack.ViewModels
         private async Task ExecuteAddMedicineAsync()
         {
             var dialog = new MediTrack.Views.InventoryDialog();
+            if (App.MainRoot?.XamlRoot == null) return;
             dialog.XamlRoot = App.MainRoot.XamlRoot;
             var result = await dialog.ShowAsync();
 
@@ -99,6 +101,7 @@ namespace MediTrack.ViewModels
         {
             if (medicine == null) return;
             var dialog = new MediTrack.Views.InventoryDialog(medicine);
+            if (App.MainRoot?.XamlRoot == null) return;
             dialog.XamlRoot = App.MainRoot.XamlRoot;
             var result = await dialog.ShowAsync();
 
@@ -116,13 +119,14 @@ namespace MediTrack.ViewModels
             var dialog = new ContentDialog
             {
                 Title = "Delete Medicine",
-                Content = $"Are you sure you want to delete {medicine.MedicineName}?",
+                Content = $"Are you sure you want to delete {medicine.Name}?",
                 PrimaryButtonText = "Delete",
                 CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Close,
-                XamlRoot = App.MainRoot.XamlRoot
+                DefaultButton = ContentDialogButton.Close
             };
 
+            if (App.MainRoot?.XamlRoot == null) return;
+            dialog.XamlRoot = App.MainRoot.XamlRoot;
             var result = await dialog.ShowAsync();
             if (result == ContentDialogResult.Primary)
             {

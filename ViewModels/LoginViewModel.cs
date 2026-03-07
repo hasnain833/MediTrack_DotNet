@@ -2,6 +2,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using MediTrack.Services;
 using MediTrack.Utils;
+using Npgsql;
 
 namespace MediTrack.ViewModels
 {
@@ -60,7 +61,7 @@ namespace MediTrack.ViewModels
                     ErrorMessage = "Invalid username or password.";
                 }
             }
-            catch (Microsoft.Data.Sqlite.SqliteException ex)
+            catch (NpgsqlException ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[LoginViewModel] ExecuteLoginAsync: DATABASE ERROR: {ex.Message}");
                 ErrorMessage = $"Database Error: {ex.Message}";

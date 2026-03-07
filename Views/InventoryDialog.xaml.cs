@@ -17,21 +17,15 @@ namespace MediTrack.Views
                 Result = new Medicine
                 {
                     Id = medicine.Id,
-                    MedicineName = medicine.MedicineName,
-                    Category = medicine.Category,
-                    Price = medicine.Price,
-                    StockQty = medicine.StockQty,
-                    ExpiryDate = medicine.ExpiryDate,
-                    Supplier = medicine.Supplier
+                    Name = medicine.Name,
+                    CategoryName = medicine.CategoryName,
+                    Barcode = medicine.Barcode
                 };
                 
                 Title = "Edit Medicine";
-                NameInput.Text = Result.MedicineName;
-                CategoryInput.Text = Result.Category;
-                PriceInput.Value = (double)Result.Price;
-                StockInput.Value = Result.StockQty;
-                ExpiryInput.Date = Result.ExpiryDate;
-                SupplierInput.Text = Result.Supplier;
+                NameInput.Text = Result.Name;
+                CategoryInput.Text = Result.CategoryName;
+                BarcodeInput.Text = Result.Barcode;
             }
             else
             {
@@ -50,12 +44,12 @@ namespace MediTrack.Views
                     return;
                 }
 
-                Result.MedicineName = NameInput.Text;
-                Result.Category = CategoryInput.Text ?? "";
+                Result.Name = NameInput.Text;
+                Result.CategoryName = CategoryInput.Text ?? "";
+                Result.Barcode = BarcodeInput.Text ?? "";
                 Result.Price = (decimal)PriceInput.Value;
                 Result.StockQty = (int)StockInput.Value;
-                Result.ExpiryDate = ExpiryInput.Date?.DateTime ?? DateTime.Now;
-                Result.Supplier = SupplierInput.Text ?? "";
+                Result.ExpiryDate = ExpiryInput.Date?.DateTime;
             };
         }
     }

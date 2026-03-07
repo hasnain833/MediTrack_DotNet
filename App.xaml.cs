@@ -54,6 +54,10 @@ namespace MediTrack
             services.AddSingleton<MedicineRepository>();
             services.AddSingleton<CustomerRepository>();
             services.AddSingleton<SaleRepository>();
+            services.AddSingleton<CategoryRepository>();
+            services.AddSingleton<ManufacturerRepository>();
+            services.AddSingleton<SupplierRepository>();
+            services.AddSingleton<BatchRepository>();
 
             // Services
             services.AddSingleton<AuthService>();
