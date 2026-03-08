@@ -1,10 +1,11 @@
 using System;
 using System.Threading.Tasks;
-using MediTrack.Database;
-using MediTrack.Models;
+using DChemist.Database;
+using DChemist.Models;
+using DChemist.Utils;
 using Npgsql;
 
-namespace MediTrack.Repositories
+namespace DChemist.Repositories
 {
     public class UserRepository
     {

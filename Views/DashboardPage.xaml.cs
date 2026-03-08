@@ -1,9 +1,8 @@
 using Microsoft.UI.Xaml.Controls;
-using MediTrack.ViewModels;
+using DChemist.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
-using System;
 
-namespace MediTrack.Views
+namespace DChemist.Views
 {
     public sealed partial class DashboardPage : Page
     {

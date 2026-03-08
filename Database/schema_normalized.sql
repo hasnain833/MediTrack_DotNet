@@ -1,4 +1,4 @@
--- MediTrack Normalized Database Schema
+-- D. Chemist Normalized Database Schema
 -- Designed for D. ChemistPharmacy Management System
 
 PRAGMA foreign_keys = ON;

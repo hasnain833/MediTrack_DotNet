@@ -1,8 +1,8 @@
 <Window
-    x:Class="MediTrack.MainWindow"
+    x:Class="DChemist.MainWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:MediTrack"
+    xmlns:local="using:DChemist"
     Title="D. Chemist">
 
     <Grid Background="{ThemeResource PremiumBackgroundBrush}">

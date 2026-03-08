@@ -1,6 +1,6 @@
 using System;
 
-namespace MediTrack.Models
+namespace DChemist.Models
 {
     public class Category
     {

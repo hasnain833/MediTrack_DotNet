@@ -1,9 +1,9 @@
 <Application
-    x:Class="MediTrack.App"
+    x:Class="DChemist.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:MediTrack"
-    xmlns:utils="using:MediTrack.Utils"
+    xmlns:local="using:DChemist"
+    xmlns:utils="using:DChemist.Utils"
     xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls"
     xmlns:primitives="using:CommunityToolkit.WinUI.UI.Controls.Primitives"
     xmlns:ui="using:Microsoft.UI">
@@ -55,6 +55,8 @@
             <utils:CurrencyConverter x:Key="CurrencyConverter"/>
             <utils:DateConverter x:Key="DateConverter"/>
             <utils:PositiveToColorConverter x:Key="PositiveToColorConverter"/>
+            <utils:DecimalToVisibilityConverter x:Key="DecimalToVisibilityConverter"/>
+            <utils:PriceVisibilityConverter x:Key="PriceVisibilityConverter"/>
 
             <!-- 3. Brushes (Dependent on Tokens) -->
             <SolidColorBrush x:Key="AccentAccent" Color="#00D2FF"/>
@@ -141,7 +143,13 @@
                 <Setter Property="Padding" Value="0"/>
             </Style>
 
-            <!-- Global DataGrid Styles -->
+            <!-- DataGrid Global overrides (No blue selection, no header hover) -->
+            <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="Transparent"/>
+            <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#F3F4F6"/>
+            <SolidColorBrush x:Key="DataGridRowHoveredBackgroundBrush" Color="#F9FAFB"/>
+            <SolidColorBrush x:Key="DataGridColumnHeaderPointerOverBackgroundBrush" Color="#F9FAFB"/>
+            <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="#F9FAFB"/>
+
             <Style TargetType="controls:DataGrid">
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
@@ -152,6 +160,7 @@
                 <Setter Property="RowBackground" Value="White"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="FontSize" Value="14"/>
+                <Setter Property="RowHeaderWidth" Value="0"/>
             </Style>
 
             <Style TargetType="primitives:DataGridColumnHeader">

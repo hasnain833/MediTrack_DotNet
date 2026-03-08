@@ -1,4 +1,4 @@
-namespace MediTrack.Models
+namespace DChemist.Models
 {
     public class User
     {

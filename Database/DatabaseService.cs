@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Threading.Tasks;
+using DChemist.Utils;
 using Npgsql;
 using Microsoft.Extensions.Configuration;
 
-namespace MediTrack.Database
+namespace DChemist.Database
 {
     public class DatabaseService
     {
@@ -20,7 +21,11 @@ namespace MediTrack.Database
                 .Build();
 
             var dbConfig = configuration.GetSection("Database");
-            _connectionString = $"Host={dbConfig["Host"]};Port={dbConfig["Port"]};Database={dbConfig["Database"]};Username={dbConfig["User"]};Password={dbConfig["Password"]};";
+            // Connection pooling: reuse connections instead of creating new ones per request
+            _connectionString =
+                $"Host={dbConfig["Host"]};Port={dbConfig["Port"]};" +
+                $"Database={dbConfig["Database"]};Username={dbConfig["User"]};Password={dbConfig["Password"]};" +
+                "Pooling=true;MinPoolSize=1;MaxPoolSize=10;Connection Lifetime=300;Command Timeout=30;";
             
             InitializeDatabase();
         }
@@ -105,6 +110,8 @@ namespace MediTrack.Database
                         tax_amount        DECIMAL NOT NULL DEFAULT 0,
                         discount_amount   DECIMAL NOT NULL DEFAULT 0,
                         grand_total       DECIMAL NOT NULL DEFAULT 0,
+                        fbr_invoice_no    TEXT UNIQUE,
+                        fbr_response      TEXT,
                         sale_date         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                     );
 
@@ -120,6 +127,20 @@ namespace MediTrack.Database
 
                     CREATE INDEX IF NOT EXISTS idx_medicines_barcode ON medicines(barcode);
                     CREATE INDEX IF NOT EXISTS idx_batches_expiry ON inventory_batches(expiry_date);
+
+                    -- Performance indexes added for search and JOIN efficiency
+                    CREATE INDEX IF NOT EXISTS idx_medicines_name_lower
+                        ON medicines(lower(name));
+                    CREATE INDEX IF NOT EXISTS idx_medicines_generic_lower
+                        ON medicines(lower(generic_name));
+                    CREATE INDEX IF NOT EXISTS idx_batches_medicine_id
+                        ON inventory_batches(medicine_id);
+                    CREATE INDEX IF NOT EXISTS idx_batches_stock_positive
+                        ON inventory_batches(stock_qty) WHERE stock_qty > 0;
+                    CREATE INDEX IF NOT EXISTS idx_sales_date_desc
+                        ON sales(sale_date DESC);
+                    CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id
+                        ON sale_items(sale_id);
                 ";
 
                 using (var command = new NpgsqlCommand(schema, connection))
@@ -127,16 +148,29 @@ namespace MediTrack.Database
                     command.ExecuteNonQuery();
                 }
 
-                // Check if default admin exists
-                using (var checkCmd = new NpgsqlCommand("SELECT COUNT(*) FROM users WHERE username = 'admin'", connection))
+                // Ensure admin exists with new credentials
+                using (var checkCmd = new NpgsqlCommand("SELECT id FROM users WHERE LOWER(username) = 'admin' LIMIT 1", connection))
                 {
-                    if (Convert.ToInt64(checkCmd.ExecuteScalar()) == 0)
+                    var userId = checkCmd.ExecuteScalar();
+                    var hashedPassword = BCrypt.Net.BCrypt.HashPassword("@dmin8787");
+                    
+                    if (userId == null)
                     {
                         const string insertQuery = @"
                             INSERT INTO users (username, password, full_name, role, status)
-                            VALUES ('admin', '$2a$11$s.PnrFnkBJfz7HDCA3ZMB.0gTbSAe4f2blKoW5y3wGEwJXqSi/P/2', 'Administrator', 'Admin', 'Active')";
+                            VALUES ('Admin', @password, 'Administrator', 'Admin', 'Active')";
                         using var insertCmd = new NpgsqlCommand(insertQuery, connection);
+                        insertCmd.Parameters.AddWithValue("@password", hashedPassword);
                         insertCmd.ExecuteNonQuery();
+                    }
+                    else
+                    {
+                        const string updateQuery = @"
+                           UPDATE users SET username = 'Admin', password = @password WHERE id = @id";
+                        using var updateCmd = new NpgsqlCommand(updateQuery, connection);
+                        updateCmd.Parameters.AddWithValue("@password", hashedPassword);
+                        updateCmd.Parameters.AddWithValue("@id", userId);
+                        updateCmd.ExecuteNonQuery();
                     }
                 }
 
@@ -163,7 +197,7 @@ namespace MediTrack.Database
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"[DatabaseService] Initialization Error: {ex.Message}");
+                AppLogger.LogError("Database initialization failed", ex);
             }
         }
 

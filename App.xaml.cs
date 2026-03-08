@@ -2,12 +2,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System;
-using MediTrack.Services;
-using MediTrack.Repositories;
-using MediTrack.Database;
-using MediTrack.ViewModels;
+using DChemist.Services;
+using DChemist.Repositories;
+using DChemist.Database;
+using DChemist.ViewModels;
+using DChemist.Utils;
 
-namespace MediTrack
+namespace DChemist
 {
     public partial class App : Application
     {
@@ -15,16 +16,33 @@ namespace MediTrack
         public static new App Current => (App)Application.Current;
 
         public static FrameworkElement? MainRoot { get; private set; }
+        public Window? MainWindow => _window;
         private Window? _window;
 
         public App()
         {
             // Set up early exception handling
-            this.UnhandledException += (s, e) => 
+            this.UnhandledException += async (s, e) =>
             {
-                System.Diagnostics.Debug.WriteLine($"[App] !!! CRITICAL UNHANDLED EXCEPTION: {e.Message}");
-                System.Diagnostics.Debug.WriteLine($"[App] Exception Trace: {e.Exception}");
-                e.Handled = true; 
+                e.Handled = true;
+                AppLogger.LogError($"Unhandled exception: {e.Message}", e.Exception);
+
+                // Show a safe dialog so the user knows something went wrong
+                try
+                {
+                    var dialog = new ContentDialog
+                    {
+                        Title = "Unexpected Error",
+                        Content = "An unexpected error occurred. The application will continue.\n\nDetails have been saved to the log file.",
+                        CloseButtonText = "OK"
+                    };
+                    if (MainRoot?.XamlRoot != null)
+                    {
+                        dialog.XamlRoot = MainRoot.XamlRoot;
+                        await dialog.ShowAsync();
+                    }
+                }
+                catch { /* Dialog itself failed — already logged above */ }
             };
 
             System.Diagnostics.Debug.WriteLine("[App] Constructor: Initializing XAML Components...");
@@ -63,6 +81,11 @@ namespace MediTrack
             services.AddSingleton<AuthService>();
             services.AddSingleton<AuthorizationService>();
             services.AddSingleton<NavigationService>();
+            services.AddSingleton<IFiscalService, FiscalService>();
+            services.AddSingleton<IPrintService, ThermalPrintService>();
+            services.AddSingleton<IReportingService, ReportingService>();
+            services.AddSingleton<UpdateService>();
+            services.AddSingleton<InventoryEventBus>();
 
             // ViewModels
             services.AddTransient<LoginViewModel>();
@@ -88,7 +111,7 @@ namespace MediTrack
             navService.Initialize(rootFrame);
             
             // Navigate to login page initially
-            navService.Navigate("MediTrack.Views.LoginPage");
+            navService.Navigate("DChemist.Views.LoginPage");
             
             _window.Activate();
         }

@@ -3,20 +3,23 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using MediTrack.Models;
-using MediTrack.Repositories;
-using MediTrack.Services;
-using MediTrack.Utils;
+using DChemist.Models;
+using DChemist.Repositories;
+using DChemist.Services;
+using DChemist.Utils;
 
-namespace MediTrack.ViewModels
+namespace DChemist.ViewModels
 {
     public class BillingViewModel : ViewModelBase
     {
+        private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcher;
         private readonly MedicineRepository _medicineRepository;
         private readonly SaleRepository _saleRepository;
         private readonly CustomerRepository _customerRepository;
         private readonly BatchRepository _batchRepository;
         private readonly AuthService _authService;
+        private readonly IPrintService _printService;
+        private readonly IFiscalService _fiscalService;
 
         private string _searchMedicineText = string.Empty;
         private string _customerName = string.Empty;
@@ -30,24 +33,36 @@ namespace MediTrack.ViewModels
         private Medicine? _selectedMedicine;
         private string _barcodeText = string.Empty;
         private bool _isBusy;
+        private string _statusMessage = string.Empty;
 
         public BillingViewModel(MedicineRepository medicineRepository, SaleRepository saleRepository, 
-                                 CustomerRepository customerRepository, BatchRepository batchRepository, AuthService authService)
+                                 CustomerRepository customerRepository, BatchRepository batchRepository, 
+                                 AuthService authService, IPrintService printService, IFiscalService fiscalService)
         {
             _medicineRepository = medicineRepository;
             _saleRepository = saleRepository;
             _customerRepository = customerRepository;
             _batchRepository = batchRepository;
             _authService = authService;
+            _printService = printService;
+            _fiscalService = fiscalService;
+            _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
             CartItems = new ObservableCollection<SaleItemViewModel>();
             MedicineResults = new ObservableCollection<Medicine>();
 
             SearchCommand = new RelayCommand(async _ => await SearchMedicinesAsync());
             AddToCartCommand = new RelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
+            RemoveFromCartCommand = new RelayCommand(item => ExecuteRemoveFromCart(item as SaleItemViewModel), item => item is SaleItemViewModel);
             CompleteSaleCommand = new RelayCommand(async _ => await ExecuteCompleteSaleAsync(), _ => CartItems.Any());
             PrintBillCommand = new RelayCommand(_ => ExecutePrintBill(), _ => CartItems.Any());
         }
+
+        /// <summary>
+        /// Shown to the user when a sale fails (e.g., insufficient stock).
+        /// Cleared automatically after a successful operation.
+        /// </summary>
+        public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
         public ObservableCollection<SaleItemViewModel> CartItems { get; }
         public ObservableCollection<Medicine> MedicineResults { get; }
@@ -95,6 +110,7 @@ namespace MediTrack.ViewModels
 
         public ICommand SearchCommand { get; }
         public ICommand AddToCartCommand { get; }
+        public ICommand RemoveFromCartCommand { get; }
         public ICommand CompleteSaleCommand { get; }
         public ICommand PrintBillCommand { get; }
 
@@ -119,37 +135,57 @@ namespace MediTrack.ViewModels
             }
         }
 
-        private async Task ExecuteAddToCartAsync()
+        public async Task ExecuteAddToCartAsync(Medicine? medicine = null)
         {
-            if (SelectedMedicine == null) return;
-
+            var med = medicine ?? SelectedMedicine;
+            if (med == null) return;
+ 
             // Fetch available batches for this medicine
-            var batches = await _batchRepository.GetByMedicineIdAsync(SelectedMedicine.Id);
+            var batches = await _batchRepository.GetByMedicineIdAsync(med.Id);
             var bestBatch = batches.Where(b => b.StockQty > 0).OrderBy(b => b.ExpiryDate).FirstOrDefault();
-
+ 
             if (bestBatch == null)
             {
                 // Handle out of stock (could show a message)
                 return;
             }
-
-            var existing = CartItems.FirstOrDefault(i => i.MedicineId == SelectedMedicine.Id && i.BatchId == bestBatch.Id);
+ 
+            var existing = CartItems.FirstOrDefault(i => i.MedicineId == med.Id && i.BatchId == bestBatch.Id);
             if (existing != null)
             {
                 existing.Quantity++;
             }
             else
             {
-                CartItems.Add(new SaleItemViewModel { 
-                    MedicineId = SelectedMedicine.Id, 
+                var newItem = new SaleItemViewModel { 
+                    MedicineId = med.Id, 
                     BatchId = bestBatch.Id,
-                    MedicineName = SelectedMedicine.Name, 
+                    MedicineName = med.Name, 
                     UnitPrice = bestBatch.SellingPrice, 
                     Quantity = 1 
-                });
+                };
+                newItem.PropertyChanged += OnItemPropertyChanged;
+                CartItems.Add(newItem);
             }
             UpdateTotals();
             ((RelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
+        }
+
+        private void ExecuteRemoveFromCart(SaleItemViewModel? item)
+        {
+            if (item == null) return;
+            item.PropertyChanged -= OnItemPropertyChanged;
+            CartItems.Remove(item);
+            UpdateTotals();
+            ((RelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
+        }
+
+        private void OnItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(SaleItemViewModel.Quantity) || e.PropertyName == nameof(SaleItemViewModel.Subtotal))
+            {
+                UpdateTotals();
+            }
         }
 
         private void UpdateTotals()
@@ -160,16 +196,63 @@ namespace MediTrack.ViewModels
             GrandTotal = TotalAmount + TaxAmount - DiscountAmount;
         }
 
-        private void ExecutePrintBill()
+        private async void ExecutePrintBill()
         {
-            // TODO: Implement printing logic
-            // For now, this is a placeholder for the print functionality
+            await PrintCurrentReceiptAsync("BILL-" + DateTime.Now.Ticks.ToString().Substring(10), null);
         }
 
+        private async Task PrintCurrentReceiptAsync(string billNo, string? fbrInvNo)
+        {
+            // SNAPSHOT: Extract data on the call thread (UI thread) BEFORE any clearing happens
+            var receiptVM = new ReceiptViewModel
+            {
+                BillNo = billNo,
+                FbrInvoiceNo = fbrInvNo,
+                CustomerName = CustomerName,
+                CustomerPhone = CustomerPhone,
+                TotalAmount = TotalAmount,
+                TaxAmount = TaxAmount,
+                DiscountAmount = DiscountAmount,
+                GrandTotal = GrandTotal
+            };
+
+            foreach (var item in CartItems)
+            {
+                receiptVM.Items.Add(new ReceiptItemViewModel
+                {
+                    Name = item.MedicineName,
+                    Quantity = item.Quantity,
+                    Price = item.UnitPrice
+                });
+            }
+
+            // Use dispatcher only for UI-bound operations (creating Control + showing UI)
+            _dispatcher.TryEnqueue(async () =>
+            {
+                try
+                {
+                    await receiptVM.InitializeQrCode(_fiscalService);
+    
+                    // ReceiptTemplate is a UI element, MUST be created on UI thread
+                    var receiptControl = new Views.ReceiptTemplate(receiptVM);
+                    
+                    // The print service also uses native COM interop, keep it on UI thread
+                    await _printService.PrintReceiptAsync(receiptControl, "Sale Receipt " + billNo);
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError($"Printing failed for {billNo}", ex);
+                    StatusMessage = "⚠ Sale finished, but receipt printing failed.";
+                }
+            });
+            await Task.CompletedTask;
+        }
+    
         private async Task ExecuteCompleteSaleAsync()
         {
             if (_authService.CurrentUser == null) return;
             IsBusy = true;
+            StatusMessage = string.Empty;
             try
             {
                 int? customerId = null;
@@ -183,20 +266,45 @@ namespace MediTrack.ViewModels
                 var items = CartItems.Select(i => new SaleItem { 
                     MedicineId = i.MedicineId, 
                     BatchId = i.BatchId,
+                    MedicineName = i.MedicineName,
                     Quantity = i.Quantity, 
                     UnitPrice = i.UnitPrice, 
                     Subtotal = i.Subtotal 
                 }).ToList();
 
-                await _saleRepository.CreateTransactionAsync(billNo, _authService.CurrentUser.Id, customerId, items, TotalAmount, TaxAmount, DiscountAmount, GrandTotal);
+                // ── Step 1: Report to FBR (Fiscalization) ────────────────────
+                StatusMessage = "Reporting to FBR...";
+                var fbrResponse = await _fiscalService.ReportSaleAsync(billNo, GrandTotal, TaxAmount);
+                string? fbrInvNo = fbrResponse.Success ? fbrResponse.InvoiceNumber : null;
+
+                // ── Step 2: Save to Database ──────────────────────────────────
+                StatusMessage = "Saving transaction...";
+                await _saleRepository.CreateTransactionAsync(billNo, _authService.CurrentUser.Id, customerId, items, 
+                    TotalAmount, TaxAmount, DiscountAmount, GrandTotal, fbrInvNo, fbrResponse.ResponseRaw);
                 
+                // ── Step 3: Print Receipt ─────────────────────────────────────
+                await PrintCurrentReceiptAsync(billNo, fbrInvNo);
+
+                // ── Clear the cart on success ─────────────────────────────────
                 CartItems.Clear();
                 UpdateTotals();
                 CustomerName = "";
                 CustomerPhone = "";
+                StatusMessage = fbrResponse.Success ? "✅ Sale completed & reported to FBR." : "⚠ Sale saved, but FBR report failed.";
                 ((RelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
+                // The SaleRepository already published InventoryChanged, so the
+                // Inventory page will auto-refresh without any additional work here.
             }
-            catch (Exception) { /* Log error or show message */ }
+            catch (InvalidOperationException ex)
+            {
+                // Stock validation failure — show message to user, do NOT clear cart
+                StatusMessage = "⚠ " + ex.Message;
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "⚠ Sale failed: " + ex.Message;
+                System.Diagnostics.Debug.WriteLine($"[Billing] Sale error: {ex}");
+            }
             finally { IsBusy = false; }
         }
     }

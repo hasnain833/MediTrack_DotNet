@@ -1,0 +1,111 @@
+<UserControl
+    x:Class="DChemist.Views.ReceiptTemplate"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewmodels="using:DChemist.ViewModels"
+    mc:Ignorable="d"
+    Width="280" 
+    Background="White">
+    <!-- Width 280-300px is safe for 58mm printers (which have ~180-200 dots) -->
+    <!-- WinUI points are ~96dpi, so 300px is about 3 inches, but 58mm is 2.28 inches. -->
+    <!-- Actually, 58mm is usually 384 pixels. 219 pixels is more like it for 72dpi. -->
+    <!-- Let's stick to 280 for a safe margin on 58mm. -->
+
+    <StackPanel Padding="10" Spacing="4">
+        <!-- Header -->
+        <TextBlock Text="{x:Bind ViewModel.PharmacyName}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
+        <TextBlock Text="{x:Bind ViewModel.PharmacyAddress}" FontSize="10" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
+        <TextBlock Text="{x:Bind ViewModel.PharmacyPhone}" FontSize="10" HorizontalAlignment="Center"/>
+        
+        <Rectangle Height="1" Fill="Black" Margin="0,5"/>
+
+        <!-- Sale Info -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Bill No:" FontSize="10" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.BillNo}" FontSize="10" HorizontalAlignment="Right"/>
+        </Grid>
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Date:" FontSize="10" FontWeight="SemiBold"/>
+            <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.Date}" FontSize="10" HorizontalAlignment="Right"/>
+        </Grid>
+        
+        <StackPanel Visibility="{x:Bind ViewModel.CustomerName, Converter={StaticResource StringToVisibilityConverter}, Mode=OneWay}">
+             <TextBlock Text="Customer:" FontSize="10" FontWeight="SemiBold" Margin="0,2,0,0"/>
+             <TextBlock Text="{x:Bind ViewModel.CustomerName}" FontSize="10"/>
+             <TextBlock Text="{x:Bind ViewModel.CustomerPhone}" FontSize="10"/>
+        </StackPanel>
+
+        <Rectangle Height="1" Fill="Black" Margin="0,5"/>
+
+        <!-- Items Header -->
+        <Grid Margin="0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="30"/>
+                <ColumnDefinition Width="60"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Item" FontSize="10" FontWeight="Bold"/>
+            <TextBlock Grid.Column="1" Text="Qty" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
+            <TextBlock Grid.Column="2" Text="Total" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"/>
+        </Grid>
+
+        <!-- Dynamic Items -->
+        <ItemsControl ItemsSource="{x:Bind ViewModel.Items}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="viewmodels:ReceiptItemViewModel">
+                    <Grid Margin="0,2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="30"/>
+                            <ColumnDefinition Width="60"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="{x:Bind Name}" FontSize="10" TextWrapping="Wrap"/>
+                        <TextBlock Grid.Column="1" Text="{x:Bind Quantity}" FontSize="10" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
+                    </Grid>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <Rectangle Height="1" Fill="Black" Margin="0,5"/>
+
+        <!-- Totals -->
+        <Grid Margin="0,2">
+            <TextBlock Text="Subtotal:" FontSize="10" HorizontalAlignment="Left"/>
+            <TextBlock Text="{x:Bind ViewModel.TotalAmount, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
+        </Grid>
+        <Grid Margin="0,2">
+            <TextBlock Text="Tax (18%):" FontSize="10" HorizontalAlignment="Left"/>
+            <TextBlock Text="{x:Bind ViewModel.TaxAmount, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
+        </Grid>
+        <Grid Margin="0,2" Visibility="{x:Bind ViewModel.DiscountAmount, Converter={StaticResource DecimalToVisibilityConverter}, Mode=OneWay}">
+            <TextBlock Text="Discount:" FontSize="10" HorizontalAlignment="Left"/>
+            <TextBlock Text="{x:Bind ViewModel.DiscountAmount, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
+        </Grid>
+        
+        <Grid Margin="0,5">
+            <TextBlock Text="GRAND TOTAL" FontSize="12" FontWeight="Bold" HorizontalAlignment="Left"/>
+            <TextBlock Text="{x:Bind ViewModel.GrandTotal, Converter={StaticResource CurrencyConverter}}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Right"/>
+        </Grid>
+
+        <Rectangle Height="1" Fill="Black" Margin="0,5"/>
+
+        <!-- Fiscal Section -->
+        <TextBlock Text="FBR REGISTERED POS" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+        <TextBlock Text="{x:Bind ViewModel.FbrInvoiceNo}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+        <Image Source="{x:Bind ViewModel.QrCodeImage, Mode=OneWay}" Width="100" Height="100" HorizontalAlignment="Center" Margin="5"/>
+        <TextBlock Text="Scan to verify invoice" FontSize="8" HorizontalAlignment="Center"/>
+
+        <TextBlock Text="Thank you for your visit!" FontSize="10" FontStyle="Italic" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+    </StackPanel>
+</UserControl>

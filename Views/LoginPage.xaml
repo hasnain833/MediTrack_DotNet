@@ -1,8 +1,8 @@
 <Page
-    x:Class="MediTrack.Views.LoginPage"
+    x:Class="DChemist.Views.LoginPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:MediTrack.Views"
+    xmlns:local="using:DChemist.Views"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
@@ -142,6 +142,7 @@
                     </StackPanel>
                     <TextBox PlaceholderText="Enter your username"
                              Text="{x:Bind ViewModel.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             KeyDown="OnKeyDown"
                              Height="46"
                              FontSize="14">
                         <TextBox.Style>
@@ -175,6 +176,7 @@
                     </StackPanel>
                     <PasswordBox PlaceholderText="Enter your password"
                                  Password="{x:Bind ViewModel.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                 KeyDown="OnKeyDown"
                                  Height="46"
                                  FontSize="14">
                         <PasswordBox.Style>

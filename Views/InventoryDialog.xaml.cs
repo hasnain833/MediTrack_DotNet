@@ -1,8 +1,8 @@
 using System;
 using Microsoft.UI.Xaml.Controls;
-using MediTrack.Models;
+using DChemist.Models;
 
-namespace MediTrack.Views
+namespace DChemist.Views
 {
     public sealed partial class InventoryDialog : ContentDialog
     {
@@ -18,14 +18,32 @@ namespace MediTrack.Views
                 {
                     Id = medicine.Id,
                     Name = medicine.Name,
+                    GenericName = medicine.GenericName,
                     CategoryName = medicine.CategoryName,
-                    Barcode = medicine.Barcode
+                    ManufacturerName = medicine.ManufacturerName,
+                    DosageForm = medicine.DosageForm,
+                    Strength = medicine.Strength,
+                    Barcode = medicine.Barcode,
+                    SellingPrice = medicine.SellingPrice,
+                    PurchasePrice = medicine.PurchasePrice,
+                    StockQty = medicine.StockQty,
+                    ExpiryDate = medicine.ExpiryDate,
+                    SupplierName = medicine.SupplierName
                 };
                 
                 Title = "Edit Medicine";
                 NameInput.Text = Result.Name;
-                CategoryInput.Text = Result.CategoryName;
+                GenericNameInput.Text = Result.GenericName ?? "";
+                CategoryInput.Text = Result.CategoryName ?? "";
+                ManufacturerInput.Text = Result.ManufacturerName ?? "";
+                DosageFormInput.Text = Result.DosageForm ?? "";
+                StrengthInput.Text = Result.Strength ?? "";
                 BarcodeInput.Text = Result.Barcode;
+                SellingPriceInput.Value = (double)Result.SellingPrice;
+                PurchasePriceInput.Value = (double)Result.PurchasePrice;
+                StockInput.Value = Result.StockQty;
+                ExpiryInput.Date = Result.ExpiryDate;
+                SupplierInput.Text = Result.SupplierName ?? "";
             }
             else
             {
@@ -45,10 +63,16 @@ namespace MediTrack.Views
                 }
 
                 Result.Name = NameInput.Text;
+                Result.GenericName = GenericNameInput.Text;
                 Result.CategoryName = CategoryInput.Text ?? "";
+                Result.ManufacturerName = ManufacturerInput.Text ?? "";
+                Result.DosageForm = DosageFormInput.Text ?? "";
+                Result.Strength = StrengthInput.Text ?? "";
                 Result.Barcode = BarcodeInput.Text ?? "";
-                Result.Price = (decimal)PriceInput.Value;
+                Result.SellingPrice = (decimal)SellingPriceInput.Value;
+                Result.PurchasePrice = (decimal)PurchasePriceInput.Value;
                 Result.StockQty = (int)StockInput.Value;
+                Result.SupplierName = SupplierInput.Text;
                 Result.ExpiryDate = ExpiryInput.Date?.DateTime;
             };
         }

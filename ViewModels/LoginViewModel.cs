@@ -1,10 +1,11 @@
 using System.Threading.Tasks;
 using System.Windows.Input;
-using MediTrack.Services;
-using MediTrack.Utils;
+using DChemist.Services;
+using DChemist.Utils;
 using Npgsql;
+using DChemist.Models;
 
-namespace MediTrack.ViewModels
+namespace DChemist.ViewModels
 {
     public class LoginViewModel : ViewModelBase
     {
@@ -53,7 +54,7 @@ namespace MediTrack.ViewModels
                 if (success)
                 {
                     System.Diagnostics.Debug.WriteLine("[LoginViewModel] ExecuteLoginAsync: Login SUCCESS. Navigating to MainPage...");
-                    _navigationService.Navigate("MediTrack.Views.MainPage");
+                    _navigationService.Navigate("DChemist.Views.MainPage");
                 }
                 else
                 {

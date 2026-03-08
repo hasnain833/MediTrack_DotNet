@@ -1,7 +1,7 @@
 using System;
 using System.Windows.Input;
 
-namespace MediTrack.Utils
+namespace DChemist.Utils
 {
     public class RelayCommand : ICommand
     {

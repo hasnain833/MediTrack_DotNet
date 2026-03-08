@@ -2,7 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace MediTrack.Utils
+namespace DChemist.Utils
 {
     public abstract class ViewModelBase : INotifyPropertyChanged
     {

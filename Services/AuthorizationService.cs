@@ -1,7 +1,7 @@
 using System;
-using MediTrack.Models;
+using DChemist.ViewModels;
 
-namespace MediTrack.Services
+namespace DChemist.Services
 {
     public class AuthorizationService
     {

@@ -1,9 +1,9 @@
 using Microsoft.UI.Xaml.Controls;
-using MediTrack.ViewModels;
+using DChemist.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using System;
 
-namespace MediTrack.Views
+namespace DChemist.Views
 {
     public sealed partial class LoginPage : Page
     {
@@ -24,6 +24,17 @@ namespace MediTrack.Views
             {
                 System.Diagnostics.Debug.WriteLine($"[LoginPage] Constructor: FATAL XAML ERROR: {ex}");
                 throw;
+            }
+        }
+
+        private void OnKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                if (ViewModel.LoginCommand.CanExecute(null))
+                {
+                    ViewModel.LoginCommand.Execute(null);
+                }
             }
         }
     }

@@ -1,6 +1,6 @@
 using Microsoft.UI.Xaml;
 
-namespace MediTrack
+namespace DChemist
 {
     public sealed partial class MainWindow : Window
     {

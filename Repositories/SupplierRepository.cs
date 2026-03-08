@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using MediTrack.Database;
-using MediTrack.Models;
-using MediTrack.Services;
+using DChemist.Database;
+using DChemist.Models;
+using DChemist.Services;
 using Npgsql;
 
-namespace MediTrack.Repositories
+namespace DChemist.Repositories
 {
     public class SupplierRepository
     {

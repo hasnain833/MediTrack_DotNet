@@ -1,7 +1,8 @@
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Extensions.DependencyInjection;
+using DChemist.ViewModels;
 
-namespace MediTrack.Services
+namespace DChemist.Services
 {
     public class NavigationService
     {

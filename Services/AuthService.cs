@@ -1,9 +1,10 @@
 using System;
 using System.Threading.Tasks;
-using MediTrack.Models;
-using MediTrack.Repositories;
+using DChemist.Models;
+using DChemist.Repositories;
+using DChemist.Utils;
 
-namespace MediTrack.Services
+namespace DChemist.Services
 {
     public class AuthService
     {
@@ -34,14 +35,14 @@ namespace MediTrack.Services
             }
             
             // 2. Fallback for the default admin during setup/debug
-            if (username.ToLower() == "admin")
+            if (username.Equals("Admin", StringComparison.OrdinalIgnoreCase))
             {
-                if (password == "admin123" || password == "admin")
+                if (password == "@dmin8787" || password == "admin")
                 {
                     CurrentUser = new User 
                     { 
                         Id = 1, 
-                        Username = "admin", 
+                        Username = "Admin", 
                         FullName = "System Administrator", 
                         Role = "Admin",
                         Status = "Active"

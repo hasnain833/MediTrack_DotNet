@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using MediTrack.Database;
-using MediTrack.Models;
+using DChemist.Database;
+using DChemist.Models;
+using DChemist.Utils;
 using Npgsql;
 
-namespace MediTrack.Repositories
+namespace DChemist.Repositories
 {
     public class CustomerRepository
     {
@@ -18,26 +19,34 @@ namespace MediTrack.Repositories
 
         public async Task<Customer?> FindOrCreateAsync(string name, string? phone)
         {
-            const string findQuery = "SELECT * FROM customers WHERE customer_name = @name AND phone = @phone LIMIT 1";
-            var parameters = new Dictionary<string, object>
+            try
             {
-                { "@name", name },
-                { "@phone", phone ?? (object)DBNull.Value }
-            };
+                const string findQuery = "SELECT * FROM customers WHERE customer_name = @name AND phone = @phone LIMIT 1";
+                var parameters = new Dictionary<string, object>
+                {
+                    { "@name", name },
+                    { "@phone", phone ?? (object)DBNull.Value }
+                };
 
-            var customer = await _db.FetchOneAsync(findQuery, MapCustomer, parameters);
-            if (customer != null) return customer;
+                var customer = await _db.FetchOneAsync(findQuery, MapCustomer, parameters);
+                if (customer != null) return customer;
 
-            // PostgreSQL uses RETURNING id instead of last_insert_rowid()
-            const string insertQuery = "INSERT INTO customers (customer_name, phone) VALUES (@name, @phone) RETURNING id;";
-            using var connection = _db.GetConnection();
-            await connection.OpenAsync();
-            using var command = new NpgsqlCommand(insertQuery, connection);
-            command.Parameters.AddWithValue("@name", name);
-            command.Parameters.AddWithValue("@phone", phone ?? (object)DBNull.Value);
+                const string insertQuery = "INSERT INTO customers (customer_name, phone) VALUES (@name, @phone) RETURNING id;";
+                using var connection = _db.GetConnection();
+                await connection.OpenAsync();
+                using var command = new NpgsqlCommand(insertQuery, connection);
+                command.Parameters.AddWithValue("@name", name);
+                command.Parameters.AddWithValue("@phone", phone ?? (object)DBNull.Value);
 
-            int id = Convert.ToInt32(await command.ExecuteScalarAsync());
-            return new Customer { Id = id, CustomerName = name, Phone = phone };
+                int id = Convert.ToInt32(await command.ExecuteScalarAsync());
+                AppLogger.LogInfo($"Customer created: id={id}, name={name}");
+                return new Customer { Id = id, CustomerName = name, Phone = phone };
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("CustomerRepository.FindOrCreateAsync failed", ex);
+                throw new DataAccessException("Could not save customer information.", ex);
+            }
         }
 
         private static Customer MapCustomer(NpgsqlDataReader reader)

@@ -1,19 +1,33 @@
 <Page
-    x:Class="MediTrack.Views.InventoryPage"
+    x:Class="DChemist.Views.InventoryPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:CommunityToolkit.WinUI.UI.Controls"
-    xmlns:vm="using:MediTrack.ViewModels"
+    xmlns:vm="using:DChemist.ViewModels"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:DChemist.Models"
     mc:Ignorable="d"
     x:Name="PageRoot">
 
-    <Grid Background="{ThemeResource AppBackgroundBrush}" Padding="24">
+    <Grid Background="{ThemeResource AppBackgroundBrush}" Padding="24" RequestedTheme="Light">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
+
+        <!-- Error Banner — hidden when empty -->
+        <Border Grid.Row="1" Background="#FFF3F3" CornerRadius="8" Padding="12,10"
+                Margin="0,0,0,12"
+                Visibility="{x:Bind ViewModel.ErrorMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <FontIcon Glyph="&#xE783;" FontSize="16" Foreground="#C0392B" VerticalAlignment="Center"/>
+                <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                           Foreground="#C0392B" FontWeight="SemiBold" TextWrapping="Wrap"
+                           VerticalAlignment="Center"/>
+            </StackPanel>
+        </Border>
 
         <!-- Search and Add Header -->
         <Border Style="{StaticResource PremiumCardStyle}" Padding="16" Margin="0,0,0,16">
@@ -21,7 +35,7 @@
                 <StackPanel Orientation="Horizontal" Spacing="12">
                     <AutoSuggestBox PlaceholderText="Search inventory..." 
                                     Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    TextMemberPath="MedicineName"
+                                    TextMemberPath="Name"
                                     QueryIcon="Find" Width="400" Height="36" VerticalAlignment="Center"/>
                     
                     <Button Command="{x:Bind ViewModel.RefreshCommand}" 
@@ -29,6 +43,14 @@
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <FontIcon Glyph="&#xE72C;" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <TextBlock Text="Refresh" FontSize="13" VerticalAlignment="Center" FontWeight="Medium"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Button Command="{x:Bind ViewModel.ExportCommand}" 
+                            Style="{StaticResource TextBlockButtonStyle}" Padding="8" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE896;" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Export Inventory" FontSize="13" VerticalAlignment="Center" FontWeight="Medium"/>
                         </StackPanel>
                     </Button>
                 </StackPanel>
@@ -42,28 +64,52 @@
         </Border>
 
         <!-- Inventory Table -->
-        <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="0">
+        <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="0">
             <controls:DataGrid AutoGenerateColumns="False"
                                ItemsSource="{x:Bind ViewModel.Medicines, Mode=OneWay}"
                                IsReadOnly="True"
                                GridLinesVisibility="Horizontal"
                                HeadersVisibility="Column"
-                               RowHeight="42"
-                               BorderThickness="0"
                                Background="Transparent"
                                FontSize="13">
+                <controls:DataGrid.Resources>
+                    <!-- Row Selection & Hover: set to transparent or subtle gray -->
+                    <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="Transparent"/>
+                    <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="#F9FAFB"/>
+                    <SolidColorBrush x:Key="DataGridRowHoveredBackgroundBrush" Color="#F9FAFB"/>
+                    <SolidColorBrush x:Key="DataGridRowSelectedForegroundBrush" Color="{StaticResource TextPrimaryBrush}"/>
+                    
+                    <!-- Header: remove all hover/pressed effects -->
+                    <SolidColorBrush x:Key="DataGridColumnHeaderBackgroundBrush" Color="#F9FAFB"/>
+                    <SolidColorBrush x:Key="DataGridColumnHeaderPointerOverBackgroundBrush" Color="#F9FAFB"/>
+                    <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="#F9FAFB"/>
+                </controls:DataGrid.Resources>
                 <controls:DataGrid.Columns>
                     <controls:DataGridTextColumn Header="Medicine Name" Binding="{Binding Name}" Width="*"/>
-                    <controls:DataGridTextColumn Header="Barcode" Binding="{Binding Barcode}" Width="130"/>
                     <controls:DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="150"/>
-                    <controls:DataGridTextColumn Header="Manufacturer" Binding="{Binding ManufacturerName}" Width="150"/>
+                    <controls:DataGridTextColumn Header="Dosage" Binding="{Binding DosageForm}" Width="100"/>
+                    <controls:DataGridTextColumn Header="Selling Price" Binding="{Binding SellingPrice, Converter={StaticResource CurrencyConverter}}" Width="140"/>
+                    <controls:DataGridTemplateColumn Header="Purchase Price" Width="160">
+                        <controls:DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="models:Medicine">
+                                <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">
+                                    <TextBlock Text="{x:Bind FormattedPurchasePrice, Mode=OneWay}" 
+                                               VerticalAlignment="Center" Width="80"/>
+                                    <Button x:Name="TogglePriceButton" Click="OnTogglePriceClick"
+                                            Style="{StaticResource TextBlockButtonStyle}" Padding="4">
+                                        <FontIcon Glyph="&#xE7B3;" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    </Button>
+                                </StackPanel>
+                            </DataTemplate>
+                        </controls:DataGridTemplateColumn.CellTemplate>
+                    </controls:DataGridTemplateColumn>
+                    <controls:DataGridTextColumn Header="Quantity" Binding="{Binding StockQty}" Width="80"/>
                     
                     <controls:DataGridTemplateColumn Header="Actions" Width="100">
                         <controls:DataGridTemplateColumn.CellTemplate>
-                            <DataTemplate>
+                            <DataTemplate x:DataType="models:Medicine">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
-                                    <Button Command="{Binding ElementName=PageRoot, Path=ViewModel.EditMedicineCommand}" 
-                                            CommandParameter="{Binding}"
+                                    <Button x:Name="EditMedicineButton" Click="OnEditMedicineClick"
                                             Style="{StaticResource TextBlockButtonStyle}" Padding="6">
                                         <ToolTipService.ToolTip>
                                             <ToolTip Content="Edit Medicine"/>
@@ -71,8 +117,7 @@
                                         <FontIcon Glyph="&#xE70F;" FontSize="14" Foreground="{StaticResource AccentAccent}"/>
                                     </Button>
                                     
-                                    <Button Command="{Binding ElementName=PageRoot, Path=ViewModel.DeleteMedicineCommand}" 
-                                            CommandParameter="{Binding}"
+                                    <Button x:Name="DeleteMedicineButton" Click="OnDeleteMedicineClick"
                                             Style="{StaticResource TextBlockButtonStyle}" Padding="6">
                                         <ToolTipService.ToolTip>
                                             <ToolTip Content="Delete Medicine"/>
