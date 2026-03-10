@@ -95,15 +95,22 @@ namespace DChemist.Services
             IntPtr ShowPrintUIForWindowAsync([In] IntPtr appWindow, [In] ref Guid riid);
         }
 
-        [DllImport("api-ms-win-core-winrt-l1-1-0.dll", CharSet = CharSet.Unicode)]
-        private static extern int RoGetActivationFactory(string runtimeClassId, ref Guid iid, out IntPtr factory);
+        [DllImport("combase.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+        private static extern void RoGetActivationFactory(string runtimeClassId, ref Guid iid, out IntPtr factory);
 
         private static IPrintManagerInterop GetInterop()
         {
+            // Use the IID of IPrintManagerInterop specifically
             Guid iid = new Guid("372F1D3D-1424-4B44-B524-74744419E77F");
-            int hr = RoGetActivationFactory("Windows.Graphics.Printing.PrintManager", ref iid, out IntPtr factory);
-            if (hr != 0) throw Marshal.GetExceptionForHR(hr) ?? new Exception($"Failed to get activation factory for PrintManager. HRESULT: {hr}");
-            return (IPrintManagerInterop)Marshal.GetObjectForIUnknown(factory);
+            RoGetActivationFactory("Windows.Graphics.Printing.PrintManager", ref iid, out IntPtr factory);
+            try
+            {
+                return (IPrintManagerInterop)Marshal.GetObjectForIUnknown(factory);
+            }
+            finally
+            {
+                if (factory != IntPtr.Zero) Marshal.Release(factory);
+            }
         }
 
         public static PrintManager GetForWindow(IntPtr hWnd)
@@ -111,7 +118,14 @@ namespace DChemist.Services
             var interop = GetInterop();
             Guid iid = typeof(PrintManager).GUID;
             IntPtr result = interop.GetForWindow(hWnd, ref iid);
-            return WinRT.MarshalInspectable<PrintManager>.FromAbi(result);
+            try
+            {
+                return WinRT.MarshalInspectable<PrintManager>.FromAbi(result);
+            }
+            finally
+            {
+                if (result != IntPtr.Zero) Marshal.Release(result);
+            }
         }
 
         public static async Task ShowPrintUIForWindowAsync(IntPtr hWnd)
@@ -119,8 +133,15 @@ namespace DChemist.Services
             var interop = GetInterop();
             Guid iid = new Guid("5AD5CE31-6BC0-4700-9FAD-662174C51305"); // IAsyncAction
             IntPtr result = interop.ShowPrintUIForWindowAsync(hWnd, ref iid);
-            var action = WinRT.MarshalInterface<Windows.Foundation.IAsyncAction>.FromAbi(result);
-            await action;
+            try
+            {
+                var action = WinRT.MarshalInterface<Windows.Foundation.IAsyncAction>.FromAbi(result);
+                await action;
+            }
+            finally
+            {
+                if (result != IntPtr.Zero) Marshal.Release(result);
+            }
         }
     }
 }

@@ -36,6 +36,7 @@
                          Header="Barcode / QR Scanner"
                          Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                          Margin="0,0,12,0"
+                         CornerRadius="12"
                          VerticalAlignment="Bottom"/>
 
                 <AutoSuggestBox Grid.Column="1"
@@ -47,7 +48,7 @@
                     Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                     ItemsSource="{x:Bind ViewModel.MedicineResults, Mode=OneWay}"
                     QuerySubmitted="MedicineSearchBox_QuerySubmitted"
-                    Height="60"
+                    CornerRadius="12"
                     VerticalAlignment="Bottom">
                 <AutoSuggestBox.ItemTemplate>
                     <DataTemplate>
@@ -150,8 +151,9 @@
         </Grid>
 
         <!-- Right: Customer Info + Order Summary -->
-        <Border Grid.Column="1" Style="{StaticResource PremiumCardStyle}" Margin="0">
-            <StackPanel Spacing="24">
+        <Border Grid.Column="1" Style="{StaticResource PremiumCardStyle}" Margin="0" Padding="0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="24" Padding="20">
                 <!-- Customer Information -->
                 <StackPanel Spacing="16">
                     <TextBlock Text="Customer Information" FontSize="18" FontWeight="Bold"
@@ -214,11 +216,11 @@
 
                 <!-- Actions -->
                 <StackPanel Spacing="10">
-                    <Button Content="COMPLETE SALE" Command="{x:Bind ViewModel.CompleteSaleCommand}"
+                    <Button Content="Finish &amp; Print" Command="{x:Bind ViewModel.CompleteSaleCommand}"
                             Style="{StaticResource PremiumButtonStyle}" Height="48"
                             HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
                     
-                    <Button Content="PRINT BILL" Command="{x:Bind ViewModel.PrintBillCommand}"
+                    <Button Content="Print Bill" Command="{x:Bind ViewModel.PrintBillCommand}"
                             Style="{StaticResource SecondaryButtonStyle}" Height="48"
                             HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
 
@@ -233,7 +235,8 @@
                                    TextWrapping="Wrap" Foreground="#C0392B" FontSize="12" FontWeight="SemiBold"/>
                     </Border>
                 </StackPanel>
-            </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
         </Border>
     </Grid>
 </Page>

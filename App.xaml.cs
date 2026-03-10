@@ -7,6 +7,7 @@ using DChemist.Repositories;
 using DChemist.Database;
 using DChemist.ViewModels;
 using DChemist.Utils;
+using Microsoft.Extensions.Configuration;
 
 namespace DChemist
 {
@@ -64,8 +65,16 @@ namespace DChemist
 
         private static IServiceProvider ConfigureServices()
         {
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .Build();
+
             var services = new ServiceCollection();
-            services.AddSingleton(new DatabaseService()); 
+            
+            // Core Config
+            services.AddSingleton<IConfiguration>(configuration);
+            services.AddSingleton<DatabaseService>(); 
 
             // Repositories
             services.AddSingleton<UserRepository>();

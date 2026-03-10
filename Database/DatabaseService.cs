@@ -13,13 +13,8 @@ namespace DChemist.Database
     {
         private readonly string _connectionString;
 
-        public DatabaseService()
+        public DatabaseService(IConfiguration configuration)
         {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                .Build();
-
             var dbConfig = configuration.GetSection("Database");
             // Connection pooling: reuse connections instead of creating new ones per request
             _connectionString =
@@ -146,6 +141,31 @@ namespace DChemist.Database
                 using (var command = new NpgsqlCommand(schema, connection))
                 {
                     command.ExecuteNonQuery();
+                }
+
+                // ── MIGRATIONS: Add columns that might be missing from older installs ──
+                const string migrationQuery = @"
+                    -- Add FBR columns to sales if missing
+                    DO $$ 
+                    BEGIN 
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sales' AND column_name='fbr_invoice_no') THEN
+                            ALTER TABLE sales ADD COLUMN fbr_invoice_no TEXT UNIQUE;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sales' AND column_name='fbr_response') THEN
+                            ALTER TABLE sales ADD COLUMN fbr_response TEXT;
+                        END IF;
+                        -- Ensure customer columns exist (for edge cases)
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='phone') THEN
+                            ALTER TABLE customers ADD COLUMN phone TEXT;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='email') THEN
+                            ALTER TABLE customers ADD COLUMN email TEXT;
+                        END IF;
+                    END $$;";
+                
+                using (var migCmd = new NpgsqlCommand(migrationQuery, connection))
+                {
+                    migCmd.ExecuteNonQuery();
                 }
 
                 // Ensure admin exists with new credentials

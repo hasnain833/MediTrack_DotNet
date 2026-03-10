@@ -38,8 +38,17 @@ namespace DChemist.Services
 
             try
             {
-                var response = await _httpClient.GetStringAsync(_updateServerUrl + "version.json");
-                var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(response, new JsonSerializerOptions
+                using var response = await _httpClient.GetAsync(_updateServerUrl + "version.json");
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    // Update server not yet ready/configured - fail silently or log a warning
+                    AppLogger.LogWarning($"Update server returned 404. Checking URL: {_updateServerUrl}version.json");
+                    return null;
+                }
+
+                response.EnsureSuccessStatusCode();
+                var json = await response.Content.ReadAsStringAsync();
+                var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
@@ -48,6 +57,10 @@ namespace DChemist.Services
                 {
                     return updateInfo;
                 }
+            }
+            catch (HttpRequestException ex)
+            {
+                AppLogger.LogWarning($"Could not reach update server: {ex.Message}");
             }
             catch (Exception ex)
             {
