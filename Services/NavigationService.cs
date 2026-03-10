@@ -63,7 +63,7 @@ namespace DChemist.Services
             var auth = _services.GetService<AuthorizationService>();
             if (auth != null)
             {
-                bool isAdminOnly = pageTypeFullName.Contains("FinancialPage");
+                bool isAdminOnly = pageTypeFullName.Contains("FinancialPage") || pageTypeFullName.Contains("SettingsPage");
                 if (isAdminOnly && !auth.IsAdmin)
                 {
                     System.Diagnostics.Debug.WriteLine($"[NavigationService] BLOCKED: Admin only page.");

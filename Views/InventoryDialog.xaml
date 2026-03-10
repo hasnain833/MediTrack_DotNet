@@ -10,7 +10,9 @@
     PrimaryButtonText="Save"
     SecondaryButtonText="Cancel"
     DefaultButton="Primary"
-    Style="{StaticResource DefaultContentDialogStyle}">
+    PrimaryButtonStyle="{StaticResource PremiumButtonStyle}"
+    SecondaryButtonStyle="{StaticResource SecondaryButtonStyle}"
+    CornerRadius="16">
 
     <StackPanel Spacing="16" Width="400" Margin="0,10,0,0">
         <Grid ColumnSpacing="16">

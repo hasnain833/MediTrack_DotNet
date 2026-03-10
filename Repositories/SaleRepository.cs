@@ -14,12 +14,14 @@ namespace DChemist.Repositories
         private readonly DatabaseService _db;
         private readonly AuthorizationService _auth;
         private readonly InventoryEventBus _eventBus;
+        private readonly AuditRepository _auditRepo;
 
-        public SaleRepository(DatabaseService db, AuthorizationService auth, InventoryEventBus eventBus)
+        public SaleRepository(DatabaseService db, AuthorizationService auth, InventoryEventBus eventBus, AuditRepository auditRepo)
         {
             _db = db;
             _auth = auth;
             _eventBus = eventBus;
+            _auditRepo = auditRepo;
         }
 
         public async Task CreateTransactionAsync(string billNo, int userId, int? customerId, List<SaleItem> items,
@@ -137,6 +139,9 @@ namespace DChemist.Repositories
 
                 // ── Step 4: Notify all subscribed screens (post-commit) ───────────
                 _eventBus.Publish(InventoryChangeType.StockDeducted);
+                
+                // ── Step 5: Log Audit ─────────────────────────────────────────────
+                _ = _auditRepo.InsertLogAsync(userId, "Sale Created", $"Bill No: {billNo}, Total: {grandTotal:F2}");
             }
             catch (Exception ex)
             {
@@ -154,7 +159,7 @@ namespace DChemist.Repositories
                     COALESCE(c.customer_name, 'Walking Customer') as customer, 
                     s.grand_total as amount, 
                     to_char(s.sale_date, 'DD Mon YYYY HH24:MI') as date,
-                    'Paid' as status
+                    s.status
                 FROM sales s
                 LEFT JOIN customers c ON s.customer_id = c.id
                 ORDER BY s.sale_date DESC
@@ -166,13 +171,177 @@ namespace DChemist.Repositories
 
         public async Task<decimal> GetRevenueTotalAsync(DateTime start, DateTime end)
         {
-            const string query = "SELECT COALESCE(SUM(grand_total), 0) FROM sales WHERE sale_date >= @start AND sale_date <= @end";
+            // Only count completed sales
+            const string query = "SELECT COALESCE(SUM(grand_total), 0) FROM sales WHERE sale_date >= @start AND sale_date <= @end AND status = 'Completed'";
             using var connection = _db.GetConnection();
             await connection.OpenAsync();
             using var cmd = new NpgsqlCommand(query, connection);
             cmd.Parameters.AddWithValue("@start", start);
             cmd.Parameters.AddWithValue("@end", end);
             return Convert.ToDecimal(await cmd.ExecuteScalarAsync());
+        }
+
+        public async Task<Sale?> GetSaleWithItemsAsync(string billNo)
+        {
+            const string saleQuery = "SELECT * FROM sales WHERE bill_no = @billNo";
+            var parameters = new Dictionary<string, object> { { "@billNo", billNo } };
+            
+            var sale = await _db.FetchOneAsync(saleQuery, reader => new Sale
+            {
+                Id = Convert.ToInt32(reader["id"]),
+                BillNo = reader["bill_no"].ToString() ?? "",
+                UserId = Convert.ToInt32(reader["user_id"]),
+                CustomerId = reader["customer_id"] != DBNull.Value ? Convert.ToInt32(reader["customer_id"]) : null,
+                TotalAmount = Convert.ToDecimal(reader["total_amount"]),
+                TaxAmount = Convert.ToDecimal(reader["tax_amount"]),
+                DiscountAmount = Convert.ToDecimal(reader["discount_amount"]),
+                GrandTotal = Convert.ToDecimal(reader["grand_total"]),
+                SaleDate = Convert.ToDateTime(reader["sale_date"]),
+                Status = reader["status"].ToString() ?? "Completed"
+            }, parameters);
+
+            if (sale != null)
+            {
+                const string itemsQuery = @"
+                    SELECT si.*, m.name as medicine_name 
+                    FROM sale_items si 
+                    LEFT JOIN medicines m ON si.medicine_id = m.id 
+                    WHERE si.sale_id = @saleId";
+                var itemsParams = new Dictionary<string, object> { { "@saleId", sale.Id } };
+                
+                sale.Items = await _db.FetchAllAsync(itemsQuery, reader => new SaleItem
+                {
+                    Id = Convert.ToInt32(reader["id"]),
+                    SaleId = Convert.ToInt32(reader["sale_id"]),
+                    MedicineId = reader["medicine_id"] != DBNull.Value ? Convert.ToInt32(reader["medicine_id"]) : null,
+                    BatchId = reader["batch_id"] != DBNull.Value ? Convert.ToInt32(reader["batch_id"]) : null,
+                    MedicineName = reader["medicine_name"].ToString() ?? "Unknown",
+                    Quantity = Convert.ToInt32(reader["quantity"]),
+                    ReturnedQuantity = Convert.ToInt32(reader["returned_qty"]),
+                    UnitPrice = Convert.ToDecimal(reader["unit_price"]),
+                    Subtotal = Convert.ToDecimal(reader["subtotal"])
+                }, itemsParams);
+            }
+
+            return sale;
+        }
+
+        public async Task VoidSaleAsync(string billNo, int currentUserId)
+        {
+            _auth.EnforceAdmin();
+            
+            using var connection = _db.GetConnection();
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                var sale = await GetSaleWithItemsAsync(billNo);
+                if (sale == null) throw new InvalidOperationException("Sale not found.");
+                if (sale.Status == "Voided") throw new InvalidOperationException("Sale is already voided.");
+
+                // 1. Update Sale Status
+                const string updateSaleQuery = "UPDATE sales SET status = 'Voided' WHERE id = @id";
+                using var updateSaleCmd = new NpgsqlCommand(updateSaleQuery, connection, transaction);
+                updateSaleCmd.Parameters.AddWithValue("@id", sale.Id);
+                await updateSaleCmd.ExecuteNonQueryAsync();
+
+                // 2. Restore Inventory Stock
+                foreach (var item in sale.Items)
+                {
+                    if (item.BatchId.HasValue && item.MedicineId.HasValue)
+                    {
+                        // Directly restore to the specific batch that was deducted if batch_id was stored properly
+                        const string restoreQuery = "UPDATE inventory_batches SET stock_qty = stock_qty + @qty WHERE id = @batchId";
+                        using var restoreCmd = new NpgsqlCommand(restoreQuery, connection, transaction);
+                        restoreCmd.Parameters.AddWithValue("@qty", item.Quantity);
+                        restoreCmd.Parameters.AddWithValue("@batchId", item.BatchId.Value);
+                        await restoreCmd.ExecuteNonQueryAsync();
+                    }
+                    else if (item.MedicineId.HasValue)
+                    {
+                        // Fallback: Restore to the latest batch
+                        const string restoreFallbackQuery = @"
+                            UPDATE inventory_batches 
+                            SET stock_qty = stock_qty + @qty 
+                            WHERE id = (
+                                SELECT id FROM inventory_batches 
+                                WHERE medicine_id = @medId 
+                                ORDER BY expiry_date DESC LIMIT 1
+                            )";
+                        using var restoreFallbackCmd = new NpgsqlCommand(restoreFallbackQuery, connection, transaction);
+                        restoreFallbackCmd.Parameters.AddWithValue("@qty", item.Quantity);
+                        restoreFallbackCmd.Parameters.AddWithValue("@medId", item.MedicineId.Value);
+                        await restoreFallbackCmd.ExecuteNonQueryAsync();
+                    }
+                }
+
+                await transaction.CommitAsync();
+
+                _eventBus.Publish(InventoryChangeType.StockAdjusted);
+                _ = _auditRepo.InsertLogAsync(currentUserId, "Sale Voided", $"Bill No: {billNo} voided. Stock restored.");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                AppLogger.LogError($"Failed to void sale {billNo}", ex);
+                throw;
+            }
+        }
+
+        public async Task ProcessReturnAsync(int saleId, int medicineId, int batchId, int returnQty, int currentUserId)
+        {
+            _auth.EnforceAdmin();
+            using var connection = _db.GetConnection();
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // 1. Update returned_qty in sale_items
+                const string updateItemQuery = @"
+                    UPDATE sale_items 
+                    SET returned_qty = returned_qty + @qty 
+                    WHERE sale_id = @saleId AND medicine_id = @medId AND batch_id = @batchId
+                    RETURNING (quantity - returned_qty) as remaining";
+                
+                using var updateCmd = new NpgsqlCommand(updateItemQuery, connection, transaction);
+                updateCmd.Parameters.AddWithValue("@qty", returnQty);
+                updateCmd.Parameters.AddWithValue("@saleId", saleId);
+                updateCmd.Parameters.AddWithValue("@medId", medicineId);
+                updateCmd.Parameters.AddWithValue("@batchId", batchId);
+
+                var remainingObj = await updateCmd.ExecuteScalarAsync();
+                if (remainingObj == null) throw new Exception("Sale item not found.");
+                int remaining = Convert.ToInt32(remainingObj);
+                
+                if (remaining < 0) throw new InvalidOperationException("Return quantity exceeds original purchased quantity.");
+
+                // 2. Restore stock to inventory
+                const string restoreStockQuery = "UPDATE inventory_batches SET stock_qty = stock_qty + @qty WHERE id = @batchId";
+                using var restoreCmd = new NpgsqlCommand(restoreStockQuery, connection, transaction);
+                restoreCmd.Parameters.AddWithValue("@qty", returnQty);
+                restoreCmd.Parameters.AddWithValue("@batchId", batchId);
+                await restoreCmd.ExecuteNonQueryAsync();
+
+                // 3. Log Audit
+                const string getMedNameQuery = "SELECT name FROM medicines WHERE id = @id";
+                using var nameCmd = new NpgsqlCommand(getMedNameQuery, connection, transaction);
+                nameCmd.Parameters.AddWithValue("@id", medicineId);
+                string medName = (await nameCmd.ExecuteScalarAsync())?.ToString() ?? "Unknown Medicine";
+
+                await transaction.CommitAsync();
+
+                _eventBus.Publish(InventoryChangeType.StockAdjusted);
+                _ = _auditRepo.InsertLogAsync(currentUserId, "Item Returned", 
+                    $"Returned {returnQty}x {medName} from Sale ID: {saleId}. Stock restored.");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                AppLogger.LogError($"Failed to process return for sale {saleId}", ex);
+                throw;
+            }
         }
 
         private static SaleSummary MapSaleSummary(NpgsqlDataReader reader)

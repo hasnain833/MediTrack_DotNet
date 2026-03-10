@@ -18,26 +18,28 @@ namespace DChemist.ViewModels
         private readonly AuthorizationService _auth;
         private readonly InventoryEventBus _eventBus;
         private readonly IReportingService _reportingService;
+        private readonly IDialogService _dialogService;
         private readonly DispatcherQueue _dispatcher;
         private string _searchText = string.Empty;
         private string _errorMessage = string.Empty;
         private bool _isBusy;
 
-        public InventoryViewModel(MedicineRepository medicineRepository, AuthorizationService auth, InventoryEventBus eventBus, IReportingService reportingService)
+        public InventoryViewModel(MedicineRepository medicineRepository, AuthorizationService auth, InventoryEventBus eventBus, IReportingService reportingService, IDialogService dialogService)
         {
             _medicineRepository = medicineRepository;
             _auth = auth;
             _eventBus = eventBus;
             _reportingService = reportingService;
+            _dialogService = dialogService;
             _dispatcher = DispatcherQueue.GetForCurrentThread();
 
             Medicines = new ObservableCollection<Medicine>();
-            RefreshCommand = new RelayCommand(async _ => await RefreshAsync());
-            AddMedicineCommand = new RelayCommand(async _ => await ExecuteAddMedicineAsync());
-            EditMedicineCommand = new RelayCommand(async m => await ExecuteEditMedicineAsync(m as Medicine));
-            DeleteMedicineCommand = new RelayCommand(async m => await ExecuteDeleteMedicineAsync(m as Medicine));
+            RefreshCommand = new AsyncRelayCommand(async _ => await RefreshAsync());
+            AddMedicineCommand = new AsyncRelayCommand(async _ => await ExecuteAddMedicineAsync());
+            EditMedicineCommand = new AsyncRelayCommand(async m => await ExecuteEditMedicineAsync(m as Medicine));
+            DeleteMedicineCommand = new AsyncRelayCommand(async m => await ExecuteDeleteMedicineAsync(m as Medicine));
             TogglePurchasePriceCommand = new RelayCommand(m => ExecuteTogglePurchasePrice(m as Medicine));
-            ExportCommand = new RelayCommand(async _ => await _reportingService.ExportInventoryToCsvAsync(Medicines));
+            ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportInventoryToCsvAsync(Medicines));
 
             _eventBus.InventoryChanged += OnInventoryChanged;
             _ = RefreshAsync();
@@ -130,16 +132,13 @@ namespace DChemist.ViewModels
 
         private async Task ExecuteAddMedicineAsync()
         {
-            var dialog = new DChemist.Views.InventoryDialog();
-            if (App.MainRoot?.XamlRoot == null) return;
-            dialog.XamlRoot = App.MainRoot.XamlRoot;
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+            var result = await _dialogService.ShowInventoryDialogAsync();
+            if (result != null)
             {
                 ErrorMessage = string.Empty;
                 try
                 {
-                    await _medicineRepository.AddAsync(dialog.Result);
+                    await _medicineRepository.AddAsync(result);
                 }
                 catch (DataAccessException ex)
                 {
@@ -156,16 +155,14 @@ namespace DChemist.ViewModels
         private async Task ExecuteEditMedicineAsync(Medicine? medicine)
         {
             if (medicine == null) return;
-            var dialog = new DChemist.Views.InventoryDialog(medicine);
-            if (App.MainRoot?.XamlRoot == null) return;
-            dialog.XamlRoot = App.MainRoot.XamlRoot;
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+            
+            var result = await _dialogService.ShowInventoryDialogAsync(medicine);
+            if (result != null)
             {
                 ErrorMessage = string.Empty;
                 try
                 {
-                    await _medicineRepository.UpdateAsync(dialog.Result);
+                    await _medicineRepository.UpdateAsync(result);
                 }
                 catch (DataAccessException ex)
                 {
@@ -182,18 +179,15 @@ namespace DChemist.ViewModels
         private async Task ExecuteDeleteMedicineAsync(Medicine? medicine)
         {
             if (medicine == null) return;
-            var dialog = new ContentDialog
-            {
-                Title = "Delete Medicine",
-                Content = $"Are you sure you want to delete {medicine.Name}?",
-                PrimaryButtonText = "Delete",
-                CloseButtonText = "Cancel",
-                DefaultButton = ContentDialogButton.Close
-            };
-            if (App.MainRoot?.XamlRoot == null) return;
-            dialog.XamlRoot = App.MainRoot.XamlRoot;
-            var result = await dialog.ShowAsync();
-            if (result == ContentDialogResult.Primary)
+            
+            bool confirmed = await _dialogService.ShowConfirmationAsync(
+                "Delete Medicine",
+                $"Are you sure you want to delete {medicine.Name}?",
+                "Delete",
+                "Cancel"
+            );
+            
+            if (confirmed)
             {
                 ErrorMessage = string.Empty;
                 try

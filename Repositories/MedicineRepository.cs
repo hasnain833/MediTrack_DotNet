@@ -276,38 +276,35 @@ namespace DChemist.Repositories
                 medCmd.Parameters.AddWithValue("@barcode", medicine.Barcode);
                 await medCmd.ExecuteNonQueryAsync();
 
-                // 2. Update the 'latest' batch (simplified for UI logic)
-                const string batchQuery = @"
+                // 3. Update Inventory Batch (Price and Quantity)
+                // We update the most recent batch for this medicine to reflect the changes made in the 'Edit' dialog
+                const string batchUpdateQuery = @"
                     UPDATE inventory_batches 
-                    SET selling_price = @sPrice, purchase_price = @pPrice, stock_qty = @qty, expiry_date = @expiry
+                    SET selling_price = @sPrice, 
+                        purchase_price = @pPrice, 
+                        stock_qty = @qty,
+                        expiry_date = @expiry,
+                        supplier_id = @supId
                     WHERE medicine_id = @medId 
-                    AND id = (SELECT id FROM inventory_batches WHERE medicine_id = @medId ORDER BY created_at DESC LIMIT 1)";
+                    AND id = (SELECT id FROM inventory_batches WHERE medicine_id = @medId ORDER BY id DESC LIMIT 1)";
 
-                using var batchCmd = new NpgsqlCommand(batchQuery, connection, transaction);
+                using var batchCmd = new NpgsqlCommand(batchUpdateQuery, connection, transaction);
                 batchCmd.Parameters.AddWithValue("@medId", medicine.Id);
                 batchCmd.Parameters.AddWithValue("@sPrice", medicine.SellingPrice);
                 batchCmd.Parameters.AddWithValue("@pPrice", medicine.PurchasePrice);
                 batchCmd.Parameters.AddWithValue("@qty", medicine.StockQty);
                 batchCmd.Parameters.AddWithValue("@expiry", medicine.ExpiryDate ?? (object)DateTime.Now.AddYears(1));
-                if (supplierId != null) 
-                {
-                    const string supUpdate = "UPDATE inventory_batches SET supplier_id = @supId WHERE medicine_id = @medId AND id = (SELECT id FROM inventory_batches WHERE medicine_id = @medId ORDER BY created_at DESC LIMIT 1)";
-                    using var supCmd = new NpgsqlCommand(supUpdate, connection, transaction);
-                    supCmd.Parameters.AddWithValue("@supId", supplierId);
-                    supCmd.Parameters.AddWithValue("@medId", medicine.Id);
-                    await supCmd.ExecuteNonQueryAsync();
-                }
+                batchCmd.Parameters.AddWithValue("@supId", supplierId ?? (object)DBNull.Value);
                 await batchCmd.ExecuteNonQueryAsync();
 
                 await transaction.CommitAsync();
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 await transaction.RollbackAsync();
-                throw;
+                AppLogger.LogError($"MedicineRepository.UpdateAsync failed for medicine {medicine.Id}", ex);
+                throw new DataAccessException("Could not update medicine details. Please try again.", ex);
             }
-
-            // Notify all screens about the updated medicine
             _eventBus.Publish(InventoryChangeType.MedicineUpdated);
         }
 

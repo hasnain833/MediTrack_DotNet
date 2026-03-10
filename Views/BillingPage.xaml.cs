@@ -14,7 +14,11 @@ namespace DChemist.Views
             this.InitializeComponent();
             ViewModel = App.Current.Services.GetRequiredService<BillingViewModel>();
         }
- 
+        protected override async void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            await ViewModel.InitializeAsync();
+        }
         private void MedicineSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
         {
             if (args.ChosenSuggestion is DChemist.Models.Medicine medicine)

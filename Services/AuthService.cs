@@ -9,17 +9,18 @@ namespace DChemist.Services
     public class AuthService
     {
         private readonly UserRepository _userRepository;
+        private readonly AuditRepository _auditRepo;
 
         public User? CurrentUser { get; private set; }
 
-        public AuthService(UserRepository userRepository)
+        public AuthService(UserRepository userRepository, AuditRepository auditRepo)
         {
             _userRepository = userRepository;
+            _auditRepo = auditRepo;
         }
 
         public async Task<bool> LoginAsync(string username, string password)
         {
-            // 1. Try DB login
             var user = await _userRepository.GetByUsernameAsync(username);
             if (user != null)
             {
@@ -28,27 +29,11 @@ namespace DChemist.Services
                     if (BCrypt.Net.BCrypt.Verify(password, user.Password))
                     {
                         CurrentUser = user;
+                        _ = _auditRepo.InsertLogAsync(user.Id, "Login", $"User {user.Username} logged in successfully.");
                         return true;
                     }
                 }
-                catch { /* Hash might be invalid format, fallback to manual checks below */ }
-            }
-            
-            // 2. Fallback for the default admin during setup/debug
-            if (username.Equals("Admin", StringComparison.OrdinalIgnoreCase))
-            {
-                if (password == "@dmin8787" || password == "admin")
-                {
-                    CurrentUser = new User 
-                    { 
-                        Id = 1, 
-                        Username = "Admin", 
-                        FullName = "System Administrator", 
-                        Role = "Admin",
-                        Status = "Active"
-                    };
-                    return true;
-                }
+                catch { /* Hash might be invalid format */ }
             }
             
             return false;
@@ -56,6 +41,10 @@ namespace DChemist.Services
 
         public void Logout()
         {
+            if (CurrentUser != null)
+            {
+                _ = _auditRepo.InsertLogAsync(CurrentUser.Id, "Logout", "User logged out.");
+            }
             CurrentUser = null;
         }
     }

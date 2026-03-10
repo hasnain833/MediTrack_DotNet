@@ -107,6 +107,7 @@ namespace DChemist.Database
                         grand_total       DECIMAL NOT NULL DEFAULT 0,
                         fbr_invoice_no    TEXT UNIQUE,
                         fbr_response      TEXT,
+                        status            VARCHAR(20) NOT NULL DEFAULT 'Completed',
                         sale_date         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                     );
 
@@ -115,9 +116,9 @@ namespace DChemist.Database
                         sale_id       INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
                         medicine_id   INTEGER REFERENCES medicines(id),
                         batch_id      INTEGER REFERENCES inventory_batches(id),
-                        quantity      INTEGER NOT NULL DEFAULT 1,
                         unit_price    DECIMAL NOT NULL,
-                        subtotal      DECIMAL NOT NULL
+                        subtotal      DECIMAL NOT NULL,
+                        returned_qty  INTEGER NOT NULL DEFAULT 0
                     );
 
                     CREATE INDEX IF NOT EXISTS idx_medicines_barcode ON medicines(barcode);
@@ -136,6 +137,15 @@ namespace DChemist.Database
                         ON sales(sale_date DESC);
                     CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id
                         ON sale_items(sale_id);
+
+                    CREATE TABLE IF NOT EXISTS audit_logs (
+                        id          SERIAL PRIMARY KEY,
+                        user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                        action      VARCHAR(50) NOT NULL,
+                        details     TEXT,
+                        created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
                 ";
 
                 using (var command = new NpgsqlCommand(schema, connection))
@@ -154,6 +164,9 @@ namespace DChemist.Database
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sales' AND column_name='fbr_response') THEN
                             ALTER TABLE sales ADD COLUMN fbr_response TEXT;
                         END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sales' AND column_name='status') THEN
+                            ALTER TABLE sales ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'Completed';
+                        END IF;
                         -- Ensure customer columns exist (for edge cases)
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='phone') THEN
                             ALTER TABLE customers ADD COLUMN phone TEXT;
@@ -161,11 +174,37 @@ namespace DChemist.Database
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='customers' AND column_name='email') THEN
                             ALTER TABLE customers ADD COLUMN email TEXT;
                         END IF;
+                        -- Add returned_qty to sale_items if missing
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='returned_qty') THEN
+                            ALTER TABLE sale_items ADD COLUMN returned_qty INTEGER NOT NULL DEFAULT 0;
+                        END IF;
                     END $$;";
                 
                 using (var migCmd = new NpgsqlCommand(migrationQuery, connection))
                 {
                     migCmd.ExecuteNonQuery();
+                }
+
+                // Ensure settings table exists
+                const string checkSettingsTableSql = "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'settings')";
+                using (var checkCmd = new NpgsqlCommand(checkSettingsTableSql, connection))
+                {
+                    if (!(bool)(checkCmd.ExecuteScalar() ?? false))
+                    {
+                        const string createSettingsSql = @"
+                            CREATE TABLE settings (
+                                key TEXT PRIMARY KEY,
+                                value TEXT
+                            );
+                            INSERT INTO settings (key, value) VALUES ('tax_rate', '0.0');
+                            INSERT INTO settings (key, value) VALUES ('fbr_pos_id', 'DChemist-POS-001');
+                            INSERT INTO settings (key, value) VALUES ('fbr_api_url', 'https://ims.fbr.gov.pk/api/v3/Post/PostInvoice');
+                            INSERT INTO settings (key, value) VALUES ('fbr_is_live', 'false');
+                            INSERT INTO settings (key, value) VALUES ('fbr_token', '');
+                        ";
+                        using var createCmd = new NpgsqlCommand(createSettingsSql, connection);
+                        createCmd.ExecuteNonQuery();
+                    }
                 }
 
                 // Ensure admin exists with new credentials

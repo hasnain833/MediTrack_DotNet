@@ -14,6 +14,7 @@ namespace DChemist.Models
         public decimal DiscountAmount { get; set; }
         public decimal GrandTotal { get; set; }
         public DateTime SaleDate { get; set; }
+        public string Status { get; set; } = "Completed";
         
         public List<SaleItem> Items { get; set; } = new();
     }
@@ -26,6 +27,7 @@ namespace DChemist.Models
         public int? BatchId { get; set; }
         public string MedicineName { get; set; } = string.Empty;  // For error reporting
         public int Quantity { get; set; }
+        public int ReturnedQuantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal Subtotal { get; set; }
     }

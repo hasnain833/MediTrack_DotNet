@@ -7,38 +7,130 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer Padding="32">
-        <StackPanel Spacing="32">
-            <!-- Grid for Metric Cards -->
-            <GridView ItemsSource="{x:Bind ViewModel.Metrics}" SelectionMode="None">
-                <GridView.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <VariableSizedWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="4"/>
-                    </ItemsPanelTemplate>
-                </GridView.ItemsPanel>
-                <GridView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:MetricItem">
-                        <Grid Width="280" Height="140" Margin="0,0,16,16">
-                            <Border Style="{StaticResource PremiumCardStyle}">
+    <Grid Background="#F8F9FA">
+        <ScrollViewer Padding="0,0,0,32">
+            <StackPanel Spacing="32">
+
+                <!-- Welcome Banner -->
+                <Border Background="{StaticResource PremiumBackgroundBrush}" 
+                        CornerRadius="0,0,24,24" Padding="40" Margin="0,0,0,16">
+                    <Grid>
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Dashboard Overview" FontSize="36" FontWeight="SemiBold" Foreground="White" />
+                            <TextBlock Text="Welcome back! Here's what's happening today." FontSize="16" Foreground="#A0AEC0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Main Content Area -->
+                <StackPanel Padding="40,0,40,0" Spacing="32">
+                    
+                    <!-- Metrics Section -->
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="Key Metrics" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <GridView ItemsSource="{x:Bind ViewModel.Metrics}" SelectionMode="None">
+                            <GridView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <VariableSizedWrapGrid Orientation="Horizontal" MaximumRowsOrColumns="4"/>
+                                </ItemsPanelTemplate>
+                            </GridView.ItemsPanel>
+                            <GridView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MetricItem">
+                                    <Grid Width="280" Height="150" Margin="0,0,24,24">
+                                        <Border Style="{StaticResource PremiumCardStyle}" Padding="24">
+                                            <Grid>
+                                                <StackPanel Spacing="8" VerticalAlignment="Top">
+                                                    <TextBlock Text="{x:Bind Title}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14" FontWeight="Medium"/>
+                                                    <TextBlock Text="{x:Bind Value}" FontSize="32" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                </StackPanel>
+                                                <Border HorizontalAlignment="Right" VerticalAlignment="Top" Width="50" Height="50" 
+                                                        Background="#F0F7FF" CornerRadius="12">
+                                                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Icon}" 
+                                                              Foreground="{StaticResource AccentAccent}" FontSize="24"/>
+                                                </Border>
+                                                <TextBlock Text="{x:Bind Trend}" VerticalAlignment="Bottom" FontSize="13" FontWeight="SemiBold"
+                                                           Foreground="{x:Bind Positive, Converter={StaticResource PositiveToColorConverter}}"/>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </GridView.ItemTemplate>
+                        </GridView>
+                    </StackPanel>
+
+                    <Grid ColumnSpacing="32">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Recent Sales Table -->
+                        <Border Style="{StaticResource PremiumCardStyle}" Padding="24">
+                            <StackPanel Spacing="20">
+                                <TextBlock Text="Recent Sales Activity" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                
                                 <Grid>
-                                    <StackPanel Spacing="6" VerticalAlignment="Top">
-                                        <TextBlock Text="{x:Bind Title}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" FontWeight="Medium"/>
-                                        <TextBlock Text="{x:Bind Value}" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                    </StackPanel>
-                                    <Border HorizontalAlignment="Right" VerticalAlignment="Top" Width="44" Height="44" 
-                                            Background="#F0F7FF" CornerRadius="10">
-                                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Icon}" 
-                                                  Foreground="{StaticResource AccentAccent}" FontSize="20"/>
-                                    </Border>
-                                    <TextBlock Text="{x:Bind Trend}" VerticalAlignment="Bottom" FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{x:Bind Positive, Converter={StaticResource PositiveToColorConverter}}"/>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="1.5*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="INVOICE" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Grid.Column="0"/>
+                                    <TextBlock Text="DATE &amp; TIME" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Grid.Column="1"/>
+                                    <TextBlock Text="METHOD" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Grid.Column="2"/>
+                                    <TextBlock Text="TOTAL" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}" Grid.Column="3" HorizontalAlignment="Right"/>
                                 </Grid>
+                                
+                                <ItemsControl ItemsSource="{x:Bind ViewModel.RecentSales}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:RecentSaleItem">
+                                            <Grid Margin="0,8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="1.5*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{x:Bind Invoice}" FontWeight="Medium" Grid.Column="0" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{x:Bind Date, Converter={StaticResource DateConverter}}" Foreground="{StaticResource TextSecondaryBrush}" Grid.Column="1" VerticalAlignment="Center"/>
+                                                <Border Background="#E6F4EA" CornerRadius="4" Padding="8,4" Grid.Column="2" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <TextBlock Text="{x:Bind Method}" FontSize="12" FontWeight="SemiBold" Foreground="#1E8E3E"/>
+                                                </Border>
+                                                <TextBlock Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}}" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                
+                                <TextBlock Text="No recent sales to display." FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,32,0,0"
+                                           Visibility="{x:Bind ViewModel.RecentSales.Count, Converter={StaticResource InverseBooleanConverter}}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- System Status -->
+                        <Grid Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            
+                            <Border Style="{StaticResource PremiumCardStyle}" Padding="24" Background="{StaticResource PremiumAccentBrush}" Grid.Row="0" Margin="0,0,0,24">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="System Status" FontSize="16" FontWeight="SemiBold" Foreground="White"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
+                                        <FontIcon Glyph="&#xE930;" Foreground="White" FontSize="32" VerticalAlignment="Center"/>
+                                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                                            <TextBlock Text="All Systems Operational" FontWeight="Bold" Foreground="White" FontSize="16"/>
+                                            <TextBlock Text="FBR Integration: Connected" Foreground="#E0F7FF" FontSize="12"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </StackPanel>
                             </Border>
                         </Grid>
-                    </DataTemplate>
-                </GridView.ItemTemplate>
-            </GridView>
-
-        </StackPanel>
-    </ScrollViewer>
+                    </Grid>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
 </Page>

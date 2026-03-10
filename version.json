@@ -1,0 +1,5 @@
+{
+    "LatestVersion": "1.0.2.0",
+    "DownloadUrl": "https://raw.githubusercontent.com/hasnain833/DChemistUpdates/main/UpdatePackage-1.0.2.0.zip",
+    "ReleaseNotes": "Production Release 1.0.2.0\n\nFeatures & Fixes:\n- Premium Dashboard UI redesign with live activity feed.\n- Improved Medicine dialog layout and Save logic.\n- Corrected `inventory_batches` stock and price updates."
+}

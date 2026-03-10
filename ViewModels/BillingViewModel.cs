@@ -20,7 +20,10 @@ namespace DChemist.ViewModels
         private readonly AuthService _authService;
         private readonly IPrintService _printService;
         private readonly IFiscalService _fiscalService;
+        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
+        private readonly SettingsService _settingsService;
 
+        private decimal _taxRate;
         private string _searchMedicineText = string.Empty;
         private string _customerName = string.Empty;
         private string _customerPhone = string.Empty;
@@ -37,7 +40,9 @@ namespace DChemist.ViewModels
 
         public BillingViewModel(MedicineRepository medicineRepository, SaleRepository saleRepository, 
                                  CustomerRepository customerRepository, BatchRepository batchRepository, 
-                                 AuthService authService, IPrintService printService, IFiscalService fiscalService)
+                                 AuthService authService, IPrintService printService, IFiscalService fiscalService,
+                                 Microsoft.Extensions.Configuration.IConfiguration configuration,
+                                 SettingsService settingsService)
         {
             _medicineRepository = medicineRepository;
             _saleRepository = saleRepository;
@@ -46,16 +51,26 @@ namespace DChemist.ViewModels
             _authService = authService;
             _printService = printService;
             _fiscalService = fiscalService;
+            _configuration = configuration;
+            _settingsService = settingsService;
             _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+            _taxRate = 0.0m; // Default, will be loaded in InitializeAsync
 
             CartItems = new ObservableCollection<SaleItemViewModel>();
             MedicineResults = new ObservableCollection<Medicine>();
 
-            SearchCommand = new RelayCommand(async _ => await SearchMedicinesAsync());
-            AddToCartCommand = new RelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
+            SearchCommand = new AsyncRelayCommand(async _ => await SearchMedicinesAsync());
+            AddToCartCommand = new AsyncRelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
             RemoveFromCartCommand = new RelayCommand(item => ExecuteRemoveFromCart(item as SaleItemViewModel), item => item is SaleItemViewModel);
-            CompleteSaleCommand = new RelayCommand(async _ => await ExecuteCompleteSaleAsync(), _ => CartItems.Any());
-            PrintBillCommand = new RelayCommand(_ => ExecutePrintBill(), _ => CartItems.Any());
+            CompleteSaleCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(), _ => CartItems.Any());
+            PrintBillCommand = new AsyncRelayCommand(async _ => await ExecutePrintBillAsync(), _ => CartItems.Any());
+        }
+
+        public async Task InitializeAsync()
+        {
+            _taxRate = await _settingsService.GetTaxRateAsync();
+            OnPropertyChanged(nameof(TaxRateText));
         }
 
         /// <summary>
@@ -76,13 +91,14 @@ namespace DChemist.ViewModels
         public Medicine? SelectedMedicine
         {
             get => _selectedMedicine;
-            set { if (SetProperty(ref _selectedMedicine, value)) ((RelayCommand)AddToCartCommand).RaiseCanExecuteChanged(); }
+            set { if (SetProperty(ref _selectedMedicine, value)) ((AsyncRelayCommand)AddToCartCommand).RaiseCanExecuteChanged(); }
         }
 
         public string CustomerName { get => _customerName; set => SetProperty(ref _customerName, value); }
         public string CustomerPhone { get => _customerPhone; set => SetProperty(ref _customerPhone, value); }
         public decimal TotalAmount { get => _totalAmount; set => SetProperty(ref _totalAmount, value); }
         public decimal TaxAmount { get => _taxAmount; set => SetProperty(ref _taxAmount, value); }
+        public string TaxRateText => $"Tax ({_taxRate * 100:0.##}%)";
         public decimal DiscountAmount { get => _discountAmount; set { if (SetProperty(ref _discountAmount, value)) UpdateTotals(); } }
         public string DiscountText
         {
@@ -168,7 +184,7 @@ namespace DChemist.ViewModels
                 CartItems.Add(newItem);
             }
             UpdateTotals();
-            ((RelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
+            ((AsyncRelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
         }
 
         private void ExecuteRemoveFromCart(SaleItemViewModel? item)
@@ -177,7 +193,7 @@ namespace DChemist.ViewModels
             item.PropertyChanged -= OnItemPropertyChanged;
             CartItems.Remove(item);
             UpdateTotals();
-            ((RelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
+            ((AsyncRelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
         }
 
         private void OnItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -191,12 +207,12 @@ namespace DChemist.ViewModels
         private void UpdateTotals()
         {
             TotalAmount = CartItems.Sum(i => i.Subtotal);
-            TaxAmount = TotalAmount * 0.18m;
+            TaxAmount = TotalAmount * _taxRate;
             DiscountAmount = TotalAmount * (_discountPercentage / 100m);
             GrandTotal = TotalAmount + TaxAmount - DiscountAmount;
         }
 
-        private async void ExecutePrintBill()
+        private async Task ExecutePrintBillAsync()
         {
             await PrintCurrentReceiptAsync("BILL-" + DateTime.Now.Ticks.ToString().Substring(10), null);
         }
@@ -212,6 +228,7 @@ namespace DChemist.ViewModels
                 CustomerPhone = CustomerPhone,
                 TotalAmount = TotalAmount,
                 TaxAmount = TaxAmount,
+                TaxRateText = TaxRateText + ":",
                 DiscountAmount = DiscountAmount,
                 GrandTotal = GrandTotal
             };
@@ -290,10 +307,8 @@ namespace DChemist.ViewModels
                 UpdateTotals();
                 CustomerName = "";
                 CustomerPhone = "";
-                StatusMessage = fbrResponse.Success ? "✅ Sale completed & reported to FBR." : "⚠ Sale saved, but FBR report failed.";
-                ((RelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
-                // The SaleRepository already published InventoryChanged, so the
-                // Inventory page will auto-refresh without any additional work here.
+                StatusMessage = fbrResponse.Success ? "✅ Sale completed (FBR Simulator Mode)." : "⚠ Sale saved, but FBR Simulator failed.";
+                ((AsyncRelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
             }
             catch (InvalidOperationException ex)
             {

@@ -18,13 +18,15 @@ namespace DChemist.Services
     public class UpdateService
     {
         private readonly IConfiguration _configuration;
+        private readonly AuthorizationService _authService;
         private readonly HttpClient _httpClient;
         private readonly string _currentVersion;
         private readonly string _updateServerUrl;
 
-        public UpdateService(IConfiguration configuration)
+        public UpdateService(IConfiguration configuration, AuthorizationService authService)
         {
             _configuration = configuration;
+            _authService = authService;
             _httpClient = new HttpClient();
             _currentVersion = _configuration["Update:CurrentVersion"] ?? "1.0.0";
             _updateServerUrl = _configuration["Update:UpdateServerUrl"] ?? string.Empty;
@@ -34,6 +36,7 @@ namespace DChemist.Services
 
         public async Task<UpdateInfo?> CheckForUpdatesAsync()
         {
+            if (!_authService.IsAdmin) return null;
             if (string.IsNullOrEmpty(_updateServerUrl)) return null;
 
             try
@@ -81,6 +84,7 @@ namespace DChemist.Services
 
         public async Task<string?> DownloadUpdateAsync(string downloadUrl, Action<double> progressCallback)
         {
+            if (!_authService.IsAdmin) return null;
             try
             {
                 var updateDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D. Chemist", "Updates");
@@ -129,6 +133,11 @@ namespace DChemist.Services
         {
             try
             {
+                if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
+                {
+                    AppLogger.LogError($"Update file not found or invalid path: {zipPath}");
+                    return;
+                }
                 var appPath = AppDomain.CurrentDomain.BaseDirectory;
                 var updaterPath = Path.Combine(appPath, "updater.exe");
                 

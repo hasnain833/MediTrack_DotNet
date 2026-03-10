@@ -6,5 +6,6 @@ namespace DChemist.Services
     public interface IPrintService
     {
         Task PrintReceiptAsync(UIElement receiptElement, string jobName);
+        Task<bool> PrintReceiptSilentAsync(DChemist.ViewModels.ReceiptViewModel receipt, string printerName);
     }
 }

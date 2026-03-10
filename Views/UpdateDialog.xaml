@@ -7,9 +7,11 @@
     mc:Ignorable="d"
     Title="New Version Available"
     PrimaryButtonText="Update Now"
-    SecondaryButtonText="Remind Me Later"
+    SecondaryButtonText="Not Now"
     DefaultButton="Primary"
-    Style="{StaticResource DefaultContentDialogStyle}">
+    PrimaryButtonStyle="{StaticResource PremiumButtonStyle}"
+    SecondaryButtonStyle="{StaticResource SecondaryButtonStyle}"
+    CornerRadius="16">
 
     <StackPanel Spacing="20" Width="400" Margin="0,10,0,0">
         <StackPanel Spacing="4">

@@ -33,6 +33,15 @@ namespace DChemistUpdater
                 try
                 {
                     var process = Process.GetProcessById(processId);
+                    
+                    // SECURITY: Verify the process name to prevent spoofing
+                    string procName = process.ProcessName.ToLower();
+                    if (!procName.Contains("dchemist") && !procName.Contains("meditrack"))
+                    {
+                        Console.WriteLine($"Security Error: PID {processId} ({procName}) is not authorized for update.");
+                        return;
+                    }
+
                     if (!process.WaitForExit(10000))
                     {
                         Console.WriteLine("Main application is taking too long to close. Killing it...");
@@ -60,6 +69,17 @@ namespace DChemistUpdater
                 Console.WriteLine("Applying updates...");
                 try
                 {
+                    // SECURITY: Basic manifest validation before extraction
+                    using (ZipArchive archive = ZipFile.OpenRead(zipPath))
+                    {
+                        bool valid = archive.Entries.Any(e => e.FullName.EndsWith("DChemist.dll", StringComparison.OrdinalIgnoreCase));
+                        if (!valid)
+                        {
+                            Console.WriteLine("Security Error: Update package is invalid or malicious (missing DChemist.dll).");
+                            return;
+                        }
+                    }
+
                     ZipFile.ExtractToDirectory(zipPath, appPath, true);
                     Console.WriteLine("Update applied successfully.");
                 }

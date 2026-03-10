@@ -85,6 +85,7 @@ namespace DChemist
             services.AddSingleton<ManufacturerRepository>();
             services.AddSingleton<SupplierRepository>();
             services.AddSingleton<BatchRepository>();
+            services.AddSingleton<AuditRepository>();
 
             // Services
             services.AddSingleton<AuthService>();
@@ -95,6 +96,10 @@ namespace DChemist
             services.AddSingleton<IReportingService, ReportingService>();
             services.AddSingleton<UpdateService>();
             services.AddSingleton<InventoryEventBus>();
+            services.AddSingleton<IDialogService, DialogService>();
+            services.AddSingleton<AlertService>();
+            services.AddSingleton<BackupService>();
+            services.AddSingleton<SettingsService>();
 
             // ViewModels
             services.AddTransient<LoginViewModel>();
@@ -103,6 +108,7 @@ namespace DChemist
             services.AddTransient<InventoryViewModel>();
             services.AddTransient<BillingViewModel>();
             services.AddTransient<FinancialViewModel>();
+            services.AddTransient<SettingsViewModel>();
 
             return services.BuildServiceProvider();
         }

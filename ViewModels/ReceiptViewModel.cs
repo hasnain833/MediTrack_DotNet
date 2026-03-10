@@ -25,6 +25,7 @@ namespace DChemist.ViewModels
         
         public decimal TotalAmount { get; set; }
         public decimal TaxAmount { get; set; }
+        public string TaxRateText { get; set; } = "Tax:";
         public decimal DiscountAmount { get; set; }
         public decimal GrandTotal { get; set; }
         
@@ -33,7 +34,7 @@ namespace DChemist.ViewModels
 
         public async Task InitializeQrCode(IFiscalService fiscalService)
         {
-            var qrData = fiscalService.GenerateFiscalQrData(BillNo, GrandTotal, TaxAmount, FbrInvoiceNo ?? "PENDING");
+            var qrData = await fiscalService.GenerateFiscalQrDataAsync(BillNo, GrandTotal, TaxAmount, FbrInvoiceNo ?? "PENDING");
             var qrBytes = fiscalService.GenerateQrCodeImage(qrData);
 
             using (var ms = new InMemoryRandomAccessStream())

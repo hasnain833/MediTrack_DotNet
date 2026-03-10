@@ -20,23 +20,23 @@ namespace DChemist.ViewModels
         {
             _authService = authService;
             _navigationService = navigationService;
-            LoginCommand = new RelayCommand(async _ => await ExecuteLoginAsync(), _ => CanLogin());
+            LoginCommand = new AsyncRelayCommand(async _ => await ExecuteLoginAsync(), _ => CanLogin());
         }
 
         public string Username
         {
             get => _username;
-            set { if (SetProperty(ref _username, value)) ((RelayCommand)LoginCommand).RaiseCanExecuteChanged(); }
+            set { if (SetProperty(ref _username, value)) ((AsyncRelayCommand)LoginCommand).RaiseCanExecuteChanged(); }
         }
 
         public string Password
         {
             get => _password;
-            set { if (SetProperty(ref _password, value)) ((RelayCommand)LoginCommand).RaiseCanExecuteChanged(); }
+            set { if (SetProperty(ref _password, value)) ((AsyncRelayCommand)LoginCommand).RaiseCanExecuteChanged(); }
         }
 
         public string? ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value); }
-        public bool IsBusy { get => _isBusy; set { if (SetProperty(ref _isBusy, value)) ((RelayCommand)LoginCommand).RaiseCanExecuteChanged(); } }
+        public bool IsBusy { get => _isBusy; set { if (SetProperty(ref _isBusy, value)) ((AsyncRelayCommand)LoginCommand).RaiseCanExecuteChanged(); } }
 
         public ICommand LoginCommand { get; }
 

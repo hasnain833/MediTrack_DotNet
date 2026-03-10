@@ -11,10 +11,13 @@ namespace DChemist.ViewModels
     public class DashboardViewModel : ViewModelBase
     {
         private readonly DatabaseService _db;
+        private readonly AuthorizationService _auth;
 
-        public DashboardViewModel(DatabaseService db)
+        public DashboardViewModel(DatabaseService db, AuthorizationService auth)
         {
             _db = db;
+            _auth = auth;
+            
             Metrics = new ObservableCollection<MetricItem>
             {
                 new() { Title = "Low Stock Items",  Icon = "\uE7BA", Value = "—", Trend = "Loading…",          Positive = false },
@@ -27,6 +30,8 @@ namespace DChemist.ViewModels
         }
 
         public ObservableCollection<MetricItem> Metrics { get; }
+        public ObservableCollection<RecentSaleItem> RecentSales { get; } = new();
+        public bool IsAdmin => _auth.IsAdmin;
 
         private async Task LoadRealStatsAsync()
         {
@@ -80,6 +85,25 @@ namespace DChemist.ViewModels
                     Metrics[3].Trend = $"{salesCount} transaction(s) today";
                 }
 
+                // 5. Recent Sales Activity
+                using (var cmd = new NpgsqlCommand(
+                    "SELECT invoice_number, sale_date, grand_total, payment_method FROM sales ORDER BY sale_date DESC LIMIT 5", conn))
+                using (var reader = await cmd.ExecuteReaderAsync())
+                {
+                    App.MainRoot?.DispatcherQueue.TryEnqueue(() => RecentSales.Clear());
+                    while (await reader.ReadAsync())
+                    {
+                        var sale = new RecentSaleItem
+                        {
+                            Invoice = reader["invoice_number"].ToString() ?? "N/A",
+                            Date = Convert.ToDateTime(reader["sale_date"]),
+                            Total = Convert.ToDecimal(reader["grand_total"]),
+                            Method = reader["payment_method"].ToString() ?? "Cash"
+                        };
+                        App.MainRoot?.DispatcherQueue.TryEnqueue(() => RecentSales.Add(sale));
+                    }
+                }
+
                 // Force UI refresh for all metrics
                 foreach (var m in Metrics) m.NotifyChanged();
 
@@ -109,5 +133,13 @@ namespace DChemist.ViewModels
 
         /// <summary>Force the UI to re-read all properties of this item.</summary>
         public void NotifyChanged() => OnPropertyChanged(string.Empty);
+    }
+
+    public class RecentSaleItem
+    {
+        public string Invoice { get; set; } = string.Empty;
+        public DateTime Date { get; set; }
+        public decimal Total { get; set; }
+        public string Method { get; set; } = string.Empty;
     }
 }

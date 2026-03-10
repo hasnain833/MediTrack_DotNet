@@ -184,8 +184,8 @@
                         <TextBlock Text="{x:Bind ViewModel.TotalAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
                                    HorizontalAlignment="Right" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold"/>
                     </Grid>
-                    <Grid>
-                        <TextBlock Text="Tax (18%)" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Medium"/>
+                    <Grid Visibility="{x:Bind ViewModel.TaxAmount, Mode=OneWay, Converter={StaticResource DecimalToVisibilityConverter}}">
+                        <TextBlock Text="{x:Bind ViewModel.TaxRateText, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="Medium"/>
                         <TextBlock Text="{x:Bind ViewModel.TaxAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
                                    HorizontalAlignment="Right" Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold"/>
                     </Grid>

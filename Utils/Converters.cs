@@ -102,4 +102,28 @@ namespace DChemist.Utils
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
+
+    public class StatusToBackgroundConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            var status = value as string;
+            if (status == "Voided") return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 254, 226, 226)); // Red light
+            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 236, 253, 245)); // Green light
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    public class StatusToForegroundConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            var status = value as string;
+            if (status == "Voided") return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 38, 38)); // Red text
+            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 5, 150, 105)); // Green text
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
 }

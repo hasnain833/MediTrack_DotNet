@@ -84,8 +84,8 @@
             <TextBlock Text="Subtotal:" FontSize="10" HorizontalAlignment="Left"/>
             <TextBlock Text="{x:Bind ViewModel.TotalAmount, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
         </Grid>
-        <Grid Margin="0,2">
-            <TextBlock Text="Tax (18%):" FontSize="10" HorizontalAlignment="Left"/>
+        <Grid Margin="0,2" Visibility="{x:Bind ViewModel.TaxAmount, Converter={StaticResource DecimalToVisibilityConverter}, Mode=OneWay}">
+            <TextBlock Text="{x:Bind ViewModel.TaxRateText, Mode=OneWay}" FontSize="10" HorizontalAlignment="Left"/>
             <TextBlock Text="{x:Bind ViewModel.TaxAmount, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
         </Grid>
         <Grid Margin="0,2" Visibility="{x:Bind ViewModel.DiscountAmount, Converter={StaticResource DecimalToVisibilityConverter}, Mode=OneWay}">
@@ -101,7 +101,7 @@
         <Rectangle Height="1" Fill="Black" Margin="0,5"/>
 
         <!-- Fiscal Section -->
-        <TextBlock Text="FBR REGISTERED POS" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
+        <TextBlock Text="FBR SIMULATOR MODE" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
         <TextBlock Text="{x:Bind ViewModel.FbrInvoiceNo}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         <Image Source="{x:Bind ViewModel.QrCodeImage, Mode=OneWay}" Width="100" Height="100" HorizontalAlignment="Center" Margin="5"/>
         <TextBlock Text="Scan to verify invoice" FontSize="8" HorizontalAlignment="Center"/>

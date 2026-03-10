@@ -52,5 +52,6 @@ namespace DChemist.Services
         MedicineUpdated,
         MedicineDeleted,
         StockDeducted,   // After a sale is completed
+        StockAdjusted,   // After a void or manual adjustment
     }
 }

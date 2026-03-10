@@ -9,6 +9,8 @@
     <Product>D. Chemist</Product>
     <ApplicationTitle>D. Chemist</ApplicationTitle>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>1.0.2.0</Version>
+    <FileVersion>1.0.2.0</FileVersion>
     
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
