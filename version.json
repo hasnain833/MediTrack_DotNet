@@ -1,5 +1,5 @@
 {
-    "LatestVersion": "1.0.2.0",
-    "DownloadUrl": "https://raw.githubusercontent.com/hasnain833/DChemistUpdates/main/UpdatePackage-1.0.2.0.zip",
-    "ReleaseNotes": "Production Release 1.0.2.0\n\nFeatures & Fixes:\n- Premium Dashboard UI redesign with live activity feed.\n- Improved Medicine dialog layout and Save logic.\n- Corrected `inventory_batches` stock and price updates."
+    "LatestVersion": "1.0.3.0",
+    "DownloadUrl": "https://raw.githubusercontent.com/hasnain833/DChemistUpdates/main/UpdatePackage-1.0.3.0.zip",
+    "ReleaseNotes": "Production Release 1.0.3.0\n\nStability & UI Enhancements:\n- CRITICAL: Resolved memory crash (AccessViolationException) on Billing Page via robust WinRT interop.\n- Fixed Dashboard statistics and recent sales activity loading.\n- Consolidated Billing Page actions into a single 'Finish & Print Receipt' button.\n- Added proper padding and vertical spacing across all main pages.\n- Fixed Stock In NumberBox crashes with new DecimalToDoubleConverter."
 }
