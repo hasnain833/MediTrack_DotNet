@@ -22,6 +22,7 @@ namespace DChemist.Repositories
             _eventBus = eventBus;
         }
 
+
         public async Task<List<Medicine>> GetAllAsync()
         {
             const string query = @"
@@ -128,6 +129,11 @@ namespace DChemist.Repositories
                 Strength        = reader["strength"] != DBNull.Value ? reader["strength"].ToString() : null,
                 Barcode         = reader["barcode"].ToString() ?? string.Empty,
                 CreatedAt       = Convert.ToDateTime(reader["created_at"]),
+                // Multi-unit packaging
+                BaseUnit        = reader["base_unit"] != DBNull.Value ? reader["base_unit"].ToString()! : "unit",
+                StripSize       = reader["strip_size"] != DBNull.Value ? Convert.ToInt32(reader["strip_size"]) : null,
+                BoxSize         = reader["box_size"] != DBNull.Value ? Convert.ToInt32(reader["box_size"]) : null,
+                // Joined aggregates
                 CategoryName    = reader["category_name"] != DBNull.Value ? reader["category_name"].ToString() : null,
                 ManufacturerName = reader["manufacturer_name"] != DBNull.Value ? reader["manufacturer_name"].ToString() : null,
                 SupplierName    = reader["supplier_name"] != DBNull.Value ? reader["supplier_name"].ToString() : null,
@@ -160,8 +166,8 @@ namespace DChemist.Repositories
 
                 // 2. Insert Medicine
                 const string medQuery = @"
-                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode)
-                    VALUES (@name, @generic, @catId, @manId, @dosage, @strength, @barcode)
+                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode, base_unit, strip_size, box_size)
+                    VALUES (@name, @generic, @catId, @manId, @dosage, @strength, @barcode, @baseUnit, @stripSize, @boxSize)
                     RETURNING id;";
 
                 using var medCmd = new NpgsqlCommand(medQuery, connection, transaction);
@@ -172,6 +178,9 @@ namespace DChemist.Repositories
                 medCmd.Parameters.AddWithValue("@dosage", medicine.DosageForm ?? (object)DBNull.Value);
                 medCmd.Parameters.AddWithValue("@strength", medicine.Strength ?? (object)DBNull.Value);
                 medCmd.Parameters.AddWithValue("@barcode", medicine.Barcode);
+                medCmd.Parameters.AddWithValue("@baseUnit", string.IsNullOrWhiteSpace(medicine.BaseUnit) ? "unit" : medicine.BaseUnit);
+                medCmd.Parameters.AddWithValue("@stripSize", medicine.StripSize.HasValue ? (object)medicine.StripSize.Value : DBNull.Value);
+                medCmd.Parameters.AddWithValue("@boxSize", medicine.BoxSize.HasValue ? (object)medicine.BoxSize.Value : DBNull.Value);
 
                 int medId = Convert.ToInt32(await medCmd.ExecuteScalarAsync());
 
@@ -262,7 +271,8 @@ namespace DChemist.Repositories
                 const string medQuery = @"
                     UPDATE medicines 
                     SET name = @name, generic_name = @generic, category_id = @catId, 
-                        manufacturer_id = @manId, dosage_form = @dosage, strength = @strength, barcode = @barcode
+                        manufacturer_id = @manId, dosage_form = @dosage, strength = @strength, barcode = @barcode,
+                        base_unit = @baseUnit, strip_size = @stripSize, box_size = @boxSize
                     WHERE id = @id";
                 
                 using var medCmd = new NpgsqlCommand(medQuery, connection, transaction);
@@ -274,6 +284,9 @@ namespace DChemist.Repositories
                 medCmd.Parameters.AddWithValue("@dosage", medicine.DosageForm ?? (object)DBNull.Value);
                 medCmd.Parameters.AddWithValue("@strength", medicine.Strength ?? (object)DBNull.Value);
                 medCmd.Parameters.AddWithValue("@barcode", medicine.Barcode);
+                medCmd.Parameters.AddWithValue("@baseUnit", string.IsNullOrWhiteSpace(medicine.BaseUnit) ? "unit" : medicine.BaseUnit);
+                medCmd.Parameters.AddWithValue("@stripSize", medicine.StripSize.HasValue ? (object)medicine.StripSize.Value : DBNull.Value);
+                medCmd.Parameters.AddWithValue("@boxSize", medicine.BoxSize.HasValue ? (object)medicine.BoxSize.Value : DBNull.Value);
                 await medCmd.ExecuteNonQueryAsync();
 
                 // 3. Update Inventory Batch (Price and Quantity)
@@ -316,6 +329,34 @@ namespace DChemist.Repositories
             await _db.ExecuteNonQueryAsync(query, parameters);
 
             // Notify all screens about the deleted medicine
+            _eventBus.Publish(InventoryChangeType.MedicineDeleted);
+        }
+
+        public async Task DeleteBulkAsync(IEnumerable<int> ids)
+        {
+            _auth.EnforceAdmin();
+            if (ids == null || !ids.Any()) return;
+
+            using var connection = _db.GetConnection();
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+            
+            try
+            {
+                const string query = "DELETE FROM medicines WHERE id = ANY(@ids)";
+                using var cmd = new NpgsqlCommand(query, connection, transaction);
+                cmd.Parameters.AddWithValue("ids", ids.ToArray());
+                await cmd.ExecuteNonQueryAsync();
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                AppLogger.LogError("MedicineRepository.DeleteBulkAsync failed", ex);
+                throw new DataAccessException("Could not delete selected medicines. Ensure they are not tied to existing sales.", ex);
+            }
+
+            // Notify all screens about the deleted medicines
             _eventBus.Publish(InventoryChangeType.MedicineDeleted);
         }
     }

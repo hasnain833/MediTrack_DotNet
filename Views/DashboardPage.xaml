@@ -104,7 +104,7 @@
                                 </ItemsControl>
                                 
                                 <TextBlock Text="No recent sales to display." FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,32,0,0"
-                                           Visibility="{x:Bind ViewModel.RecentSales.Count, Converter={StaticResource InverseBooleanConverter}}"/>
+                                           Visibility="{x:Bind ViewModel.RecentSales.Count, Converter={StaticResource EmptyToVisibilityConverter}}"/>
                             </StackPanel>
                         </Border>
 

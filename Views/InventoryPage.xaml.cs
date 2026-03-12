@@ -13,6 +13,8 @@ namespace DChemist.Views
         {
             this.InitializeComponent();
             ViewModel = App.Current.Services.GetRequiredService<InventoryViewModel>();
+            // Load data AFTER the page is rendered — avoids blocking the navigation frame
+            this.Loaded += async (_, _) => await ViewModel.LoadAsync();
         }
 
         private void OnTogglePriceClick(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

@@ -36,6 +36,12 @@ namespace DChemist.Services
 
             // Access the PrintManager for the window
             var printManager = PrintManagerInterop.GetForWindow(hWnd);
+            if (printManager == null)
+            {
+                System.Diagnostics.Debug.WriteLine("[ThermalPrintService] PrintManager could not be initialized.");
+                return;
+            }
+
             printManager.PrintTaskRequested += PrintManager_PrintTaskRequested;
 
             // Show the Print UI
@@ -51,9 +57,13 @@ namespace DChemist.Services
             {
                 // Unregister events after printing
                 printManager.PrintTaskRequested -= PrintManager_PrintTaskRequested;
-                _printDocument.Paginate -= PrintDocument_Paginate;
-                _printDocument.GetPreviewPage -= PrintDocument_GetPreviewPage;
-                _printDocument.AddPages -= PrintDocument_AddPages;
+                
+                if (_printDocument != null)
+                {
+                    _printDocument.Paginate -= PrintDocument_Paginate;
+                    _printDocument.GetPreviewPage -= PrintDocument_GetPreviewPage;
+                    _printDocument.AddPages -= PrintDocument_AddPages;
+                }
             }
         }
 
@@ -148,56 +158,106 @@ namespace DChemist.Services
         [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
         internal interface IPrintManagerInterop
         {
-            IntPtr GetForWindow([In] IntPtr appWindow, [In] ref Guid riid);
-            IntPtr ShowPrintUIForWindowAsync([In] IntPtr appWindow, [In] ref Guid riid);
+            [PreserveSig]
+            int GetForWindow([In] IntPtr appWindow, [In] ref Guid riid, out IntPtr result);
+            [PreserveSig]
+            int ShowPrintUIForWindowAsync([In] IntPtr appWindow, [In] ref Guid riid, out IntPtr result);
         }
 
-        [DllImport("combase.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
-        private static extern void RoGetActivationFactory(string runtimeClassId, ref Guid iid, out IntPtr factory);
+        [DllImport("combase.dll", SetLastError = true, PreserveSig = true)]
+        private static extern int RoGetActivationFactory(IntPtr runtimeClassId, ref Guid iid, out IntPtr factory);
 
-        private static IPrintManagerInterop GetInterop()
+        [DllImport("combase.dll", CharSet = CharSet.Unicode, PreserveSig = true)]
+        private static extern int WindowsCreateString(string sourceString, uint length, out IntPtr hstring);
+
+        [DllImport("combase.dll", PreserveSig = true)]
+        private static extern int WindowsDeleteString(IntPtr hstring);
+
+        private static IPrintManagerInterop? GetInterop()
         {
-            // Use the IID of IPrintManagerInterop specifically
-            Guid iid = new Guid("372F1D3D-1424-4B44-B524-74744419E77F");
-            RoGetActivationFactory("Windows.Graphics.Printing.PrintManager", ref iid, out IntPtr factory);
+            IntPtr hClassName = IntPtr.Zero;
+            IntPtr factory = IntPtr.Zero;
             try
             {
+                string className = "Windows.Graphics.Printing.PrintManager";
+                WindowsCreateString(className, (uint)className.Length, out hClassName);
+                
+                Guid iid = new Guid("372F1D3D-1424-4B44-B524-74744419E77F"); 
+                int hr = RoGetActivationFactory(hClassName, ref iid, out factory);
+                
+                if (hr != 0 || factory == IntPtr.Zero)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[PrintManagerInterop] Failed to get factory. HRESULT: 0x{hr:X}");
+                    return null;
+                }
+
                 return (IPrintManagerInterop)Marshal.GetObjectForIUnknown(factory);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[PrintManagerInterop] Exception in GetInterop: {ex.Message}");
+                return null;
             }
             finally
             {
+                if (hClassName != IntPtr.Zero) WindowsDeleteString(hClassName);
                 if (factory != IntPtr.Zero) Marshal.Release(factory);
             }
         }
 
-        public static PrintManager GetForWindow(IntPtr hWnd)
+        public static PrintManager? GetForWindow(IntPtr hWnd)
         {
-            var interop = GetInterop();
-            Guid iid = typeof(PrintManager).GUID;
-            IntPtr result = interop.GetForWindow(hWnd, ref iid);
             try
             {
-                return WinRT.MarshalInspectable<PrintManager>.FromAbi(result);
+                var interop = GetInterop();
+                if (interop == null) return null;
+
+                Guid iid = typeof(PrintManager).GUID;
+                int hr = interop.GetForWindow(hWnd, ref iid, out IntPtr result);
+                
+                if (hr != 0 || result == IntPtr.Zero) return null;
+
+                try
+                {
+                    return WinRT.MarshalInspectable<PrintManager>.FromAbi(result);
+                }
+                finally
+                {
+                    Marshal.Release(result);
+                }
             }
-            finally
+            catch (Exception ex)
             {
-                if (result != IntPtr.Zero) Marshal.Release(result);
+                System.Diagnostics.Debug.WriteLine($"[PrintManagerInterop] GetForWindow failed: {ex.Message}");
+                return null;
             }
         }
 
         public static async Task ShowPrintUIForWindowAsync(IntPtr hWnd)
         {
-            var interop = GetInterop();
-            Guid iid = new Guid("5AD5CE31-6BC0-4700-9FAD-662174C51305"); // IAsyncAction
-            IntPtr result = interop.ShowPrintUIForWindowAsync(hWnd, ref iid);
             try
             {
-                var action = WinRT.MarshalInterface<Windows.Foundation.IAsyncAction>.FromAbi(result);
-                await action;
+                var interop = GetInterop();
+                if (interop == null) return;
+
+                Guid iid = new Guid("5AD5CE31-6BC0-4700-9FAD-662174C51305"); // IAsyncAction
+                int hr = interop.ShowPrintUIForWindowAsync(hWnd, ref iid, out IntPtr result);
+                
+                if (hr != 0 || result == IntPtr.Zero) return;
+
+                try
+                {
+                    var action = WinRT.MarshalInterface<Windows.Foundation.IAsyncAction>.FromAbi(result);
+                    await action;
+                }
+                finally
+                {
+                    Marshal.Release(result);
+                }
             }
-            finally
+            catch (Exception ex)
             {
-                if (result != IntPtr.Zero) Marshal.Release(result);
+                System.Diagnostics.Debug.WriteLine($"[PrintManagerInterop] ShowPrintUIForWindowAsync failed: {ex.Message}");
             }
         }
     }

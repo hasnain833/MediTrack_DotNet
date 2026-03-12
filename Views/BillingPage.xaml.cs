@@ -11,13 +11,18 @@ namespace DChemist.Views
 
         public BillingPage()
         {
+            System.Diagnostics.Debug.WriteLine("[BillingPage] Constructor: Initializing XAML Components...");
             this.InitializeComponent();
+            System.Diagnostics.Debug.WriteLine("[BillingPage] Constructor: Resolving ViewModel...");
             ViewModel = App.Current.Services.GetRequiredService<BillingViewModel>();
+            System.Diagnostics.Debug.WriteLine("[BillingPage] Constructor: Ready.");
         }
         protected override async void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
         {
+            System.Diagnostics.Debug.WriteLine("[BillingPage] OnNavigatedTo: Start.");
             base.OnNavigatedTo(e);
             await ViewModel.InitializeAsync();
+            System.Diagnostics.Debug.WriteLine("[BillingPage] OnNavigatedTo: ViewModel Initialized.");
         }
         private void MedicineSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
         {

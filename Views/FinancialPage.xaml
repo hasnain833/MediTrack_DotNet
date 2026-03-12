@@ -8,16 +8,25 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <Grid Background="{ThemeResource AppBackgroundBrush}" Padding="32">
+    <Grid Background="{ThemeResource AppBackgroundBrush}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- Page Banner -->
+        <Border Background="{StaticResource PremiumBackgroundBrush}"
+                CornerRadius="0,0,24,24" Padding="40,32">
+            <StackPanel Spacing="6">
+                <TextBlock Text="Financial Reports" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
+                <TextBlock Text="Track sales, revenue, and transaction history." FontSize="15" Foreground="#A0AEC0"/>
+            </StackPanel>
+        </Border>
 
         <!-- Revenue Stats -->
-        <ItemsControl Grid.Row="1" ItemsSource="{x:Bind ViewModel.RevenueStats}" Margin="0,0,0,32">
+        <ItemsControl Grid.Row="1" ItemsSource="{x:Bind ViewModel.RevenueStats}" Margin="32,24,32,0">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <StackPanel Orientation="Horizontal" Spacing="24"/>
@@ -37,7 +46,7 @@
         </ItemsControl>
 
         <!-- Sales History -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="2" Margin="32,16,32,32">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>

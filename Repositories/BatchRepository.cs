@@ -82,5 +82,50 @@ namespace DChemist.Repositories
                 throw new DataAccessException("Could not add the inventory batch.", ex);
             }
         }
+
+        /// <summary>
+        /// Saves all receiving items as new inventory_batches rows in a single
+        /// database transaction. Rolls back completely on any failure.
+        /// </summary>
+        public async Task AddBulkAsync(IEnumerable<InventoryBatch> batches)
+        {
+            _auth.EnforceAdmin();
+            using var connection = _db.GetConnection();
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+            try
+            {
+                const string query = @"
+                    INSERT INTO inventory_batches
+                        (medicine_id, supplier_id, batch_number, purchase_price, selling_price, stock_qty, expiry_date)
+                    VALUES
+                        (@medId, @supId, @batch, @pPrice, @sPrice, @qty, @eDate)";
+
+                int count = 0;
+                foreach (var batch in batches)
+                {
+                    using var cmd = new NpgsqlCommand(query, connection, transaction);
+                    cmd.Parameters.AddWithValue("@medId",  batch.MedicineId);
+                    cmd.Parameters.AddWithValue("@supId",  batch.SupplierId > 0 ? (object)batch.SupplierId : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@batch",  batch.BatchNumber);
+                    cmd.Parameters.AddWithValue("@pPrice", batch.PurchasePrice);
+                    cmd.Parameters.AddWithValue("@sPrice", batch.SellingPrice);
+                    cmd.Parameters.AddWithValue("@qty",    batch.StockQty);
+                    cmd.Parameters.AddWithValue("@eDate",  batch.ExpiryDate.Date);
+                    await cmd.ExecuteNonQueryAsync();
+                    count++;
+                    AppLogger.LogInfo($"[StockIn] Inserted: medicine_id={batch.MedicineId}, batch={batch.BatchNumber}, qty={batch.StockQty}");
+                }
+
+                await transaction.CommitAsync();
+                AppLogger.LogInfo($"[StockIn] Bulk save committed — {count} batch(es).");
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                AppLogger.LogError("BatchRepository.AddBulkAsync failed — rolled back", ex);
+                throw new DataAccessException("Bulk stock save failed. All changes have been rolled back.", ex);
+            }
+        }
     }
 }

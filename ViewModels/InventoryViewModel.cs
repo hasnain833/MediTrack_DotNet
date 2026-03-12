@@ -38,12 +38,13 @@ namespace DChemist.ViewModels
             AddMedicineCommand = new AsyncRelayCommand(async _ => await ExecuteAddMedicineAsync());
             EditMedicineCommand = new AsyncRelayCommand(async m => await ExecuteEditMedicineAsync(m as Medicine));
             DeleteMedicineCommand = new AsyncRelayCommand(async m => await ExecuteDeleteMedicineAsync(m as Medicine));
+            DeleteSelectedCommand = new AsyncRelayCommand(async _ => await ExecuteDeleteSelectedAsync());
             TogglePurchasePriceCommand = new RelayCommand(m => ExecuteTogglePurchasePrice(m as Medicine));
             ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportInventoryToCsvAsync(Medicines));
 
             _eventBus.InventoryChanged += OnInventoryChanged;
-            _ = RefreshAsync();
         }
+        public Task LoadAsync() => RefreshAsync();
 
         public ObservableCollection<Medicine> Medicines { get; }
         public bool IsAdmin => _auth.IsAdmin;
@@ -55,14 +56,13 @@ namespace DChemist.ViewModels
         }
 
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
-
-        /// <summary>Shown as an inline error banner in InventoryPage. Empty = banner hidden.</summary>
         public string ErrorMessage { get => _errorMessage; set => SetProperty(ref _errorMessage, value); }
 
         public ICommand RefreshCommand { get; }
         public ICommand AddMedicineCommand { get; }
         public ICommand EditMedicineCommand { get; }
         public ICommand DeleteMedicineCommand { get; }
+        public ICommand DeleteSelectedCommand { get; }
         public ICommand TogglePurchasePriceCommand { get; }
         public ICommand ExportCommand { get; }
 
@@ -202,6 +202,51 @@ namespace DChemist.ViewModels
                 {
                     ErrorMessage = "Could not delete medicine. Please try again.";
                     AppLogger.LogError("InventoryViewModel.ExecuteDeleteMedicineAsync unexpected error", ex);
+                }
+            }
+        }
+
+        private async Task ExecuteDeleteSelectedAsync()
+        {
+            var selectedIds = Medicines.Where(m => m.IsSelected).Select(m => m.Id).ToList();
+            if (!selectedIds.Any()) return;
+
+            bool confirmed = await _dialogService.ShowConfirmationAsync(
+                "Delete Selected Medicines",
+                $"Are you sure you want to delete {selectedIds.Count} selected medicine(s)? This action cannot be undone.",
+                "Delete All",
+                "Cancel"
+            );
+
+            if (confirmed)
+            {
+                ErrorMessage = string.Empty;
+                IsBusy = true;
+                try
+                {
+                    await _medicineRepository.DeleteBulkAsync(selectedIds);
+                    // The event bus will trigger a RefreshAsync, clearing the selected items.
+                }
+                catch (DataAccessException ex)
+                {
+                    // Postgres error 23503 is Foreign Key Violation
+                    if (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23503")
+                    {
+                        ErrorMessage = "Cannot delete medicines that have already been sold. Check sales history.";
+                    }
+                    else
+                    {
+                        ErrorMessage = ex.Message;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ErrorMessage = "Could not delete selected medicines. Please try again.";
+                    AppLogger.LogError("InventoryViewModel.ExecuteDeleteSelectedAsync unexpected error", ex);
+                }
+                finally
+                {
+                    IsBusy = false;
                 }
             }
         }

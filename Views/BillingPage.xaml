@@ -8,14 +8,30 @@
     mc:Ignorable="d"
     x:Name="PageRoot">
 
-    <Grid Background="{ThemeResource AppBackgroundBrush}">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="320"/>
-        </Grid.ColumnDefinitions>
+    <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Page Banner -->
+        <Border Background="{StaticResource PremiumBackgroundBrush}"
+                CornerRadius="0,0,24,24" Padding="40,28" Margin="0,0,0,24">
+            <StackPanel Spacing="6">
+                <TextBlock Text="Billing" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
+                <TextBlock Text="Create sales, scan items and generate receipts." FontSize="15" Foreground="#A0AEC0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Main two-column layout -->
+        <Grid Grid.Row="1" Background="{ThemeResource AppBackgroundBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="320"/>
+            </Grid.ColumnDefinitions>
 
         <!-- Left: Bill Generation -->
-        <Grid Padding="0,0,16,0">
+        <Grid Padding="40,0,16,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -84,20 +100,23 @@
                     <Grid Background="#1A1A2E" CornerRadius="12,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="100"/>
-                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="70"/>
                             <ColumnDefinition Width="110"/>
                             <ColumnDefinition Width="60"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Medicine" Foreground="White" FontWeight="SemiBold"
                                    FontSize="13" Margin="16,12"/>
-                        <TextBlock Grid.Column="1" Text="Price" Foreground="White" FontWeight="SemiBold"
-                                   FontSize="13" Margin="12,12"/>
-                        <TextBlock Grid.Column="2" Text="Qty" Foreground="White" FontWeight="SemiBold"
-                                   FontSize="13" Margin="12,12"/>
-                        <TextBlock Grid.Column="3" Text="Subtotal" Foreground="White" FontWeight="SemiBold"
+                        <TextBlock Grid.Column="1" Text="Unit" Foreground="White" FontWeight="SemiBold"
+                                   FontSize="13" Margin="4,12"/>
+                        <TextBlock Grid.Column="2" Text="Price" Foreground="White" FontWeight="SemiBold"
+                                   FontSize="13" Margin="4,12"/>
+                        <TextBlock Grid.Column="3" Text="Qty" Foreground="White" FontWeight="SemiBold"
+                                   FontSize="13" Margin="4,12"/>
+                        <TextBlock Grid.Column="4" Text="Subtotal" Foreground="White" FontWeight="SemiBold"
                                    FontSize="13" HorizontalAlignment="Right" Margin="0,12,16,12"/>
-                        <TextBlock Grid.Column="4" Text="" Margin="0,12,16,12"/>
+                        <TextBlock Grid.Column="5" Text="" Margin="0,12,16,12"/>
                     </Grid>
 
                     <!-- Cart Items (real data) + sample rows shown when cart is empty -->
@@ -107,38 +126,51 @@
                             <ItemsControl ItemsSource="{x:Bind ViewModel.CartItems, Mode=OneWay}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SaleItemViewModel">
-                                        <Grid Padding="16,0" MinHeight="50"
+                                        <Grid Padding="16,0" MinHeight="54"
                                               BorderBrush="#F0F0F0" BorderThickness="0,0,0,1">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="100"/>
-                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="110"/>
+                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="70"/>
                                                 <ColumnDefinition Width="110"/>
                                                 <ColumnDefinition Width="60"/>
                                             </Grid.ColumnDefinitions>
+                                            <!-- Medicine Name -->
                                             <TextBlock Text="{x:Bind MedicineName}"
                                                        Foreground="{StaticResource TextPrimaryBrush}"
                                                        FontWeight="Medium" VerticalAlignment="Center"/>
-                                            <TextBlock Grid.Column="1"
-                                                       Text="{x:Bind UnitPrice, Converter={StaticResource CurrencyConverter}}"
+                                            <!-- Unit selector -->
+                                            <ComboBox Grid.Column="1"
+                                                      ItemsSource="{x:Bind AvailableUnits, Mode=OneWay}"
+                                                      SelectedItem="{x:Bind SelectedUnit, Mode=TwoWay}"
+                                                      HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                                      Padding="8,4" FontSize="13"
+                                                      CornerRadius="6" Margin="4,6"/>
+                                            <!-- Effective unit price -->
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{x:Bind UnitPrice, Converter={StaticResource CurrencyConverter}, Mode=OneWay}"
                                                        Foreground="{StaticResource TextSecondaryBrush}"
-                                                       VerticalAlignment="Center" Margin="12,0"/>
-                                            <TextBox Grid.Column="2"
+                                                       VerticalAlignment="Center" Margin="4,0" FontSize="13"/>
+                                            <!-- Quantity -->
+                                            <TextBox Grid.Column="3"
                                                      Text="{x:Bind Quantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                      HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                                                     TextAlignment="Center" Margin="4,8"/>
-                                             <TextBlock Grid.Column="3"
-                                                        Text="{x:Bind Subtotal, Converter={StaticResource CurrencyConverter}}"
-                                                        Foreground="{StaticResource AccentAccent}"
-                                                        FontWeight="SemiBold" HorizontalAlignment="Right"
-                                                        VerticalAlignment="Center" Margin="0,0,16,0"/>
-                                             <Button Grid.Column="4" 
-                                                     Command="{Binding DataContext.RemoveFromCartCommand, ElementName=PageRoot}"
-                                                     CommandParameter="{Binding}"
-                                                     Style="{StaticResource TextBlockButtonStyle}" 
-                                                     Padding="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                 <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="#E53E3E"/>
-                                             </Button>
+                                                     TextAlignment="Center" Margin="2,8"/>
+                                            <!-- Subtotal -->
+                                            <TextBlock Grid.Column="4"
+                                                       Text="{x:Bind Subtotal, Converter={StaticResource CurrencyConverter}, Mode=OneWay}"
+                                                       Foreground="{StaticResource AccentAccent}"
+                                                       FontWeight="SemiBold" HorizontalAlignment="Right"
+                                                       VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                            <!-- Remove -->
+                                            <Button Grid.Column="5" 
+                                                    Command="{Binding ViewModel.RemoveFromCartCommand, ElementName=PageRoot}"
+                                                    CommandParameter="{Binding}"
+                                                    Style="{StaticResource TextBlockButtonStyle}" 
+                                                    Padding="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="#E53E3E"/>
+                                            </Button>
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -151,8 +183,8 @@
         </Grid>
 
         <!-- Right: Customer Info + Order Summary -->
-        <Border Grid.Column="1" Style="{StaticResource PremiumCardStyle}" Margin="0" Padding="0">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <Border Grid.Column="1" Style="{StaticResource PremiumCardStyle}" Margin="0,0,0,0" Padding="0">
+            <ScrollViewer VerticalScrollBarVisibility="Hidden">
                 <StackPanel Spacing="24" Padding="20">
                 <!-- Customer Information -->
                 <StackPanel Spacing="16">
@@ -216,13 +248,9 @@
 
                 <!-- Actions -->
                 <StackPanel Spacing="10">
-                    <Button Content="Finish &amp; Print" Command="{x:Bind ViewModel.CompleteSaleCommand}"
-                            Style="{StaticResource PremiumButtonStyle}" Height="48"
-                            HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
-                    
-                    <Button Content="Print Bill" Command="{x:Bind ViewModel.PrintBillCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}" Height="48"
-                            HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
+                    <Button Content="Finish &amp; Print Receipt" Command="{x:Bind ViewModel.CompleteSaleCommand}"
+                            Style="{StaticResource PremiumButtonStyle}" Height="54"
+                            HorizontalAlignment="Stretch" FontSize="15" FontWeight="Bold"/>
 
                     <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                                   Foreground="{StaticResource AccentAccent}" HorizontalAlignment="Center"
@@ -238,5 +266,6 @@
                 </StackPanel>
             </ScrollViewer>
         </Border>
+        </Grid><!-- end inner two-column layout -->
     </Grid>
 </Page>

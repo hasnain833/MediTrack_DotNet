@@ -33,7 +33,8 @@ namespace DChemist.ViewModels
             {
                 new NavigationItem { Title = "Dashboard", Icon = "\uE80F", PageType = "DChemist.Views.DashboardPage", RequiresAdmin = false },
                 new NavigationItem { Title = "Inventory", Icon = "\uE811", PageType = "DChemist.Views.InventoryPage", RequiresAdmin = false },
-                new NavigationItem { Title = "Billing", Icon = "\uE825", PageType = "DChemist.Views.BillingPage", RequiresAdmin = false },
+                new NavigationItem { Title = "Stock In",  Icon = "\uE8EA", PageType = "DChemist.Views.StockInPage",   RequiresAdmin = true  },
+                new NavigationItem { Title = "Billing",   Icon = "\uE825", PageType = "DChemist.Views.BillingPage",   RequiresAdmin = false },
                 new NavigationItem { Title = "Financials", Icon = "\uE8C0", PageType = "DChemist.Views.FinancialPage", RequiresAdmin = true },
                 new NavigationItem { Title = "Settings", Icon = "\uE713", PageType = "DChemist.Views.SettingsPage", RequiresAdmin = true }
             };

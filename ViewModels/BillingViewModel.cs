@@ -44,6 +44,7 @@ namespace DChemist.ViewModels
                                  Microsoft.Extensions.Configuration.IConfiguration configuration,
                                  SettingsService settingsService)
         {
+            System.Diagnostics.Debug.WriteLine("[BillingViewModel] Constructor: Start.");
             _medicineRepository = medicineRepository;
             _saleRepository = saleRepository;
             _customerRepository = customerRepository;
@@ -64,7 +65,7 @@ namespace DChemist.ViewModels
             AddToCartCommand = new AsyncRelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
             RemoveFromCartCommand = new RelayCommand(item => ExecuteRemoveFromCart(item as SaleItemViewModel), item => item is SaleItemViewModel);
             CompleteSaleCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(), _ => CartItems.Any());
-            PrintBillCommand = new AsyncRelayCommand(async _ => await ExecutePrintBillAsync(), _ => CartItems.Any());
+            System.Diagnostics.Debug.WriteLine("[BillingViewModel] Constructor: Finished.");
         }
 
         public async Task InitializeAsync()
@@ -162,23 +163,29 @@ namespace DChemist.ViewModels
  
             if (bestBatch == null)
             {
-                // Handle out of stock (could show a message)
+                StatusMessage = $"⚠ '{med.Name}' is out of stock.";
                 return;
             }
  
-            var existing = CartItems.FirstOrDefault(i => i.MedicineId == med.Id && i.BatchId == bestBatch.Id);
+            var existing = CartItems.FirstOrDefault(i => i.MedicineId == med.Id && i.SelectedUnit == Capitalize(med.BaseUnit));
             if (existing != null)
             {
                 existing.Quantity++;
             }
             else
             {
-                var newItem = new SaleItemViewModel { 
-                    MedicineId = med.Id, 
-                    BatchId = bestBatch.Id,
-                    MedicineName = med.Name, 
-                    UnitPrice = bestBatch.SellingPrice, 
-                    Quantity = 1 
+                var defaultUnit = Capitalize(med.BaseUnit);
+                var newItem = new SaleItemViewModel
+                {
+                    MedicineId    = med.Id,
+                    BatchId       = bestBatch.Id,
+                    MedicineName  = med.Name,
+                    BaseUnitPrice = bestBatch.SellingPrice,
+                    BaseUnit      = med.BaseUnit,
+                    StripSize     = med.StripSize,
+                    BoxSize       = med.BoxSize,
+                    SelectedUnit  = defaultUnit,
+                    Quantity      = 1
                 };
                 newItem.PropertyChanged += OnItemPropertyChanged;
                 CartItems.Add(newItem);
@@ -186,6 +193,9 @@ namespace DChemist.ViewModels
             UpdateTotals();
             ((AsyncRelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
         }
+
+        private static string Capitalize(string s) =>
+            string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
         private void ExecuteRemoveFromCart(SaleItemViewModel? item)
         {
@@ -281,12 +291,14 @@ namespace DChemist.ViewModels
 
                 string billNo = "BILL-" + DateTime.Now.Ticks.ToString().Substring(10);
                 var items = CartItems.Select(i => new SaleItem { 
-                    MedicineId = i.MedicineId, 
-                    BatchId = i.BatchId,
-                    MedicineName = i.MedicineName,
-                    Quantity = i.Quantity, 
-                    UnitPrice = i.UnitPrice, 
-                    Subtotal = i.Subtotal 
+                    MedicineId      = i.MedicineId, 
+                    BatchId         = i.BatchId,
+                    MedicineName    = i.MedicineName,
+                    Quantity        = i.Quantity, 
+                    UnitPrice       = i.UnitPrice, 
+                    Subtotal        = i.Subtotal,
+                    SoldUnit        = i.SelectedUnit,
+                    BaseQtyDeducted = i.BaseQtyDeducted
                 }).ToList();
 
                 // ── Step 1: Report to FBR (Fiscalization) ────────────────────
@@ -329,9 +341,77 @@ namespace DChemist.ViewModels
         public int MedicineId { get; set; }
         public int BatchId { get; set; }
         public string MedicineName { get; set; } = string.Empty;
-        public decimal UnitPrice { get; set; }
-        private int _quantity;
-        public int Quantity { get => _quantity; set { if (SetProperty(ref _quantity, value)) OnPropertyChanged(nameof(Subtotal)); } }
+
+        // Base unit price (per single base unit, e.g. per tablet)
+        private decimal _baseUnitPrice;
+        public decimal BaseUnitPrice
+        {
+            get => _baseUnitPrice;
+            set { if (SetProperty(ref _baseUnitPrice, value)) { OnPropertyChanged(nameof(UnitPrice)); OnPropertyChanged(nameof(Subtotal)); } }
+        }
+
+        // Packaging info carried from Medicine
+        public string  BaseUnit  { get; set; } = "unit";
+        public int?    StripSize { get; set; }
+        public int?    BoxSize   { get; set; }
+
+        /// <summary>Available selling units as display strings.</summary>
+        public List<string> AvailableUnits
+        {
+            get
+            {
+                var list = new List<string> { Capitalize(BaseUnit) };
+                if (StripSize.HasValue && StripSize.Value > 0) list.Add("Strip");
+                if (BoxSize.HasValue   && BoxSize.Value   > 0) list.Add("Box");
+                return list;
+            }
+        }
+
+        private string _selectedUnit = string.Empty;
+        public string SelectedUnit
+        {
+            get => _selectedUnit;
+            set
+            {
+                if (SetProperty(ref _selectedUnit, value))
+                {
+                    OnPropertyChanged(nameof(ConversionFactor));
+                    OnPropertyChanged(nameof(UnitPrice));
+                    OnPropertyChanged(nameof(Subtotal));
+                }
+            }
+        }
+
+        /// <summary>How many base units are in one selected unit.</summary>
+        public int ConversionFactor
+        {
+            get
+            {
+                if (string.Equals(SelectedUnit, "Strip", StringComparison.OrdinalIgnoreCase))
+                    return StripSize ?? 1;
+                if (string.Equals(SelectedUnit, "Box", StringComparison.OrdinalIgnoreCase))
+                    return BoxSize ?? 1;
+                return 1; // base unit
+            }
+        }
+
+        /// <summary>Price for the currently selected unit.</summary>
+        public decimal UnitPrice => BaseUnitPrice * ConversionFactor;
+
+        private int _quantity = 1;
+        public int Quantity
+        {
+            get => _quantity;
+            set { if (SetProperty(ref _quantity, value)) OnPropertyChanged(nameof(Subtotal)); }
+        }
+
+        /// <summary>Subtotal: UnitPrice * Quantity (already in base-unit price equivalents).</summary>
         public decimal Subtotal => UnitPrice * Quantity;
+
+        /// <summary>How many base units to deduct from stock for this line item.</summary>
+        public int BaseQtyDeducted => Quantity * ConversionFactor;
+
+        private static string Capitalize(string s) =>
+            string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
     }
 }

@@ -23,7 +23,6 @@ namespace DChemist.ViewModels
                 new() { Title = "Low Stock Items",  Icon = "\uE7BA", Value = "—", Trend = "Loading…",          Positive = false },
                 new() { Title = "Expiring Soon",    Icon = "\uE916", Value = "—", Trend = "Within 90 days",    Positive = false },
                 new() { Title = "Today's Revenue",  Icon = "\uE94C", Value = "—", Trend = "Loading…",          Positive = true  },
-                new() { Title = "Sales Today",      Icon = "\uE825", Value = "—", Trend = "Loading…",          Positive = true  },
             };
 
             _ = LoadRealStatsAsync();
@@ -76,18 +75,9 @@ namespace DChemist.ViewModels
                     Metrics[2].Positive = revenue > 0;
                 }
 
-                // 4. Number of sales today
+                // 4. Recent Sales Activity
                 using (var cmd = new NpgsqlCommand(
-                    "SELECT COUNT(*) FROM sales WHERE sale_date::date = CURRENT_DATE", conn))
-                {
-                    var salesCount = Convert.ToInt64(await cmd.ExecuteScalarAsync() ?? 0);
-                    Metrics[3].Value = salesCount.ToString("N0");
-                    Metrics[3].Trend = $"{salesCount} transaction(s) today";
-                }
-
-                // 5. Recent Sales Activity
-                using (var cmd = new NpgsqlCommand(
-                    "SELECT invoice_number, sale_date, grand_total, payment_method FROM sales ORDER BY sale_date DESC LIMIT 5", conn))
+                    "SELECT bill_no, sale_date, grand_total FROM sales ORDER BY sale_date DESC LIMIT 5", conn))
                 using (var reader = await cmd.ExecuteReaderAsync())
                 {
                     App.MainRoot?.DispatcherQueue.TryEnqueue(() => RecentSales.Clear());
@@ -95,10 +85,10 @@ namespace DChemist.ViewModels
                     {
                         var sale = new RecentSaleItem
                         {
-                            Invoice = reader["invoice_number"].ToString() ?? "N/A",
+                            Invoice = reader["bill_no"].ToString() ?? "N/A",
                             Date = Convert.ToDateTime(reader["sale_date"]),
                             Total = Convert.ToDecimal(reader["grand_total"]),
-                            Method = reader["payment_method"].ToString() ?? "Cash"
+                            Method = "Cash" // Default as column is missing
                         };
                         App.MainRoot?.DispatcherQueue.TryEnqueue(() => RecentSales.Add(sale));
                     }

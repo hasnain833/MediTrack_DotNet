@@ -7,10 +7,23 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-    <ScrollViewer Padding="32">
-        <StackPanel Spacing="32" MaxWidth="1000" HorizontalAlignment="Left">
-            
-            <TextBlock Text="System Administration" FontSize="20" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+    <Grid Background="{ThemeResource AppBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Page Banner -->
+        <Border Background="{StaticResource PremiumBackgroundBrush}"
+                CornerRadius="0,0,24,24" Padding="40,32">
+            <StackPanel Spacing="6">
+                <TextBlock Text="Settings" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
+                <TextBlock Text="Configure system preferences and integrations." FontSize="15" Foreground="#A0AEC0"/>
+            </StackPanel>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Padding="32,24,32,32">
+            <StackPanel Spacing="32" MaxWidth="1000" HorizontalAlignment="Left">
 
             <!-- Database Management -->
             <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
@@ -53,7 +66,7 @@
                     </Button>
                 </StackPanel>
             </Border>
-
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </Page>

@@ -178,6 +178,23 @@ namespace DChemist.Database
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='returned_qty') THEN
                             ALTER TABLE sale_items ADD COLUMN returned_qty INTEGER NOT NULL DEFAULT 0;
                         END IF;
+                        -- ── Multi-unit medicine support (Phase 1) ──
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='base_unit') THEN
+                            ALTER TABLE medicines ADD COLUMN base_unit TEXT NOT NULL DEFAULT 'unit';
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='strip_size') THEN
+                            ALTER TABLE medicines ADD COLUMN strip_size INTEGER;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='box_size') THEN
+                            ALTER TABLE medicines ADD COLUMN box_size INTEGER;
+                        END IF;
+                        -- Track what unit was sold and how many base units were deducted
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='sold_unit') THEN
+                            ALTER TABLE sale_items ADD COLUMN sold_unit TEXT;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='base_qty_deducted') THEN
+                            ALTER TABLE sale_items ADD COLUMN base_qty_deducted INTEGER;
+                        END IF;
                     END $$;";
                 
                 using (var migCmd = new NpgsqlCommand(migrationQuery, connection))

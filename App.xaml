@@ -52,6 +52,7 @@
             <utils:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <utils:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
             <utils:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
+            <utils:EmptyToVisibilityConverter x:Key="EmptyToVisibilityConverter"/>
             <utils:CurrencyConverter x:Key="CurrencyConverter"/>
             <utils:DateConverter x:Key="DateConverter"/>
             <utils:PositiveToColorConverter x:Key="PositiveToColorConverter"/>
@@ -59,6 +60,7 @@
             <utils:PriceVisibilityConverter x:Key="PriceVisibilityConverter"/>
             <utils:StatusToBackgroundConverter x:Key="StatusToBackgroundConverter"/>
             <utils:StatusToForegroundConverter x:Key="StatusToForegroundConverter"/>
+            <utils:DecimalToDoubleConverter x:Key="DecimalToDoubleConverter"/>
 
             <!-- 3. Brushes (Dependent on Tokens) -->
             <SolidColorBrush x:Key="AccentAccent" Color="#00D2FF"/>
@@ -304,7 +306,6 @@
                 <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="RequestedTheme" Value="Light"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
             </Style>
 
@@ -314,7 +315,6 @@
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="CornerRadius" Value="8"/>
                 <Setter Property="PasswordRevealMode" Value="Hidden"/>
-                <Setter Property="RequestedTheme" Value="Light"/>
             </Style>
 
             <Style TargetType="AutoSuggestBox">
@@ -322,7 +322,6 @@
                 <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="RequestedTheme" Value="Light"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
             </Style>
 

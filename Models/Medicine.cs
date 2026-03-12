@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace DChemist.Models
 {
@@ -13,6 +14,19 @@ namespace DChemist.Models
         public string? Strength { get; set; }
         public string Barcode { get; set; } = string.Empty;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        private bool _isSelected;
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetProperty(ref _isSelected, value);
+        }
+
+        // Multi-unit packaging fields
+        public string BaseUnit { get; set; } = "unit";
+        public int? StripSize { get; set; }
+        public int? BoxSize { get; set; }
 
         // Joined properties for UI display
         public string? CategoryName { get; set; }
@@ -47,5 +61,24 @@ namespace DChemist.Models
 
         public int StockQty { get; set; }
         public DateTime? ExpiryDate { get; set; }
+        public List<(string Label, int Factor)> AvailableUnits
+        {
+            get
+            {
+                var units = new List<(string, int)>
+                {
+                    (Capitalize(BaseUnit), 1)
+                };
+                if (StripSize.HasValue && StripSize.Value > 0)
+                    units.Add(("Strip", StripSize.Value));
+                if (BoxSize.HasValue && BoxSize.Value > 0)
+                    units.Add(("Box", BoxSize.Value));
+                return units;
+            }
+        }
+
+        private static string Capitalize(string s) =>
+            string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
     }
 }
+
