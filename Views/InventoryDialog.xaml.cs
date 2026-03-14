@@ -28,10 +28,7 @@ namespace DChemist.Views
                     PurchasePrice  = medicine.PurchasePrice,
                     StockQty       = medicine.StockQty,
                     ExpiryDate     = medicine.ExpiryDate,
-                    SupplierName   = medicine.SupplierName,
-                    BaseUnit       = medicine.BaseUnit,
-                    StripSize      = medicine.StripSize,
-                    BoxSize        = medicine.BoxSize
+                    SupplierName   = medicine.SupplierName
                 };
                 
                 Title = "Edit Medicine";
@@ -47,17 +44,12 @@ namespace DChemist.Views
                 StockInput.Value        = Result.StockQty;
                 ExpiryInput.Date        = Result.ExpiryDate;
                 SupplierInput.Text      = Result.SupplierName ?? "";
-                // Packaging
-                BaseUnitInput.Text      = Result.BaseUnit;
-                StripSizeInput.Value    = Result.StripSize ?? 0;
-                BoxSizeInput.Value      = Result.BoxSize ?? 0;
             }
             else
             {
-                Result = new Medicine { ExpiryDate = DateTime.Now.AddYears(1), BaseUnit = "unit" };
+                Result = new Medicine { ExpiryDate = DateTime.Now.AddYears(1) };
                 Title = "Add New Medicine";
                 ExpiryInput.Date   = Result.ExpiryDate;
-                BaseUnitInput.Text = "unit";
             }
 
             this.PrimaryButtonClick += (s, e) =>
@@ -66,24 +58,6 @@ namespace DChemist.Views
                 {
                     e.Cancel = true;
                     ShowError("Medicine name is required.");
-                    return;
-                }
-
-                // --- Packaging validation ---
-                int stripSize = (int)StripSizeInput.Value;
-                int boxSize   = (int)BoxSizeInput.Value;
-
-                if (stripSize < 0 || boxSize < 0)
-                {
-                    e.Cancel = true;
-                    ShowError("Strip size and box size must be 0 or greater.");
-                    return;
-                }
-
-                if (stripSize > 0 && boxSize > 0 && boxSize < stripSize)
-                {
-                    e.Cancel = true;
-                    ShowError("Box size must be greater than or equal to strip size.");
                     return;
                 }
 
@@ -100,10 +74,6 @@ namespace DChemist.Views
                 Result.StockQty       = (int)StockInput.Value;
                 Result.SupplierName   = SupplierInput.Text;
                 Result.ExpiryDate     = ExpiryInput.Date?.DateTime;
-                // Packaging
-                Result.BaseUnit       = string.IsNullOrWhiteSpace(BaseUnitInput.Text) ? "unit" : BaseUnitInput.Text.Trim().ToLowerInvariant();
-                Result.StripSize      = stripSize > 0 ? stripSize : null;
-                Result.BoxSize        = boxSize   > 0 ? boxSize   : null;
             };
         }
 

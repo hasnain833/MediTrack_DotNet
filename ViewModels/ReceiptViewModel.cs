@@ -15,6 +15,8 @@ namespace DChemist.ViewModels
         public string PharmacyName => "D. Chemist";
         public string PharmacyAddress => "Khewra Road, Choa Saidan Shah, District Chakwal";
         public string PharmacyPhone => "+92-332-8787833";
+        public string PharmacyLicense => "License No: 01-372-0011-134212M";
+        public string PharmacyNtn => "NTN: 5000297-7";
         
         public string BillNo { get; set; } = string.Empty;
         public string Date { get; set; } = DateTime.Now.ToString("dd-MMM-yyyy HH:mm");

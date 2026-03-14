@@ -104,30 +104,7 @@
             <TextBox x:Name="BarcodeInput" PlaceholderText="Scan or enter barcode"/>
         </StackPanel>
 
-        <!-- Packaging / Unit Configuration -->
-        <TextBlock Text="Unit Configuration" FontSize="14" FontWeight="Bold"
-                   Foreground="{StaticResource TextPrimaryBrush}" Margin="0,4,0,0"/>
-        <Grid ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <StackPanel Spacing="6">
-                <TextBlock Text="Base Unit" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <TextBox x:Name="BaseUnitInput" PlaceholderText="e.g. tablet, injection"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Spacing="6">
-                <TextBlock Text="Strip Size (optional)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <NumberBox x:Name="StripSizeInput" Value="0" Minimum="0" SmallChange="1" SpinButtonPlacementMode="Compact"
-                           PlaceholderText="tablets per strip"/>
-            </StackPanel>
-            <StackPanel Grid.Column="2" Spacing="6">
-                <TextBlock Text="Box Size (optional)" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <NumberBox x:Name="BoxSizeInput" Value="0" Minimum="0" SmallChange="1" SpinButtonPlacementMode="Compact"
-                           PlaceholderText="base units per box"/>
-            </StackPanel>
-        </Grid>
+
         
         <TextBlock x:Name="ErrorMessage" Foreground="Red" FontSize="12" Visibility="Collapsed" Margin="0,4,0,0"/>
     </StackPanel>

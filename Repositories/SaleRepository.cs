@@ -36,23 +36,21 @@ namespace DChemist.Repositories
             {
                 foreach (var item in items)
                 {
-                    int baseQty = item.BaseQtyDeducted > 0 ? item.BaseQtyDeducted : item.Quantity;
-
                     const string totalStockQuery = @"
-                        SELECT COALESCE(SUM(stock_qty), 0)
+                        SELECT COALESCE(SUM(remaining_units), 0)
                         FROM inventory_batches
-                        WHERE medicine_id = @medId AND stock_qty > 0";
+                        WHERE medicine_id = @medId AND remaining_units > 0";
                     if (!item.MedicineId.HasValue) continue;
 
                     using var stockCmd = new NpgsqlCommand(totalStockQuery, connection, transaction);
                     stockCmd.Parameters.AddWithValue("@medId", item.MedicineId.Value);
                     var totalAvailable = Convert.ToInt32(await stockCmd.ExecuteScalarAsync() ?? 0);
 
-                    if (totalAvailable < baseQty)
+                    if (totalAvailable < item.Quantity)
                     {
                         throw new InvalidOperationException(
                             $"Insufficient stock for '{item.MedicineName}'. " +
-                            $"Requested: {baseQty} {(item.SoldUnit ?? "unit")}(s) in base units. Available: {totalAvailable}.");
+                            $"Requested: {item.Quantity} unit(s). Available: {totalAvailable}.");
                     }
                 }
 
@@ -79,13 +77,9 @@ namespace DChemist.Repositories
                 // ── Step 3: Insert Sale Items & Deduct Stock (FIFO) ──────────────
                 foreach (var item in items)
                 {
-                    // Use BaseQtyDeducted to know how many base units to pull from inventory.
-                    // If not set (legacy), fall back to Quantity.
-                    int baseQty = item.BaseQtyDeducted > 0 ? item.BaseQtyDeducted : item.Quantity;
-
                     const string itemQuery = @"
-                        INSERT INTO sale_items (sale_id, medicine_id, batch_id, quantity, unit_price, subtotal, sold_unit, base_qty_deducted)
-                        VALUES (@saleId, @medId, @batchId, @qty, @price, @subtotal, @soldUnit, @baseQty)";
+                        INSERT INTO sale_items (sale_id, medicine_id, batch_id, quantity, unit_price, subtotal)
+                        VALUES (@saleId, @medId, @batchId, @qty, @price, @subtotal)";
 
                     using var itemCmd = new NpgsqlCommand(itemQuery, connection, transaction);
                     itemCmd.Parameters.AddWithValue("@saleId", saleId);
@@ -94,24 +88,22 @@ namespace DChemist.Repositories
                     itemCmd.Parameters.AddWithValue("@qty", item.Quantity);
                     itemCmd.Parameters.AddWithValue("@price", item.UnitPrice);
                     itemCmd.Parameters.AddWithValue("@subtotal", item.Subtotal);
-                    itemCmd.Parameters.AddWithValue("@soldUnit", item.SoldUnit ?? (object)DBNull.Value);
-                    itemCmd.Parameters.AddWithValue("@baseQty", baseQty);
                     await itemCmd.ExecuteNonQueryAsync();
 
                     if (item.MedicineId.HasValue)
                     {
                         // FIFO Logic: Fetch all batches ordered by earliest expiry, deduct in base units
                         const string getBatchesQuery = @"
-                            SELECT id, stock_qty 
+                            SELECT id, remaining_units 
                             FROM inventory_batches 
-                            WHERE medicine_id = @medId AND stock_qty > 0 
+                            WHERE medicine_id = @medId AND remaining_units > 0 
                             ORDER BY expiry_date ASC, created_at ASC 
                             FOR UPDATE"; // Lock rows for consistency
                         
                         using var getBatchesCmd = new NpgsqlCommand(getBatchesQuery, connection, transaction);
                         getBatchesCmd.Parameters.AddWithValue("@medId", item.MedicineId.Value);
                         
-                        int remainingToDeduct = baseQty;
+                        int remainingToDeduct = item.Quantity;
                         using var reader = await getBatchesCmd.ExecuteReaderAsync();
                         var batchesToUpdate = new List<(int Id, int Deduct)>();
                         
@@ -133,7 +125,7 @@ namespace DChemist.Repositories
 
                         foreach (var batch in batchesToUpdate)
                         {
-                            const string updateQuery = "UPDATE inventory_batches SET stock_qty = stock_qty - @qty WHERE id = @id";
+                            const string updateQuery = "UPDATE inventory_batches SET remaining_units = remaining_units - @qty WHERE id = @id";
                             using var updateCmd = new NpgsqlCommand(updateQuery, connection, transaction);
                             updateCmd.Parameters.AddWithValue("@qty", batch.Deduct);
                             updateCmd.Parameters.AddWithValue("@id", batch.Id);
@@ -226,9 +218,7 @@ namespace DChemist.Repositories
                     Quantity = Convert.ToInt32(reader["quantity"]),
                     ReturnedQuantity = Convert.ToInt32(reader["returned_qty"]),
                     UnitPrice = Convert.ToDecimal(reader["unit_price"]),
-                    Subtotal = Convert.ToDecimal(reader["subtotal"]),
-                    SoldUnit = reader["sold_unit"] != DBNull.Value ? reader["sold_unit"].ToString() : null,
-                    BaseQtyDeducted = reader["base_qty_deducted"] != DBNull.Value ? Convert.ToInt32(reader["base_qty_deducted"]) : 0
+                    Subtotal = Convert.ToDecimal(reader["subtotal"])
                 }, itemsParams);
             }
 
@@ -261,7 +251,7 @@ namespace DChemist.Repositories
                     if (item.BatchId.HasValue && item.MedicineId.HasValue)
                     {
                         // Directly restore to the specific batch that was deducted if batch_id was stored properly
-                        const string restoreQuery = "UPDATE inventory_batches SET stock_qty = stock_qty + @qty WHERE id = @batchId";
+                        const string restoreQuery = "UPDATE inventory_batches SET remaining_units = remaining_units + @qty WHERE id = @batchId";
                         using var restoreCmd = new NpgsqlCommand(restoreQuery, connection, transaction);
                         restoreCmd.Parameters.AddWithValue("@qty", item.Quantity);
                         restoreCmd.Parameters.AddWithValue("@batchId", item.BatchId.Value);
@@ -272,7 +262,7 @@ namespace DChemist.Repositories
                         // Fallback: Restore to the latest batch
                         const string restoreFallbackQuery = @"
                             UPDATE inventory_batches 
-                            SET stock_qty = stock_qty + @qty 
+                            SET remaining_units = remaining_units + @qty 
                             WHERE id = (
                                 SELECT id FROM inventory_batches 
                                 WHERE medicine_id = @medId 
@@ -327,7 +317,7 @@ namespace DChemist.Repositories
                 if (remaining < 0) throw new InvalidOperationException("Return quantity exceeds original purchased quantity.");
 
                 // 2. Restore stock to inventory
-                const string restoreStockQuery = "UPDATE inventory_batches SET stock_qty = stock_qty + @qty WHERE id = @batchId";
+                const string restoreStockQuery = "UPDATE inventory_batches SET remaining_units = remaining_units + @qty WHERE id = @batchId";
                 using var restoreCmd = new NpgsqlCommand(restoreStockQuery, connection, transaction);
                 restoreCmd.Parameters.AddWithValue("@qty", returnQty);
                 restoreCmd.Parameters.AddWithValue("@batchId", batchId);

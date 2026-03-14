@@ -110,8 +110,8 @@
                     <controls:DataGridTextColumn Header="Medicine Name" Binding="{Binding Name}" Width="*"/>
                     <controls:DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="150"/>
                     <controls:DataGridTextColumn Header="Dosage" Binding="{Binding DosageForm}" Width="100"/>
-                    <controls:DataGridTextColumn Header="Selling Price" Binding="{Binding SellingPrice, Converter={StaticResource CurrencyConverter}}" Width="140"/>
-                    <controls:DataGridTemplateColumn Header="Purchase Price" Width="160">
+                    <controls:DataGridTextColumn Header="Selling Price (Per Unit)" Binding="{Binding SellingPrice, Converter={StaticResource CurrencyConverter}}" Width="140"/>
+                    <controls:DataGridTemplateColumn Header="Purchase Price (Per Unit)" Width="160">
                         <controls:DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="models:Medicine">
                                 <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,0">

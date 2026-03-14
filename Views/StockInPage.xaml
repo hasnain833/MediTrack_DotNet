@@ -9,7 +9,7 @@
     mc:Ignorable="d"
     x:Name="PageRoot">
 
-    <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light">
+    <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light" PointerPressed="PageRoot_PointerPressed">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -17,334 +17,297 @@
 
         <!-- ═══════════════ Banner Header ═══════════════ -->
         <Border Background="{StaticResource PremiumBackgroundBrush}"
-                CornerRadius="0,0,24,24" Padding="40,28" Margin="0,0,0,24">
+                CornerRadius="0,0,24,24" Padding="32,20" Margin="0,0,0,20">
             <Grid>
-                <StackPanel Spacing="4">
-                    <TextBlock Text="Stock In" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
-                    <TextBlock Text="Scan barcodes to receive stock and add inventory in bulk." FontSize="15" Foreground="#A0AEC0"/>
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Inventory Stock In" FontSize="28" FontWeight="SemiBold" Foreground="White"/>
+                    <TextBlock Text="Select a medicine to receive stock and update batch pricing." FontSize="14" Foreground="#A0AEC0"/>
                 </StackPanel>
 
-                <!-- Status Message (top-right) -->
-                <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
-                           HorizontalAlignment="Right" VerticalAlignment="Center"
-                           FontSize="13" FontWeight="SemiBold" Foreground="#A0AEC0"
-                           MaxWidth="420" TextWrapping="Wrap" TextAlignment="Right"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="20">
+                    <ToggleSwitch Header="Quick Scan (Auto-Add)" 
+                                  IsOn="{x:Bind ViewModel.IsAutoAddEnabled, Mode=TwoWay}"
+                                  FontSize="12" Foreground="White"
+                                  OnContent="Auto-Add ON" OffContent="Auto-Add OFF"/>
+                    <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                               FontSize="13" FontWeight="SemiBold" Foreground="#A0AEC0"
+                               MaxWidth="350" TextWrapping="Wrap" VerticalAlignment="Bottom"
+                               TextAlignment="Right"/>
+                </StackPanel>
             </Grid>
         </Border>
 
         <!-- ═══════════════ Main Content ═══════════════ -->
-        <ScrollViewer Grid.Row="1" Padding="32,20,32,32">
-            <StackPanel Spacing="20">
+        <Grid Grid.Row="1" Margin="24,0,24,24" ColumnSpacing="24">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="380"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
 
-                <!-- ── Invoice / Supplier Strip ── -->
-                <Border Style="{StaticResource PremiumCardStyle}" Padding="20,16">
-                    <Grid ColumnSpacing="20">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="260"/>
-                            <ColumnDefinition Width="180"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="Supplier" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <ComboBox ItemsSource="{x:Bind ViewModel.Suppliers, Mode=OneWay}"
-                                      SelectedItem="{x:Bind ViewModel.SelectedSupplier, Mode=TwoWay}"
-                                      DisplayMemberPath="Name"
-                                      HorizontalAlignment="Stretch"
-                                      PlaceholderText="Select supplier (optional)"
-                                      CornerRadius="8"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1" Spacing="6">
-                            <TextBlock Text="Invoice Number" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBox Text="{x:Bind ViewModel.InvoiceNumber, Mode=TwoWay}"
-                                     PlaceholderText="e.g. INV-2026-001" CornerRadius="8"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="2" Spacing="6">
-                            <TextBlock Text="Purchase Date" FontSize="12" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <CalendarDatePicker Date="{x:Bind ViewModel.PurchaseDate, Mode=TwoWay}"
-                                                HorizontalAlignment="Stretch" CornerRadius="8"/>
-                        </StackPanel>
-                    </Grid>
-                </Border>
-
-                <!-- ── Scan + Entry Form ── -->
-                <Border Style="{StaticResource PremiumCardStyle}" Padding="20">
-                    <Grid ColumnSpacing="24">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="280"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- LEFT: Barcode scan + medicine preview -->
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Scan Barcode" FontSize="15" FontWeight="Bold"
-                                       Foreground="{StaticResource TextPrimaryBrush}"/>
-
+            <!-- LEFT COLUMN: Entry Station -->
+            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="16">
+                    
+                    <!-- ── OPTION 1: Scan & Search ── -->
+                    <Border Style="{StaticResource PremiumCardStyle}" Padding="20">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Select Medicine" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            
+                            <!-- Barcode -->
                             <StackPanel Spacing="6">
-                                <TextBlock Text="Barcode / QR" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <!-- Auto-focuses; scanner sends Enter → triggers LookupBarcodeCommand -->
-                                <TextBox x:Name="BarcodeInput"
-                                         Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         PlaceholderText="Scan or type barcode…"
-                                         KeyboardAcceleratorPlacementMode="Auto"
-                                         CornerRadius="8"
-                                         KeyDown="OnBarcodeKeyDown"/>
-                                <Button Command="{x:Bind ViewModel.LookupBarcodeCommand}"
-                                        Style="{StaticResource PremiumButtonStyle}"
-                                        HorizontalAlignment="Stretch" CornerRadius="8">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Barcode Scan" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="BarcodeReceiver" PlaceholderText="Scan or type barcode..."
+                                             Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             KeyDown="OnBarcodeKeyDown" CornerRadius="8" />
+                                    <Button Grid.Column="1" Command="{x:Bind ViewModel.LookupBarcodeCommand}" 
+                                            Background="{StaticResource AccentAccent}" Foreground="White" CornerRadius="8">
                                         <FontIcon Glyph="&#xE721;" FontSize="14"/>
-                                        <TextBlock Text="Look Up"/>
-                                    </StackPanel>
-                                </Button>
+                                    </Button>
+                                </Grid>
                             </StackPanel>
 
-                            <!-- Medicine Preview Card -->
-                            <Border Background="#F0F7FF" CornerRadius="10" Padding="14"
-                                    Visibility="{x:Bind ViewModel.HasFoundMedicine, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="{x:Bind ViewModel.FoundName, Mode=OneWay}"
-                                               FontSize="16" FontWeight="Bold"
-                                               Foreground="{StaticResource TextPrimaryBrush}"/>
-                                    <TextBlock Text="{x:Bind ViewModel.FoundManufacturer, Mode=OneWay}"
-                                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="{x:Bind ViewModel.FoundCategory, Mode=OneWay}"
-                                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBlock FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{StaticResource AccentAccent}">
-                                        <Run Text="Base unit: "/>
-                                        <Run Text="{x:Bind ViewModel.FoundBaseUnit, Mode=OneWay}"/>
-                                    </TextBlock>
-                                </StackPanel>
-                            </Border>
+                            <Border BorderThickness="0,1,0,0" BorderBrush="#E2E8F0" Margin="0,4"/>
+
+                            <!-- Manual Search -->
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Manual Name Search" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <AutoSuggestBox PlaceholderText="Search by name..."
+                                                Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ItemsSource="{x:Bind ViewModel.SearchSuggestions, Mode=OneWay}"
+                                                SuggestionChosen="OnSuggestionChosen"
+                                                DisplayMemberPath="Name" QueryIcon="Find" CornerRadius="8"/>
+                                
+                                <Button Content="+ Add New Medicine" 
+                                        Command="{x:Bind ViewModel.RegisterNewMedCommand}"
+                                        Style="{StaticResource TextBlockButtonStyle}" 
+                                        Foreground="{StaticResource AccentAccent}"
+                                        FontSize="12" HorizontalAlignment="Right" Margin="0,4,0,0"/>
+                            </StackPanel>
                         </StackPanel>
+                    </Border>
 
-                        <!-- RIGHT: Entry form -->
-                        <Grid Grid.Column="1" ColumnSpacing="16" RowSpacing="12">
+                    <!-- ── OPTION 2: Add New Medicine (Embedded Form) ── -->
+                    <Border Style="{StaticResource PremiumCardStyle}" Padding="20" Background="#F7FAFC"
+                            Visibility="{x:Bind ViewModel.IsNewMedFormVisible, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="New Medicine Detected" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
+                            <TextBlock Text="This barcode isn't in your system. Register it below:" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            
+                            <TextBox Header="Medicine Name" HeaderTemplate="{StaticResource SmallHeader}"
+                                     Text="{x:Bind ViewModel.NewMedName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" CornerRadius="8"/>
+                            
+                            <TextBox Header="Generic Name" HeaderTemplate="{StaticResource SmallHeader}"
+                                     Text="{x:Bind ViewModel.NewMedGeneric, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" CornerRadius="8"/>
+
+                            <Button Content="Register &amp; Add to Stock" 
+                                    Command="{x:Bind ViewModel.SaveNewMedicineCommand}"
+                                    Style="{StaticResource PremiumButtonStyle}" HorizontalAlignment="Stretch" Margin="0,8,0,0"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ── Medicine Preview (Active Selection) ── -->
+                    <Border Background="#1A1A2E" CornerRadius="12" Padding="16"
+                            Visibility="{x:Bind ViewModel.HasFoundMedicine, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Active Selection" FontSize="11" FontWeight="Bold" Foreground="#A0AEC0"/>
+                            <TextBlock Text="{x:Bind ViewModel.FoundName, Mode=OneWay}" FontSize="18" FontWeight="Bold" Foreground="White"/>
+                            <TextBlock Text="{x:Bind ViewModel.FoundManufacturer, Mode=OneWay}" FontSize="12" Foreground="#CBD5E0"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+
+            <!-- RIGHT COLUMN: Batch Details & List -->
+            <Grid Grid.Column="1" RowSpacing="20">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- Batch & Supplier Info (Session Level) -->
+                <Border Style="{StaticResource PremiumCardStyle}" Padding="20" Background="#EDF2F7">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="Shipment &amp; Invoice Details" FontSize="15" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
+                        <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="140"/>
                             </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                            </Grid.RowDefinitions>
-
-                            <TextBlock Grid.ColumnSpan="3" Text="Entry Details"
-                                       FontSize="15" FontWeight="Bold"
-                                       Foreground="{StaticResource TextPrimaryBrush}"/>
-
-                            <!-- Row 1: Batch, Expiry, Unit -->
-                            <StackPanel Grid.Row="1" Spacing="6">
-                                <TextBlock Text="Batch Number *" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <TextBox Text="{x:Bind ViewModel.BatchNumber, Mode=TwoWay}"
-                                         PlaceholderText="e.g. BN-2026-001" CornerRadius="8"/>
+                            
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Supplier Name" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <ComboBox ItemsSource="{x:Bind ViewModel.Suppliers, Mode=OneWay}"
+                                          DisplayMemberPath="Name"
+                                          SelectedItem="{x:Bind ViewModel.SelectedSupplier, Mode=OneWay}"
+                                          SelectionChanged="OnSupplierSelectionChanged"
+                                          Text="{x:Bind ViewModel.SessionSupplierName, Mode=TwoWay}"
+                                          IsEditable="True" HorizontalAlignment="Stretch" CornerRadius="8"/>
                             </StackPanel>
 
-                            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="6">
-                                <TextBlock Text="Expiry Date *" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <CalendarDatePicker Date="{x:Bind ViewModel.ExpiryDate, Mode=TwoWay}"
-                                                    Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                                                    HorizontalAlignment="Stretch" CornerRadius="8"/>
-                            </StackPanel>
+                            <TextBox Grid.Column="1" Header="Invoice #" HeaderTemplate="{StaticResource SmallHeader}"
+                                     Text="{x:Bind ViewModel.SessionInvoiceNo, Mode=TwoWay}" CornerRadius="8"/>
 
-                            <StackPanel Grid.Row="1" Grid.Column="2" Spacing="6">
-                                <TextBlock Text="Purchase Unit *" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <ComboBox HorizontalAlignment="Stretch" CornerRadius="8"
-                                          Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                                          SelectedItem="{x:Bind ViewModel.SelectedUnit, Mode=TwoWay}"
-                                          ItemsSource="{x:Bind ViewModel.AvailableUnits, Mode=OneWay}"/>
-                            </StackPanel>
-
-                            <!-- Row 2: Qty, Purchase Price, Selling Price -->
-                            <StackPanel Grid.Row="2" Spacing="6">
-                                <TextBlock Text="Quantity *" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <NumberBox Value="{Binding ViewModel.Quantity, Mode=TwoWay, ElementName=PageRoot, Converter={StaticResource DecimalToDoubleConverter}}"
-                                           Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                                           Minimum="1" SmallChange="1"
-                                           SpinButtonPlacementMode="Compact" CornerRadius="8"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6">
-                                <TextBlock Text="Purchase Price *" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <NumberBox Value="{Binding ViewModel.PurchasePrice, Mode=TwoWay, ElementName=PageRoot, Converter={StaticResource DecimalToDoubleConverter}}"
-                                           Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                                           Minimum="0" SmallChange="10"
-                                           SpinButtonPlacementMode="Compact" CornerRadius="8"/>
-                            </StackPanel>
-
-                            <StackPanel Grid.Row="2" Grid.Column="2" Spacing="6">
-                                <TextBlock Text="Selling Price" FontSize="12" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <NumberBox Value="{Binding ViewModel.SellingPrice, Mode=TwoWay, ElementName=PageRoot, Converter={StaticResource DecimalToDoubleConverter}}"
-                                           Background="White" BorderBrush="#E2E8F0" BorderThickness="1"
-                                           Minimum="0" SmallChange="10"
-                                           SpinButtonPlacementMode="Compact" CornerRadius="8"/>
-                            </StackPanel>
-
-                            <!-- Row 3: Action buttons -->
-                            <StackPanel Grid.Row="3" Grid.ColumnSpan="3"
-                                        Orientation="Horizontal" Spacing="12"
-                                        HorizontalAlignment="Right">
-                                <Button Command="{x:Bind ViewModel.ClearEntryCommand}"
-                                        Style="{StaticResource SecondaryButtonStyle}"
-                                        CornerRadius="8" Padding="16,8">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon Glyph="&#xE711;" FontSize="14"/>
-                                        <TextBlock Text="Clear"/>
-                                    </StackPanel>
-                                </Button>
-                                <Button Command="{x:Bind ViewModel.AddToListCommand}"
-                                        Style="{StaticResource PremiumButtonStyle}"
-                                        CornerRadius="8" Padding="20,8">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon Glyph="&#xE710;" FontSize="14"/>
-                                        <TextBlock Text="Add to List" FontWeight="SemiBold"/>
-                                    </StackPanel>
-                                </Button>
-                            </StackPanel>
+                            <CalendarDatePicker Grid.Column="2" Header="Invoice Date" HeaderTemplate="{StaticResource SmallHeader}"
+                                                Date="{x:Bind ViewModel.SessionInvoiceDate, Mode=TwoWay}" 
+                                                HorizontalAlignment="Stretch" CornerRadius="8"/>
                         </Grid>
-                    </Grid>
-                </Border>
-
-                <!-- ── Receiving List Grid ── -->
-                <Border Style="{StaticResource PremiumCardStyle}" Padding="0">
-                    <StackPanel>
-                        <!-- List header -->
-                        <Grid Background="#1A1A2E" CornerRadius="16,16,0,0" Padding="20,14">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="100"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="48"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Medicine"     Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Grid.Column="1" Text="Batch"        Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Grid.Column="2" Text="Unit"         Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Grid.Column="3" Text="Qty"          Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Grid.Column="4" Text="Base Units"   Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Grid.Column="5" Text="Buy Price"    Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Grid.Column="6" Text="Expiry"       Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Grid.Column="7" Text="Supplier"     Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                            <TextBlock Grid.Column="8" Text=""             Foreground="White" FontWeight="SemiBold" FontSize="13"/>
-                        </Grid>
-
-                        <!-- Rows -->
-                        <ItemsControl ItemsSource="{x:Bind ViewModel.ReceivingItems, Mode=OneWay}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:ReceivingItem">
-                                    <Grid Padding="20,0" MinHeight="50"
-                                          BorderBrush="#F0F0F0" BorderThickness="0,0,0,1">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="110"/>
-                                            <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="70"/>
-                                            <ColumnDefinition Width="100"/>
-                                            <ColumnDefinition Width="110"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="48"/>
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Text="{x:Bind MedicineName}" FontWeight="Medium"
-                                                       Foreground="{StaticResource TextPrimaryBrush}"/>
-                                            <TextBlock Text="{x:Bind ManufacturerName}" FontSize="11"
-                                                       Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        </StackPanel>
-                                        <TextBlock Grid.Column="1" Text="{x:Bind BatchNumber}"
-                                                   VerticalAlignment="Center" FontSize="13"
-                                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="2" Text="{x:Bind SelectedUnit}"
-                                                   VerticalAlignment="Center" FontSize="13"
-                                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="3" Text="{Binding Quantity}"
-                                                   VerticalAlignment="Center" FontSize="13"
-                                                   Foreground="{StaticResource TextPrimaryBrush}" FontWeight="SemiBold"/>
-                                        <!-- Base units badge -->
-                                        <Border Grid.Column="4" Background="#EBF8FF" CornerRadius="6"
-                                                Padding="8,4" HorizontalAlignment="Left" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding BaseUnitsToStore}"
-                                                       FontSize="13" FontWeight="Bold"
-                                                       Foreground="{StaticResource AccentAccent}"/>
-                                        </Border>
-                                        <TextBlock Grid.Column="5"
-                                                   Text="{x:Bind PurchasePrice, Converter={StaticResource CurrencyConverter}}"
-                                                   VerticalAlignment="Center" FontSize="13"
-                                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="6"
-                                                   Text="{x:Bind ExpiryDate, Converter={StaticResource DateConverter}, Mode=OneWay}"
-                                                   VerticalAlignment="Center" FontSize="13"
-                                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <TextBlock Grid.Column="7" Text="{x:Bind SupplierName}"
-                                                   VerticalAlignment="Center" FontSize="13"
-                                                   Foreground="{StaticResource TextSecondaryBrush}"/>
-                                        <!-- Remove -->
-                                        <Button Grid.Column="8"
-                                                Command="{Binding ViewModel.RemoveItemCommand, ElementName=PageRoot}"
-                                                CommandParameter="{Binding}"
-                                                Style="{StaticResource TextBlockButtonStyle}"
-                                                Padding="8" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="#E53E3E"/>
-                                        </Button>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-
-                        <!-- Empty state -->
-                        <Border Padding="40,32" Visibility="{x:Bind ViewModel.ReceivingItems.Count, Mode=OneWay, Converter={StaticResource EmptyToVisibilityConverter}}">
-                            <StackPanel HorizontalAlignment="Center" Spacing="8">
-                                <FontIcon Glyph="&#xE8EA;" FontSize="40" Foreground="#CBD5E0"/>
-                                <TextBlock Text="No items yet — scan a barcode above to begin"
-                                           Foreground="#CBD5E0" FontSize="14" HorizontalAlignment="Center"/>
-                            </StackPanel>
-                        </Border>
                     </StackPanel>
                 </Border>
 
-                <!-- ── Save All Footer ── -->
-                <Grid>
-                    <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
-                        <TextBlock VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextSecondaryBrush}">
-                            <Run Text="{Binding ViewModel.ReceivingItems.Count, ElementName=PageRoot}"/>
-                            <Run Text="item(s) in list"/>
-                        </TextBlock>
-                        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                                      Width="24" Height="24"
-                                      Foreground="{StaticResource AccentAccent}"/>
-                        <Button Command="{x:Bind ViewModel.SaveAllCommand}"
-                                Style="{StaticResource PremiumButtonStyle}"
-                                CornerRadius="10" Padding="24,10">
+                <!-- Entry Details Form -->
+                <Border Style="{StaticResource PremiumCardStyle}" Padding="24"
+                        Visibility="{x:Bind ViewModel.HasFoundMedicine, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid ColumnSpacing="16" RowSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Row 1: Batch, Expiry, Qty -->
+                        <TextBox Header="Batch Number" HeaderTemplate="{StaticResource SmallHeader}"
+                                 Text="{x:Bind ViewModel.BatchNumber, Mode=TwoWay}" CornerRadius="8"/>
+                        
+                        <CalendarDatePicker Grid.Column="1" Header="Expiry Date" HeaderTemplate="{StaticResource SmallHeader}"
+                                            Date="{x:Bind ViewModel.ExpiryDate, Mode=TwoWay}" HorizontalAlignment="Stretch" CornerRadius="8"/>
+
+                        <TextBox Grid.Column="2" Header="Quantity (Units)" HeaderTemplate="{StaticResource SmallHeader}"
+                                 Text="{x:Bind ViewModel.QuantityUnitsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" CornerRadius="8"/>
+
+                        <!-- Row 2: Totals & Calculates -->
+                        <StackPanel Grid.Row="1" Spacing="4">
+                            <TextBox Header="Purchase Total" HeaderTemplate="{StaticResource SmallHeader}"
+                                     Text="{x:Bind ViewModel.PurchaseTotalPriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" CornerRadius="8"/>
+                            <TextBlock Text="{x:Bind ViewModel.PurchasePricePerUnitText, Mode=OneWay, Converter={StaticResource CurrencyConverter}, ConverterParameter='Buy: '}" 
+                                       FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                            <TextBox Header="Selling Total" HeaderTemplate="{StaticResource SmallHeader}"
+                                     Text="{x:Bind ViewModel.TotalSellingPriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" CornerRadius="8"/>
+                            <TextBlock Text="{x:Bind ViewModel.SellingPricePerUnitText, Mode=OneWay, Converter={StaticResource CurrencyConverter}, ConverterParameter='Sell: '}" 
+                                       FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Right"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="2" Spacing="4" VerticalAlignment="Top" Padding="0,26,0,0">
+                             <TextBlock FontSize="11" Foreground="{StaticResource TextSecondaryBrush}">
+                                 <Run Text="Expected Profit ("/>
+                                 <Run Text="{x:Bind ViewModel.ProfitMarginText, Mode=OneWay}"/>
+                                 <Run Text=")"/>
+                             </TextBlock>
+                             <TextBlock Foreground="Green" FontWeight="Bold" FontSize="16">
+                                 <Run Text="$"/>
+                                 <Run Text="{x:Bind ViewModel.UnitProfitText, Mode=OneWay}"/>
+                             </TextBlock>
+                        </StackPanel>
+
+                        <Button Grid.Row="2" Grid.ColumnSpan="3" Content="Add to Receiving List" 
+                                Command="{x:Bind ViewModel.AddToListCommand}"
+                                Style="{StaticResource PremiumButtonStyle}" Height="42" HorizontalAlignment="Right" Padding="40,0"/>
+                    </Grid>
+                </Border>
+
+                <!-- Receiving List Table -->
+                <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="0,10,0,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <Border Background="#1A1A2E" CornerRadius="16,16,0,0" Padding="20,12">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="80"/>
+                                    <ColumnDefinition Width="50"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="40"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Medicine" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="1" Text="Batch" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="2" Text="Qty" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="3" Text="Buy Total" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="4" Text="Buy Unit" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="5" Text="Sell Unit" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="6" Text="" />
+                            </Grid>
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1">
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.ReceivingItems, Mode=OneWay}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="models:ReceivingItem">
+                                        <Grid Padding="20,8" BorderBrush="#F0F0F0" BorderThickness="0,0,0,1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="80"/>
+                                                <ColumnDefinition Width="50"/>
+                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="40"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <TextBlock Text="{x:Bind MedicineName}" FontWeight="Bold" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{x:Bind ExpiryDate, Converter={StaticResource DateFormatConverter}, ConverterParameter='EXP: {0:MMM yyyy}'}" FontSize="10" Foreground="#E53E3E"/>
+                                            </StackPanel>
+                                            
+                                            <TextBlock Grid.Column="1" Text="{x:Bind BatchNo}" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            <TextBlock Grid.Column="2" Text="{x:Bind QuantityUnits}" VerticalAlignment="Center" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Grid.Column="3" Text="{x:Bind PurchaseTotalPrice, Converter={StaticResource CurrencyConverter}}" VerticalAlignment="Center" FontSize="11"/>
+                                            <TextBlock Grid.Column="4" Text="{x:Bind UnitCost, Converter={StaticResource CurrencyConverter}}" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            <TextBlock Grid.Column="5" Text="{x:Bind SellingPricePerUnit, Converter={StaticResource CurrencyConverter}}" VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource AccentAccent}"/>
+                                            
+                                            <Button Grid.Column="6" Command="{Binding ViewModel.RemoveItemCommand, ElementName=PageRoot}" CommandParameter="{Binding}" Style="{StaticResource TextBlockButtonStyle}" HorizontalAlignment="Center">
+                                                <FontIcon Glyph="&#xE74D;" FontSize="13" Foreground="#E53E3E"/>
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+
+                <!-- Footer Summary & Save -->
+                <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="20,12" BorderThickness="1" BorderBrush="#E2E8F0">
+                    <Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="24">
+                            <StackPanel>
+                                <TextBlock Text="Total Items" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.ReceivingItems.Count, Mode=OneWay}" FontSize="18" FontWeight="Bold"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <TextBlock Text="Session Total Cost" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.GrandTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="18" FontWeight="Bold"/>
+                            </StackPanel>
+                        </StackPanel>
+                        
+                        <Button HorizontalAlignment="Right" Command="{x:Bind ViewModel.SaveAllCommand}"
+                                Style="{StaticResource PremiumButtonStyle}" Padding="40,10" CornerRadius="10">
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <FontIcon Glyph="&#xE74E;" FontSize="16"/>
-                                <TextBlock Text="Save All to Inventory" FontSize="15" FontWeight="SemiBold"/>
+                                <TextBlock Text="Complete Stock In" FontSize="15" FontWeight="Bold"/>
                             </StackPanel>
                         </Button>
-                    </StackPanel>
-                </Grid>
-
-            </StackPanel>
-        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Grid>
     </Grid>
 </Page>

@@ -8,16 +8,14 @@
     mc:Ignorable="d"
     Width="280" 
     Background="White">
-    <!-- Width 280-300px is safe for 58mm printers (which have ~180-200 dots) -->
-    <!-- WinUI points are ~96dpi, so 300px is about 3 inches, but 58mm is 2.28 inches. -->
-    <!-- Actually, 58mm is usually 384 pixels. 219 pixels is more like it for 72dpi. -->
-    <!-- Let's stick to 280 for a safe margin on 58mm. -->
 
     <StackPanel Padding="10" Spacing="4">
         <!-- Header -->
         <TextBlock Text="{x:Bind ViewModel.PharmacyName}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
         <TextBlock Text="{x:Bind ViewModel.PharmacyAddress}" FontSize="10" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
         <TextBlock Text="{x:Bind ViewModel.PharmacyPhone}" FontSize="10" HorizontalAlignment="Center"/>
+        <TextBlock Text="{x:Bind ViewModel.PharmacyLicense}" FontSize="10" HorizontalAlignment="Center"/>
+        <TextBlock Text="{x:Bind ViewModel.PharmacyNtn}" FontSize="10" HorizontalAlignment="Center"/>
         
         <Rectangle Height="1" Fill="Black" Margin="0,5"/>
 

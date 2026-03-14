@@ -76,16 +76,18 @@ namespace DChemist.Database
                     );
 
                     CREATE TABLE IF NOT EXISTS inventory_batches (
-                        id                SERIAL PRIMARY KEY,
-                        medicine_id       INTEGER NOT NULL REFERENCES medicines(id) ON DELETE CASCADE,
-                        supplier_id       INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
-                        batch_number      TEXT NOT NULL,
-                        purchase_price    DECIMAL NOT NULL DEFAULT 0,
-                        selling_price     DECIMAL NOT NULL DEFAULT 0,
-                        stock_qty         INTEGER NOT NULL DEFAULT 0,
-                        manufacture_date  DATE,
-                        expiry_date       DATE NOT NULL,
-                        created_at        TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                        id                    SERIAL PRIMARY KEY,
+                        medicine_id           INTEGER NOT NULL REFERENCES medicines(id) ON DELETE CASCADE,
+                        supplier_id           INTEGER REFERENCES suppliers(id) ON DELETE RESTRICT,
+                        batch_no              TEXT NOT NULL,
+                        quantity_units        INTEGER NOT NULL DEFAULT 0,
+                        purchase_total_price  DECIMAL NOT NULL DEFAULT 0,
+                        unit_cost             DECIMAL NOT NULL DEFAULT 0,
+                        selling_price         DECIMAL NOT NULL DEFAULT 0,
+                        remaining_units       INTEGER NOT NULL DEFAULT 0,
+                        manufacture_date      DATE,
+                        expiry_date           DATE NOT NULL,
+                        created_at            TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                     );
 
                     CREATE TABLE IF NOT EXISTS customers (
@@ -131,8 +133,6 @@ namespace DChemist.Database
                         ON medicines(lower(generic_name));
                     CREATE INDEX IF NOT EXISTS idx_batches_medicine_id
                         ON inventory_batches(medicine_id);
-                    CREATE INDEX IF NOT EXISTS idx_batches_stock_positive
-                        ON inventory_batches(stock_qty) WHERE stock_qty > 0;
                     CREATE INDEX IF NOT EXISTS idx_sales_date_desc
                         ON sales(sale_date DESC);
                     CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id
@@ -178,28 +178,66 @@ namespace DChemist.Database
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='returned_qty') THEN
                             ALTER TABLE sale_items ADD COLUMN returned_qty INTEGER NOT NULL DEFAULT 0;
                         END IF;
-                        -- ── Multi-unit medicine support (Phase 1) ──
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='base_unit') THEN
-                            ALTER TABLE medicines ADD COLUMN base_unit TEXT NOT NULL DEFAULT 'unit';
+                        -- ── Multi-unit medicine support REMOVAL ──
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='base_unit') THEN
+                            ALTER TABLE medicines DROP COLUMN base_unit;
                         END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='strip_size') THEN
-                            ALTER TABLE medicines ADD COLUMN strip_size INTEGER;
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='strip_size') THEN
+                            ALTER TABLE medicines DROP COLUMN strip_size;
                         END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='box_size') THEN
-                            ALTER TABLE medicines ADD COLUMN box_size INTEGER;
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='box_size') THEN
+                            ALTER TABLE medicines DROP COLUMN box_size;
                         END IF;
-                        -- Track what unit was sold and how many base units were deducted
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='sold_unit') THEN
-                            ALTER TABLE sale_items ADD COLUMN sold_unit TEXT;
+                        
+                        -- Inventory batch simplifications
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='batch_number') THEN
+                            ALTER TABLE inventory_batches RENAME COLUMN batch_number TO batch_no;
                         END IF;
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='base_qty_deducted') THEN
-                            ALTER TABLE sale_items ADD COLUMN base_qty_deducted INTEGER;
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='stock_qty') THEN
+                            ALTER TABLE inventory_batches RENAME COLUMN stock_qty TO remaining_units;
                         END IF;
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='purchase_price') THEN
+                            ALTER TABLE inventory_batches RENAME COLUMN purchase_price TO unit_cost;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='quantity_units') THEN
+                            ALTER TABLE inventory_batches ADD COLUMN quantity_units INTEGER NOT NULL DEFAULT 0;
+                            -- Fallback logic for old systems being upgraded to map stock_qty
+                            EXECUTE 'UPDATE inventory_batches SET quantity_units = remaining_units WHERE quantity_units = 0';
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='purchase_total_price') THEN
+                            ALTER TABLE inventory_batches ADD COLUMN purchase_total_price DECIMAL NOT NULL DEFAULT 0;
+                            -- Migrate existing purchase_price assumptions
+                            EXECUTE 'UPDATE inventory_batches SET purchase_total_price = unit_cost * quantity_units WHERE purchase_total_price = 0';
+                        END IF;
+                        
+                        -- Track what unit was sold REMOVAL
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='sold_unit') THEN
+                            ALTER TABLE sale_items DROP COLUMN sold_unit;
+                        END IF;
+                        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='base_qty_deducted') THEN
+                            ALTER TABLE sale_items DROP COLUMN base_qty_deducted;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='invoice_no') THEN
+                            ALTER TABLE inventory_batches ADD COLUMN invoice_no TEXT;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='invoice_date') THEN
+                            ALTER TABLE inventory_batches ADD COLUMN invoice_date DATE;
+                        END IF;
+                        -- Make supplier_id nullable to allow initial registration without a supplier
+                        ALTER TABLE inventory_batches ALTER COLUMN supplier_id DROP NOT NULL;
                     END $$;";
                 
                 using (var migCmd = new NpgsqlCommand(migrationQuery, connection))
                 {
                     migCmd.ExecuteNonQuery();
+                }
+                const string postMigrationIndexes = @"
+                    CREATE INDEX IF NOT EXISTS idx_batches_stock_positive
+                        ON inventory_batches(remaining_units) WHERE remaining_units > 0;
+                ";
+                using (var idxCmd = new NpgsqlCommand(postMigrationIndexes, connection))
+                {
+                    idxCmd.ExecuteNonQuery();
                 }
 
                 // Ensure settings table exists
@@ -263,8 +301,8 @@ namespace DChemist.Database
                             INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode)
                             VALUES ('Panadol', 'Paracetamol', 1, 1, 'Tablet', '500mg', '625100123456');
                             
-                            INSERT INTO inventory_batches (medicine_id, supplier_id, batch_number, purchase_price, selling_price, stock_qty, manufacture_date, expiry_date)
-                            VALUES (1, 1, 'PK1023', 1.5, 2.0, 500, '2024-01-01', '2027-05-01');
+                            INSERT INTO inventory_batches (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, manufacture_date, expiry_date)
+                            VALUES (1, 1, 'PK1023', 500, 750, 1.5, 2.0, 500, '2024-01-01', '2027-05-01');
                         ";
                         using var insertDataCmd = new NpgsqlCommand(sampleDataText, connection);
                         insertDataCmd.ExecuteNonQuery();

@@ -35,33 +35,114 @@ namespace DChemist.ViewModels
             _dispatcher    = DispatcherQueue.GetForCurrentThread();
 
             ReceivingItems = new ObservableCollection<ReceivingItem>();
+            ReceivingItems.CollectionChanged += (s, e) => OnPropertyChanged(nameof(GrandTotal));
             Suppliers      = new ObservableCollection<Supplier>();
 
             LookupBarcodeCommand = new AsyncRelayCommand(async _ => await ExecuteLookupBarcodeAsync());
-            AddToListCommand     = new AsyncRelayCommand(async _ => await ExecuteAddToListAsync(),
-                                                        _         => FoundMedicine != null);
-            RemoveItemCommand    = new RelayCommand(item => ReceivingItems.Remove(item as ReceivingItem));
+            AddToListCommand     = new AsyncRelayCommand(async _ => await ExecuteAddToListAsync());
+            RemoveItemCommand    = new RelayCommand(item => 
+            {
+                if (item is ReceivingItem ri) ReceivingItems.Remove(ri);
+            });
             ClearEntryCommand    = new RelayCommand(_ => ClearEntry());
             SaveAllCommand       = new AsyncRelayCommand(async _ => await ExecuteSaveAllAsync(),
                                                         _         => ReceivingItems.Count > 0);
+            SaveNewMedicineCommand = new AsyncRelayCommand(async _ => await ExecuteSaveNewMedicineAsync());
+            RegisterNewMedCommand = new RelayCommand(_ => {
+                IsNewMedFormVisible = true;
+                FoundMedicine = null;
+                NewMedBarcode = string.Empty;
+                NewMedName = string.Empty;
+                NewMedGeneric = string.Empty;
+            });
 
-            PurchaseDate = DateTimeOffset.Now;
+            SessionInvoiceDate = DateTimeOffset.Now;
             _ = LoadSuppliersAsync();
+            _ = LoadMetaDataAsync();
+        }
+
+        private async Task LoadMetaDataAsync()
+        {
+            try {
+                _dispatcher.TryEnqueue(() => {
+                    Categories.Clear();
+                    Categories.Add(new Category { Name = "Tablets" });
+                    Categories.Add(new Category { Name = "Syrup" });
+                    Categories.Add(new Category { Name = "Injection" });
+                    Categories.Add(new Category { Name = "Drops" });
+                    Categories.Add(new Category { Name = "Capsules" });
+                    SelectedCategory = Categories.FirstOrDefault();
+
+                    Manufacturers.Clear();
+                    Manufacturers.Add(new Manufacturer { Name = "GSK" });
+                    Manufacturers.Add(new Manufacturer { Name = "Abbott" });
+                    Manufacturers.Add(new Manufacturer { Name = "Pfizer" });
+                    Manufacturers.Add(new Manufacturer { Name = "Getz" });
+                    Manufacturers.Add(new Manufacturer { Name = "Sami" });
+                    SelectedManufacturer = Manufacturers.FirstOrDefault();
+                });
+            } catch { }
+            await Task.CompletedTask;
+        }
+
+        private async Task ExecuteSaveNewMedicineAsync()
+        {
+            if (string.IsNullOrWhiteSpace(NewMedName)) {
+                StatusMessage = "⚠ Medicine name is required.";
+                return;
+            }
+
+            IsBusy = true;
+            try {
+                var med = new Medicine {
+                    Name = NewMedName,
+                    GenericName = NewMedGeneric,
+                    Barcode = NewMedBarcode,
+                    CategoryName = SelectedCategory?.Name ?? "General",
+                    ManufacturerName = SelectedManufacturer?.Name ?? "Unknown",
+                    SupplierName = SessionSupplierName, // Pass current session supplier if any
+                    StockQty = 0, // Just creating the record
+                    PurchasePrice = 0,
+                    SellingPrice = 0
+                };
+                await _medicineRepo.AddAsync(med);
+                
+                // Now lookup it back to get the ID and full object
+                var saved = await _medicineRepo.GetByBarcodeAsync(NewMedBarcode);
+                if (saved != null) {
+                    FoundMedicine = saved;
+                    IsNewMedFormVisible = false;
+                    StatusMessage = $"✔ Registered: {saved.Name}";
+                    if (IsAutoAddEnabled) await ExecuteAddToListAsync();
+                }
+            } catch (Exception ex) {
+                StatusMessage = "✘ Failed to register medicine.";
+                AppLogger.LogError("StockIn.SaveNew", ex);
+            } finally {
+                IsBusy = false;
+            }
         }
 
         // ── Header fields ─────────────────────────────────────────────────
-        private string _invoiceNumber = string.Empty;
-        public string InvoiceNumber
+        private string _sessionInvoiceNo = string.Empty;
+        public string SessionInvoiceNo
         {
-            get => _invoiceNumber;
-            set => SetProperty(ref _invoiceNumber, value);
+            get => _sessionInvoiceNo;
+            set => SetProperty(ref _sessionInvoiceNo, value);
         }
 
-        private DateTimeOffset? _purchaseDate;
-        public DateTimeOffset? PurchaseDate
+        private DateTimeOffset? _sessionInvoiceDate = DateTimeOffset.Now;
+        public DateTimeOffset? SessionInvoiceDate
         {
-            get => _purchaseDate;
-            set => SetProperty(ref _purchaseDate, value);
+            get => _sessionInvoiceDate;
+            set => SetProperty(ref _sessionInvoiceDate, value);
+        }
+
+        private string _sessionSupplierName = string.Empty;
+        public string SessionSupplierName
+        {
+            get => _sessionSupplierName;
+            set => SetProperty(ref _sessionSupplierName, value);
         }
 
         public ObservableCollection<Supplier> Suppliers { get; }
@@ -70,7 +151,13 @@ namespace DChemist.ViewModels
         public Supplier? SelectedSupplier
         {
             get => _selectedSupplier;
-            set => SetProperty(ref _selectedSupplier, value);
+            set
+            {
+                if (SetProperty(ref _selectedSupplier, value))
+                {
+                    if (value != null) SessionSupplierName = value.Name;
+                }
+            }
         }
 
         // ── Barcode & preview ─────────────────────────────────────────────
@@ -79,6 +166,13 @@ namespace DChemist.ViewModels
         {
             get => _barcodeText;
             set => SetProperty(ref _barcodeText, value);
+        }
+
+        private bool _isContinuousScanMode;
+        public bool IsContinuousScanMode
+        {
+            get => _isContinuousScanMode;
+            set => SetProperty(ref _isContinuousScanMode, value);
         }
 
         private Medicine? _foundMedicine;
@@ -93,12 +187,7 @@ namespace DChemist.ViewModels
                     OnPropertyChanged(nameof(FoundName));
                     OnPropertyChanged(nameof(FoundManufacturer));
                     OnPropertyChanged(nameof(FoundCategory));
-                    OnPropertyChanged(nameof(FoundBaseUnit));
-                    OnPropertyChanged(nameof(AvailableUnits));
                     ((AsyncRelayCommand)AddToListCommand).RaiseCanExecuteChanged();
-                    // Pre-populate the unit selector
-                    if (value != null)
-                        SelectedUnit = Capitalize(value.BaseUnit);
                 }
             }
         }
@@ -108,17 +197,53 @@ namespace DChemist.ViewModels
         public string FoundName         => FoundMedicine?.Name            ?? string.Empty;
         public string FoundManufacturer => FoundMedicine?.ManufacturerName ?? string.Empty;
         public string FoundCategory     => FoundMedicine?.CategoryName     ?? string.Empty;
-        public string FoundBaseUnit     => FoundMedicine?.BaseUnit         ?? string.Empty;
 
-        public System.Collections.Generic.List<string> AvailableUnits
+        // ── Manual Search ─────────────────────────────────────────────────
+        private string _searchText = string.Empty;
+        public string SearchText
         {
-            get
+            get => _searchText;
+            set
             {
-                if (FoundMedicine?.AvailableUnits is { } units)
-                    return units.Select(u => u.Label).ToList();
-                return new System.Collections.Generic.List<string> { "Unit" };
+                if (SetProperty(ref _searchText, value))
+                {
+                    if (value.Length >= 2)
+                        _ = ExecuteSearchAsync(value);
+                }
             }
         }
+
+        public ObservableCollection<Medicine> SearchSuggestions { get; } = new();
+
+        private async Task ExecuteSearchAsync(string query)
+        {
+            try
+            {
+                var list = await _medicineRepo.SearchAsync(query);
+                _dispatcher.TryEnqueue(() =>
+                {
+                    SearchSuggestions.Clear();
+                    foreach (var m in list) SearchSuggestions.Add(m);
+                });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("StockInViewModel.ExecuteSearchAsync", ex);
+            }
+        }
+
+        public void SelectMedicine(Medicine? medicine)
+        {
+            if (medicine != null)
+            {
+                FoundMedicine = medicine;
+                StatusMessage = $"✔ Selected: {medicine.Name}";
+                SearchText = string.Empty; // clear search
+                SearchSuggestions.Clear();
+            }
+        }
+
+
 
         // ── Entry form ────────────────────────────────────────────────────
         private string _batchNumber = string.Empty;
@@ -135,33 +260,130 @@ namespace DChemist.ViewModels
             set => SetProperty(ref _expiryDate, value);
         }
 
-        private string _selectedUnit = string.Empty;
-        public string SelectedUnit
+        // ── Automation & Visibility ──────────────────────────────────────
+        private bool _isAutoAddEnabled = true;
+        public bool IsAutoAddEnabled
         {
-            get => _selectedUnit;
-            set => SetProperty(ref _selectedUnit, value);
+            get => _isAutoAddEnabled;
+            set => SetProperty(ref _isAutoAddEnabled, value);
         }
 
-        private int _quantity = 1;
-        public int Quantity
+        private bool _isNewMedFormVisible;
+        public bool IsNewMedFormVisible
         {
-            get => _quantity;
-            set => SetProperty(ref _quantity, value);
+            get => _isNewMedFormVisible;
+            set => SetProperty(ref _isNewMedFormVisible, value);
         }
 
-        private decimal _purchasePrice;
-        public decimal PurchasePrice
+        // ── Form Entry Proxies (String Bridge) ────────────────────────────
+        private int _quantityUnits = 1;
+        public int QuantityUnits
         {
-            get => _purchasePrice;
-            set => SetProperty(ref _purchasePrice, value);
+            get => _quantityUnits;
+            set
+            {
+                if (SetProperty(ref _quantityUnits, value))
+                {
+                    OnPropertyChanged(nameof(PurchasePricePerUnit));
+                    OnPropertyChanged(nameof(SellingPricePerUnit));
+                    OnPropertyChanged(nameof(UnitProfitText));
+                    OnPropertyChanged(nameof(ProfitMarginText));
+                }
+            }
         }
 
-        private decimal _sellingPrice;
-        public decimal SellingPrice
+        private decimal _purchaseTotalPrice;
+        public decimal PurchaseTotalPrice
         {
-            get => _sellingPrice;
-            set => SetProperty(ref _sellingPrice, value);
+            get => _purchaseTotalPrice;
+            set
+            {
+                if (SetProperty(ref _purchaseTotalPrice, value))
+                {
+                    OnPropertyChanged(nameof(PurchasePricePerUnit));
+                    OnPropertyChanged(nameof(UnitProfitText));
+                    OnPropertyChanged(nameof(ProfitMarginText));
+                }
+            }
         }
+
+        private decimal _totalSellingPrice;
+        public decimal TotalSellingPrice
+        {
+            get => _totalSellingPrice;
+            set
+            {
+                if (SetProperty(ref _totalSellingPrice, value))
+                {
+                    OnPropertyChanged(nameof(SellingPricePerUnit));
+                    OnPropertyChanged(nameof(UnitProfitText));
+                    OnPropertyChanged(nameof(ProfitMarginText));
+                }
+            }
+        }
+
+        public decimal PurchasePricePerUnit => QuantityUnits > 0 ? PurchaseTotalPrice / QuantityUnits : 0;
+        public decimal SellingPricePerUnit  => QuantityUnits > 0 ? TotalSellingPrice / QuantityUnits : 0;
+
+        // Bridge properties for UI (String based inputs)
+        public string QuantityUnitsText
+        {
+            get => _quantityUnits.ToString();
+            set
+            {
+                if (int.TryParse(value, out int res)) QuantityUnits = res;
+                OnPropertyChanged(nameof(QuantityUnitsText));
+            }
+        }
+
+        public string PurchaseTotalPriceText
+        {
+            get => _purchaseTotalPrice.ToString("G29");
+            set
+            {
+                if (decimal.TryParse(value, out decimal res)) PurchaseTotalPrice = res;
+                OnPropertyChanged(nameof(PurchaseTotalPriceText));
+            }
+        }
+
+        public string TotalSellingPriceText
+        {
+            get => _totalSellingPrice.ToString("G29");
+            set
+            {
+                if (decimal.TryParse(value, out decimal res)) TotalSellingPrice = res;
+                OnPropertyChanged(nameof(TotalSellingPriceText));
+            }
+        }
+
+        public string PurchasePricePerUnitText => PurchasePricePerUnit.ToString("N2");
+        public string SellingPricePerUnitText  => SellingPricePerUnit.ToString("N2");
+
+        public string UnitProfitText => (SellingPricePerUnit - PurchasePricePerUnit).ToString("N2");
+        public string ProfitMarginText => PurchasePricePerUnit > 0 
+            ? (((SellingPricePerUnit - PurchasePricePerUnit) / PurchasePricePerUnit) * 100).ToString("F0") + "%" 
+            : "0%";
+
+        // ── Embedded New Medicine Form ────────────────────────────────
+        private string _newMedName = string.Empty;
+        public string NewMedName { get => _newMedName; set => SetProperty(ref _newMedName, value); }
+
+        private string _newMedGeneric = string.Empty;
+        public string NewMedGeneric { get => _newMedGeneric; set => SetProperty(ref _newMedGeneric, value); }
+
+        private string _newMedBarcode = string.Empty;
+        public string NewMedBarcode { get => _newMedBarcode; set => SetProperty(ref _newMedBarcode, value); }
+
+        public ObservableCollection<Category> Categories { get; } = new();
+        private Category? _selectedCategory;
+        public Category? SelectedCategory { get => _selectedCategory; set => SetProperty(ref _selectedCategory, value); }
+
+        public ObservableCollection<Manufacturer> Manufacturers { get; } = new();
+        private Manufacturer? _selectedManufacturer;
+        public Manufacturer? SelectedManufacturer { get => _selectedManufacturer; set => SetProperty(ref _selectedManufacturer, value); }
+
+        public ICommand SaveNewMedicineCommand { get; }
+        public ICommand RegisterNewMedCommand { get; }
 
         private string _statusMessage = string.Empty;
         public string StatusMessage
@@ -179,6 +401,8 @@ namespace DChemist.ViewModels
 
         // ── Receiving List ────────────────────────────────────────────────
         public ObservableCollection<ReceivingItem> ReceivingItems { get; }
+        
+        public decimal GrandTotal => ReceivingItems.Sum(x => x.PurchaseTotalPrice);
 
         // ── Commands ──────────────────────────────────────────────────────
         public ICommand LookupBarcodeCommand { get; }
@@ -211,9 +435,9 @@ namespace DChemist.ViewModels
             var barcode = BarcodeText.Trim();
             if (string.IsNullOrEmpty(barcode)) return;
 
-            IsBusy = true;
-            StatusMessage = string.Empty;
-            FoundMedicine = null;
+            // Immediate reset for next scan speed
+            BarcodeText = string.Empty; 
+
             try
             {
                 var medicine = await _medicineRepo.GetByBarcodeAsync(barcode);
@@ -221,29 +445,25 @@ namespace DChemist.ViewModels
                 {
                     FoundMedicine = medicine;
                     StatusMessage = $"✔ Found: {medicine.Name}";
+                    
+                    if (IsAutoAddEnabled)
+                    {
+                        // Auto-add uses default values for session speed
+                        await ExecuteAddToListAsync();
+                    }
                 }
                 else
                 {
-                    StatusMessage = $"⚠ Barcode '{barcode}' not found.";
-                    // Ask user if they want to add a new medicine
-                    bool add = await _dialogService.ShowConfirmationAsync(
-                        "Medicine Not Found",
-                        $"Barcode '{barcode}' was not found.\nWould you like to add a new medicine?",
-                        "Add Medicine", "Cancel");
-
-                    if (add)
-                        await _dialogService.ShowInventoryDialogAsync();
+                    StatusMessage = $"⚠ Medicine not found: {barcode}. Add manually.";
+                    NewMedBarcode = barcode;
+                    IsNewMedFormVisible = true;
+                    FoundMedicine = null;
                 }
             }
             catch (Exception ex)
             {
-                StatusMessage = "Lookup failed — check database connection.";
+                StatusMessage = "✘ Lookup failed.";
                 AppLogger.LogError("StockInViewModel.ExecuteLookupBarcodeAsync", ex);
-            }
-            finally
-            {
-                IsBusy = false;
-                BarcodeText = string.Empty; // auto-clear for next scan
             }
         }
 
@@ -254,75 +474,41 @@ namespace DChemist.ViewModels
             // ── Validation ────────────────────────────────────────────────
             if (string.IsNullOrWhiteSpace(BatchNumber))
             {
-                StatusMessage = "⚠ Batch number is required.";
-                return;
-            }
-            if (Quantity <= 0)
-            {
-                StatusMessage = "⚠ Quantity must be greater than 0.";
+                StatusMessage = "⚠ Batch number required.";
                 return;
             }
             if (!ExpiryDate.HasValue)
             {
-                StatusMessage = "⚠ Expiry date is required.";
+                StatusMessage = "⚠ Expiry date required.";
                 return;
             }
-            if (PurchasePrice <= 0)
+            if (QuantityUnits <= 0)
             {
-                StatusMessage = "⚠ Purchase price must be greater than 0.";
+                StatusMessage = "⚠ Quantity must be > 0.";
                 return;
             }
-
-            // ── Duplicate check ────────────────────────────────────────────
-            var existing = ReceivingItems.FirstOrDefault(r =>
-                r.MedicineId == FoundMedicine.Id &&
-                string.Equals(r.BatchNumber, BatchNumber, StringComparison.OrdinalIgnoreCase));
-
-            if (existing != null)
-            {
-                bool merge = await _dialogService.ShowConfirmationAsync(
-                    "Duplicate Batch",
-                    $"'{FoundMedicine.Name}' with batch '{BatchNumber}' is already in the list.\nMerge quantities?",
-                    "Merge", "Add Separate Row");
-
-                if (merge)
-                {
-                    existing.Quantity += Quantity;
-                    ClearEntry();
-                    StatusMessage = "✔ Quantities merged.";
-                    return;
-                }
-            }
-
-            // ── Build unit conversion factor ───────────────────────────────
-            int conversionFactor = 1;
-            if (string.Equals(SelectedUnit, "Strip", StringComparison.OrdinalIgnoreCase))
-                conversionFactor = FoundMedicine.StripSize ?? 1;
-            else if (string.Equals(SelectedUnit, "Box", StringComparison.OrdinalIgnoreCase))
-                conversionFactor = FoundMedicine.BoxSize ?? 1;
 
             var item = new ReceivingItem
             {
-                MedicineId       = FoundMedicine.Id,
-                MedicineName     = FoundMedicine.Name,
-                ManufacturerName = FoundMedicine.ManufacturerName ?? string.Empty,
-                BaseUnit         = FoundMedicine.BaseUnit,
-                StripSize        = FoundMedicine.StripSize,
-                BoxSize          = FoundMedicine.BoxSize,
-                BatchNumber      = BatchNumber,
-                SupplierId       = SelectedSupplier?.Id ?? 0,
-                SupplierName     = SelectedSupplier?.Name ?? string.Empty,
-                SelectedUnit     = SelectedUnit,
-                Quantity         = Quantity,
-                PurchasePrice    = PurchasePrice,
-                SellingPrice     = SellingPrice > 0 ? SellingPrice : PurchasePrice * 1.2m
+                MedicineId         = FoundMedicine.Id,
+                MedicineName       = FoundMedicine.Name,
+                ManufacturerName   = FoundMedicine.ManufacturerName ?? string.Empty,
+                BatchNo            = BatchNumber,
+                SupplierName       = SessionSupplierName,
+                InvoiceNo          = SessionInvoiceNo,
+                InvoiceDate        = SessionInvoiceDate?.DateTime,
+                QuantityUnits      = QuantityUnits,
+                PurchaseTotalPrice = PurchaseTotalPrice,
+                TotalSellingPrice  = TotalSellingPrice,
+                ExpiryDate         = ExpiryDate.Value.DateTime
             };
-            // ExpiryDate: convert DateTimeOffset? → DateTime? for the model
-            item.ExpiryDate = ExpiryDate.HasValue ? ExpiryDate.Value.DateTime : (DateTime?)null;
 
             ReceivingItems.Add(item);
+            StatusMessage = $"✔ Added: {item.MedicineName}";
+            
+            // Auto-notification for 'Save All' button state
             ((AsyncRelayCommand)SaveAllCommand).RaiseCanExecuteChanged();
-            StatusMessage = $"✔ Added: {item.MedicineName} × {item.Quantity} {item.SelectedUnit}(s) = {item.BaseUnitsToStore} {item.BaseUnit}(s)";
+            
             ClearEntry();
         }
 
@@ -344,15 +530,27 @@ namespace DChemist.ViewModels
             StatusMessage = "Saving…";
             try
             {
+                // Resolve Supplier once for the whole session
+                int finalSupplierId = SelectedSupplier?.Id ?? 0;
+                if (finalSupplierId == 0 && !string.IsNullOrWhiteSpace(SessionSupplierName))
+                {
+                    var resolvedSupplier = await _supplierRepo.GetOrCreateByNameAsync(SessionSupplierName);
+                    finalSupplierId = resolvedSupplier.Id;
+                }
+
                 var batches = ReceivingItems.Select(r => new InventoryBatch
                 {
-                    MedicineId    = r.MedicineId,
-                    SupplierId    = r.SupplierId,
-                    BatchNumber   = r.BatchNumber,
-                    PurchasePrice = r.PurchasePrice,
-                    SellingPrice  = r.SellingPrice,
-                    StockQty      = r.BaseUnitsToStore,     // always base units
-                    ExpiryDate    = r.ExpiryDate!.Value
+                    MedicineId         = r.MedicineId,
+                    SupplierId         = finalSupplierId,
+                    BatchNo            = r.BatchNo,
+                    InvoiceNo          = r.InvoiceNo,
+                    InvoiceDate        = r.InvoiceDate,
+                    QuantityUnits      = r.QuantityUnits,
+                    PurchaseTotalPrice = r.PurchaseTotalPrice,
+                    UnitCost           = r.UnitCost,
+                    SellingPrice       = r.SellingPrice,
+                    RemainingUnits     = r.QuantityUnits,
+                    ExpiryDate         = r.ExpiryDate!.Value
                 }).ToList();
 
                 await _batchRepo.AddBulkAsync(batches);
@@ -360,11 +558,16 @@ namespace DChemist.ViewModels
                 // Notify inventory page to refresh
                 _eventBus.Publish(InventoryChangeType.MedicineAdded);
 
-                int total = ReceivingItems.Sum(r => r.BaseUnitsToStore);
-                StatusMessage = $"✔ Saved {batches.Count} batch(es) — {total} base units added to inventory.";
+                int total = ReceivingItems.Sum(r => r.QuantityUnits);
+                StatusMessage = $"✔ Saved {batches.Count} batch(es) — {total} units added to inventory.";
                 ReceivingItems.Clear();
                 ((AsyncRelayCommand)SaveAllCommand).RaiseCanExecuteChanged();
                 ClearEntry();
+
+                // Clear session fields after successful mass save
+                SessionInvoiceNo = string.Empty;
+                SessionSupplierName = string.Empty;
+                SelectedSupplier = null;
             }
             catch (DataAccessException ex)
             {
@@ -383,14 +586,13 @@ namespace DChemist.ViewModels
 
         private void ClearEntry()
         {
-            FoundMedicine = null;
-            BatchNumber   = string.Empty;
-            ExpiryDate    = null;
-            SelectedUnit  = string.Empty;
-            Quantity      = 1;
-            PurchasePrice = 0;
-            SellingPrice  = 0;
-            BarcodeText   = string.Empty;
+            FoundMedicine          = null;
+            BatchNumber            = string.Empty;
+            ExpiryDate             = null;
+            QuantityUnitsText      = "1";
+            PurchaseTotalPriceText = "0";
+            TotalSellingPriceText  = "0";
+            BarcodeText            = string.Empty;
         }
 
         private static string Capitalize(string s) =>

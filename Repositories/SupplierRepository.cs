@@ -40,14 +40,27 @@ namespace DChemist.Repositories
         public async Task AddAsync(Supplier supplier)
         {
             _auth.EnforceAdmin();
-            const string query = "INSERT INTO suppliers (name, phone, address) VALUES (@name, @phone, @address)";
+            const string query = "INSERT INTO suppliers (name, phone, address) VALUES (@name, @phone, @address) RETURNING id";
             var parameters = new Dictionary<string, object>
             {
                 { "@name", supplier.Name },
                 { "@phone", supplier.Phone ?? (object)DBNull.Value },
                 { "@address", supplier.Address ?? (object)DBNull.Value }
             };
-            await _db.ExecuteNonQueryAsync(query, parameters);
+            var id = await _db.FetchOneAsync(query, r => Convert.ToInt32(r["id"]), parameters);
+            supplier.Id = id;
+        }
+
+        public async Task<Supplier> GetOrCreateByNameAsync(string name)
+        {
+            const string query = "SELECT * FROM suppliers WHERE LOWER(name) = LOWER(@name) LIMIT 1";
+            var parameters = new Dictionary<string, object> { { "@name", name.Trim() } };
+            var existing = await _db.FetchOneAsync(query, MapSupplier, parameters);
+            if (existing != null) return existing;
+
+            var @new = new Supplier { Name = name.Trim() };
+            await AddAsync(@new);
+            return @new;
         }
     }
 }

@@ -32,9 +32,9 @@ namespace DChemist.ViewModels
             var items = new List<NavigationItem>
             {
                 new NavigationItem { Title = "Dashboard", Icon = "\uE80F", PageType = "DChemist.Views.DashboardPage", RequiresAdmin = false },
-                new NavigationItem { Title = "Inventory", Icon = "\uE811", PageType = "DChemist.Views.InventoryPage", RequiresAdmin = false },
-                new NavigationItem { Title = "Stock In",  Icon = "\uE8EA", PageType = "DChemist.Views.StockInPage",   RequiresAdmin = true  },
-                new NavigationItem { Title = "Billing",   Icon = "\uE825", PageType = "DChemist.Views.BillingPage",   RequiresAdmin = false },
+                new NavigationItem { Title = "Inventory", Icon = "\uE950", PageType = "DChemist.Views.InventoryPage", RequiresAdmin = false },
+                new NavigationItem { Title = "Stock In",  Icon = "\uE8B1", PageType = "DChemist.Views.StockInPage",   RequiresAdmin = true  },
+                new NavigationItem { Title = "Billing",   Icon = "\uE7BF", PageType = "DChemist.Views.BillingPage",   RequiresAdmin = false },
                 new NavigationItem { Title = "Financials", Icon = "\uE8C0", PageType = "DChemist.Views.FinancialPage", RequiresAdmin = true },
                 new NavigationItem { Title = "Settings", Icon = "\uE713", PageType = "DChemist.Views.SettingsPage", RequiresAdmin = true }
             };
@@ -49,6 +49,7 @@ namespace DChemist.ViewModels
             }
 
             LogoutCommand = new RelayCommand(_ => ExecuteLogout());
+            ToggleSidebarCommand = new RelayCommand(_ => IsSidebarCollapsed = !IsSidebarCollapsed);
             
             // Check for updates on background thread
             _ = CheckForUpdatesAsync();
@@ -56,6 +57,25 @@ namespace DChemist.ViewModels
             // Check for alerts (dispatch to UI thread so dialogs don't crash)
             _ = CheckForAlertsAsync();
         }
+
+        private bool _isSidebarCollapsed;
+        public bool IsSidebarCollapsed
+        {
+            get => _isSidebarCollapsed;
+            set
+            {
+                if (SetProperty(ref _isSidebarCollapsed, value))
+                {
+                    OnPropertyChanged(nameof(SidebarWidth));
+                    OnPropertyChanged(nameof(SidebarGridWidth));
+                    OnPropertyChanged(nameof(IsSidebarExpanded));
+                }
+            }
+        }
+
+        public double SidebarWidth => IsSidebarCollapsed ? 60 : 200;
+        public Microsoft.UI.Xaml.GridLength SidebarGridWidth => new Microsoft.UI.Xaml.GridLength(SidebarWidth);
+        public bool IsSidebarExpanded => !IsSidebarCollapsed;
 
         private async System.Threading.Tasks.Task CheckForAlertsAsync()
         {
@@ -105,6 +125,7 @@ namespace DChemist.ViewModels
 
         public ObservableCollection<NavigationItem> NavigationItems { get; }
         public ICommand LogoutCommand { get; }
+        public ICommand ToggleSidebarCommand { get; }
 
         private void ExecuteLogout()
         {

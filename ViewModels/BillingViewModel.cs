@@ -37,6 +37,7 @@ namespace DChemist.ViewModels
         private string _barcodeText = string.Empty;
         private bool _isBusy;
         private string _statusMessage = string.Empty;
+        private bool _isContinuousScanMode;
 
         public BillingViewModel(MedicineRepository medicineRepository, SaleRepository saleRepository, 
                                  CustomerRepository customerRepository, BatchRepository batchRepository, 
@@ -56,7 +57,7 @@ namespace DChemist.ViewModels
             _settingsService = settingsService;
             _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
-            _taxRate = 0.0m; // Default, will be loaded in InitializeAsync
+            _taxRate = 0.0m;
 
             CartItems = new ObservableCollection<SaleItemViewModel>();
             MedicineResults = new ObservableCollection<Medicine>();
@@ -65,6 +66,7 @@ namespace DChemist.ViewModels
             AddToCartCommand = new AsyncRelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
             RemoveFromCartCommand = new RelayCommand(item => ExecuteRemoveFromCart(item as SaleItemViewModel), item => item is SaleItemViewModel);
             CompleteSaleCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(), _ => CartItems.Any());
+            PrintBillCommand = new AsyncRelayCommand(async _ => await ExecutePrintBillAsync());
             System.Diagnostics.Debug.WriteLine("[BillingViewModel] Constructor: Finished.");
         }
 
@@ -74,10 +76,6 @@ namespace DChemist.ViewModels
             OnPropertyChanged(nameof(TaxRateText));
         }
 
-        /// <summary>
-        /// Shown to the user when a sale fails (e.g., insufficient stock).
-        /// Cleared automatically after a successful operation.
-        /// </summary>
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
         public ObservableCollection<SaleItemViewModel> CartItems { get; }
@@ -123,6 +121,7 @@ namespace DChemist.ViewModels
             get => _barcodeText;
             set { if (SetProperty(ref _barcodeText, value)) _ = HandleBarcodeScanAsync(); }
         }
+        public bool IsContinuousScanMode { get => _isContinuousScanMode; set => SetProperty(ref _isContinuousScanMode, value); }
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
 
         public ICommand SearchCommand { get; }
@@ -157,9 +156,8 @@ namespace DChemist.ViewModels
             var med = medicine ?? SelectedMedicine;
             if (med == null) return;
  
-            // Fetch available batches for this medicine
             var batches = await _batchRepository.GetByMedicineIdAsync(med.Id);
-            var bestBatch = batches.Where(b => b.StockQty > 0).OrderBy(b => b.ExpiryDate).FirstOrDefault();
+            var bestBatch = batches.Where(b => b.RemainingUnits > 0).OrderBy(b => b.ExpiryDate).FirstOrDefault();
  
             if (bestBatch == null)
             {
@@ -167,24 +165,19 @@ namespace DChemist.ViewModels
                 return;
             }
  
-            var existing = CartItems.FirstOrDefault(i => i.MedicineId == med.Id && i.SelectedUnit == Capitalize(med.BaseUnit));
+            var existing = CartItems.FirstOrDefault(i => i.MedicineId == med.Id);
             if (existing != null)
             {
                 existing.Quantity++;
             }
             else
             {
-                var defaultUnit = Capitalize(med.BaseUnit);
                 var newItem = new SaleItemViewModel
                 {
                     MedicineId    = med.Id,
                     BatchId       = bestBatch.Id,
                     MedicineName  = med.Name,
-                    BaseUnitPrice = bestBatch.SellingPrice,
-                    BaseUnit      = med.BaseUnit,
-                    StripSize     = med.StripSize,
-                    BoxSize       = med.BoxSize,
-                    SelectedUnit  = defaultUnit,
+                    UnitPrice     = bestBatch.SellingPrice,
                     Quantity      = 1
                 };
                 newItem.PropertyChanged += OnItemPropertyChanged;
@@ -229,7 +222,6 @@ namespace DChemist.ViewModels
 
         private async Task PrintCurrentReceiptAsync(string billNo, string? fbrInvNo)
         {
-            // SNAPSHOT: Extract data on the call thread (UI thread) BEFORE any clearing happens
             var receiptVM = new ReceiptViewModel
             {
                 BillNo = billNo,
@@ -253,17 +245,14 @@ namespace DChemist.ViewModels
                 });
             }
 
-            // Use dispatcher only for UI-bound operations (creating Control + showing UI)
             _dispatcher.TryEnqueue(async () =>
             {
                 try
                 {
                     await receiptVM.InitializeQrCode(_fiscalService);
     
-                    // ReceiptTemplate is a UI element, MUST be created on UI thread
                     var receiptControl = new Views.ReceiptTemplate(receiptVM);
                     
-                    // The print service also uses native COM interop, keep it on UI thread
                     await _printService.PrintReceiptAsync(receiptControl, "Sale Receipt " + billNo);
                 }
                 catch (Exception ex)
@@ -275,6 +264,36 @@ namespace DChemist.ViewModels
             await Task.CompletedTask;
         }
     
+        public async Task<Views.ReceiptTemplate> CreateReceiptPreviewAsync()
+        {
+            string billNo = "BILL-PREVIEW";
+            var receiptVM = new ReceiptViewModel
+            {
+                BillNo = billNo,
+                FbrInvoiceNo = null,
+                CustomerName = CustomerName,
+                CustomerPhone = CustomerPhone,
+                TotalAmount = TotalAmount,
+                TaxAmount = TaxAmount,
+                TaxRateText = TaxRateText + ":",
+                DiscountAmount = DiscountAmount,
+                GrandTotal = GrandTotal
+            };
+
+            foreach (var item in CartItems)
+            {
+                receiptVM.Items.Add(new ReceiptItemViewModel
+                {
+                    Name = item.MedicineName,
+                    Quantity = item.Quantity,
+                    Price = item.UnitPrice
+                });
+            }
+
+            await receiptVM.InitializeQrCode(_fiscalService);
+            return new Views.ReceiptTemplate(receiptVM);
+        }
+
         private async Task ExecuteCompleteSaleAsync()
         {
             if (_authService.CurrentUser == null) return;
@@ -296,25 +315,18 @@ namespace DChemist.ViewModels
                     MedicineName    = i.MedicineName,
                     Quantity        = i.Quantity, 
                     UnitPrice       = i.UnitPrice, 
-                    Subtotal        = i.Subtotal,
-                    SoldUnit        = i.SelectedUnit,
-                    BaseQtyDeducted = i.BaseQtyDeducted
+                    Subtotal        = i.Subtotal
                 }).ToList();
 
-                // ── Step 1: Report to FBR (Fiscalization) ────────────────────
                 StatusMessage = "Reporting to FBR...";
                 var fbrResponse = await _fiscalService.ReportSaleAsync(billNo, GrandTotal, TaxAmount);
                 string? fbrInvNo = fbrResponse.Success ? fbrResponse.InvoiceNumber : null;
-
-                // ── Step 2: Save to Database ──────────────────────────────────
                 StatusMessage = "Saving transaction...";
                 await _saleRepository.CreateTransactionAsync(billNo, _authService.CurrentUser.Id, customerId, items, 
                     TotalAmount, TaxAmount, DiscountAmount, GrandTotal, fbrInvNo, fbrResponse.ResponseRaw);
                 
-                // ── Step 3: Print Receipt ─────────────────────────────────────
                 await PrintCurrentReceiptAsync(billNo, fbrInvNo);
 
-                // ── Clear the cart on success ─────────────────────────────────
                 CartItems.Clear();
                 UpdateTotals();
                 CustomerName = "";
@@ -324,7 +336,6 @@ namespace DChemist.ViewModels
             }
             catch (InvalidOperationException ex)
             {
-                // Stock validation failure — show message to user, do NOT clear cart
                 StatusMessage = "⚠ " + ex.Message;
             }
             catch (Exception ex)
@@ -342,61 +353,12 @@ namespace DChemist.ViewModels
         public int BatchId { get; set; }
         public string MedicineName { get; set; } = string.Empty;
 
-        // Base unit price (per single base unit, e.g. per tablet)
-        private decimal _baseUnitPrice;
-        public decimal BaseUnitPrice
+        private decimal _unitPrice;
+        public decimal UnitPrice
         {
-            get => _baseUnitPrice;
-            set { if (SetProperty(ref _baseUnitPrice, value)) { OnPropertyChanged(nameof(UnitPrice)); OnPropertyChanged(nameof(Subtotal)); } }
+            get => _unitPrice;
+            set { if (SetProperty(ref _unitPrice, value)) OnPropertyChanged(nameof(Subtotal)); }
         }
-
-        // Packaging info carried from Medicine
-        public string  BaseUnit  { get; set; } = "unit";
-        public int?    StripSize { get; set; }
-        public int?    BoxSize   { get; set; }
-
-        /// <summary>Available selling units as display strings.</summary>
-        public List<string> AvailableUnits
-        {
-            get
-            {
-                var list = new List<string> { Capitalize(BaseUnit) };
-                if (StripSize.HasValue && StripSize.Value > 0) list.Add("Strip");
-                if (BoxSize.HasValue   && BoxSize.Value   > 0) list.Add("Box");
-                return list;
-            }
-        }
-
-        private string _selectedUnit = string.Empty;
-        public string SelectedUnit
-        {
-            get => _selectedUnit;
-            set
-            {
-                if (SetProperty(ref _selectedUnit, value))
-                {
-                    OnPropertyChanged(nameof(ConversionFactor));
-                    OnPropertyChanged(nameof(UnitPrice));
-                    OnPropertyChanged(nameof(Subtotal));
-                }
-            }
-        }
-
-        /// <summary>How many base units are in one selected unit.</summary>
-        public int ConversionFactor
-        {
-            get
-            {
-                if (string.Equals(SelectedUnit, "Strip", StringComparison.OrdinalIgnoreCase))
-                    return StripSize ?? 1;
-                if (string.Equals(SelectedUnit, "Box", StringComparison.OrdinalIgnoreCase))
-                    return BoxSize ?? 1;
-                return 1; // base unit
-            }
-        }
-
-        /// <summary>Price for the currently selected unit.</summary>
-        public decimal UnitPrice => BaseUnitPrice * ConversionFactor;
 
         private int _quantity = 1;
         public int Quantity
@@ -405,13 +367,6 @@ namespace DChemist.ViewModels
             set { if (SetProperty(ref _quantity, value)) OnPropertyChanged(nameof(Subtotal)); }
         }
 
-        /// <summary>Subtotal: UnitPrice * Quantity (already in base-unit price equivalents).</summary>
         public decimal Subtotal => UnitPrice * Quantity;
-
-        /// <summary>How many base units to deduct from stock for this line item.</summary>
-        public int BaseQtyDeducted => Quantity * ConversionFactor;
-
-        private static string Capitalize(string s) =>
-            string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
     }
 }

@@ -32,5 +32,48 @@ namespace DChemist.Views
                 sender.Text = string.Empty;
             }
         }
+
+        private void ContinueusScanToggle_Checked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            ContinuousScanToggle.Content = "Stop Scanning";
+            LockFocus();
+        }
+
+        private void ContinueusScanToggle_Unchecked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            ContinuousScanToggle.Content = "Enable Continuous Scanning";
+        }
+
+        private void PageRoot_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            // If user clicks anywhere while mode is active, reclaim focus
+            if (ContinuousScanToggle.IsChecked == true)
+            {
+                LockFocus();
+            }
+        }
+
+        private void LockFocus()
+        {
+            BarcodeReceiver.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+        }
+
+        private void HiddenBarcodeReceiver_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                e.Handled = true;
+                // Since HandleBarcodeScanAsync triggers on PropertyChanged, setting the text handles it. 
+                // But just in case, we can manually trigger by clearing and resetting or simply checking the buffer.
+                if (!string.IsNullOrWhiteSpace(ViewModel.BarcodeText))
+                {
+                    // Trigger add to cart if medicine is set
+                    _ = ViewModel.ExecuteAddToCartAsync(ViewModel.SelectedMedicine);
+                    ViewModel.BarcodeText = string.Empty;
+                }
+            }
+        }
+
+        }
     }
 }

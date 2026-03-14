@@ -31,9 +31,9 @@ namespace DChemist.Repositories
                     c.name as category_name, 
                     man.name as manufacturer_name,
                     s.name as supplier_name,
-                    COALESCE(SUM(b.stock_qty), 0) as total_stock,
+                    COALESCE(SUM(b.remaining_units), 0) as total_stock,
                     MAX(b.selling_price) as latest_price,
-                    MIN(b.purchase_price) as cost_price,
+                    MIN(b.unit_cost) as cost_price,
                     MIN(b.expiry_date) as earliest_expiry
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
@@ -61,9 +61,9 @@ namespace DChemist.Repositories
                     c.name as category_name, 
                     man.name as manufacturer_name,
                     s.name as supplier_name,
-                    COALESCE(SUM(b.stock_qty), 0) as total_stock,
+                    COALESCE(SUM(b.remaining_units), 0) as total_stock,
                     MAX(b.selling_price) as latest_price,
-                    MIN(b.purchase_price) as cost_price,
+                    MIN(b.unit_cost) as cost_price,
                     MIN(b.expiry_date) as earliest_expiry
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
@@ -95,9 +95,9 @@ namespace DChemist.Repositories
                     m.*, 
                     c.name as category_name, 
                     man.name as manufacturer_name,
-                    COALESCE(SUM(b.stock_qty), 0) as total_stock,
+                    COALESCE(SUM(b.remaining_units), 0) as total_stock,
                     MAX(b.selling_price) as latest_price,
-                    MIN(b.purchase_price) as cost_price,
+                    MIN(b.unit_cost) as cost_price,
                     MIN(b.expiry_date) as earliest_expiry
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
@@ -129,10 +129,6 @@ namespace DChemist.Repositories
                 Strength        = reader["strength"] != DBNull.Value ? reader["strength"].ToString() : null,
                 Barcode         = reader["barcode"].ToString() ?? string.Empty,
                 CreatedAt       = Convert.ToDateTime(reader["created_at"]),
-                // Multi-unit packaging
-                BaseUnit        = reader["base_unit"] != DBNull.Value ? reader["base_unit"].ToString()! : "unit",
-                StripSize       = reader["strip_size"] != DBNull.Value ? Convert.ToInt32(reader["strip_size"]) : null,
-                BoxSize         = reader["box_size"] != DBNull.Value ? Convert.ToInt32(reader["box_size"]) : null,
                 // Joined aggregates
                 CategoryName    = reader["category_name"] != DBNull.Value ? reader["category_name"].ToString() : null,
                 ManufacturerName = reader["manufacturer_name"] != DBNull.Value ? reader["manufacturer_name"].ToString() : null,
@@ -166,8 +162,8 @@ namespace DChemist.Repositories
 
                 // 2. Insert Medicine
                 const string medQuery = @"
-                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode, base_unit, strip_size, box_size)
-                    VALUES (@name, @generic, @catId, @manId, @dosage, @strength, @barcode, @baseUnit, @stripSize, @boxSize)
+                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode)
+                    VALUES (@name, @generic, @catId, @manId, @dosage, @strength, @barcode)
                     RETURNING id;";
 
                 using var medCmd = new NpgsqlCommand(medQuery, connection, transaction);
@@ -178,24 +174,22 @@ namespace DChemist.Repositories
                 medCmd.Parameters.AddWithValue("@dosage", medicine.DosageForm ?? (object)DBNull.Value);
                 medCmd.Parameters.AddWithValue("@strength", medicine.Strength ?? (object)DBNull.Value);
                 medCmd.Parameters.AddWithValue("@barcode", medicine.Barcode);
-                medCmd.Parameters.AddWithValue("@baseUnit", string.IsNullOrWhiteSpace(medicine.BaseUnit) ? "unit" : medicine.BaseUnit);
-                medCmd.Parameters.AddWithValue("@stripSize", medicine.StripSize.HasValue ? (object)medicine.StripSize.Value : DBNull.Value);
-                medCmd.Parameters.AddWithValue("@boxSize", medicine.BoxSize.HasValue ? (object)medicine.BoxSize.Value : DBNull.Value);
 
                 int medId = Convert.ToInt32(await medCmd.ExecuteScalarAsync());
 
                 // 3. Insert Initial Batch
                 const string batchQuery = @"
-                    INSERT INTO inventory_batches (medicine_id, supplier_id, batch_number, purchase_price, selling_price, stock_qty, expiry_date)
-                    VALUES (@medId, @supId, @batchNo, @pPrice, @sPrice, @qty, @expiry)";
+                    INSERT INTO inventory_batches (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, expiry_date)
+                    VALUES (@medId, @supId, @batchNo, @qty, @pTotal, @uCost, @sPrice, @qty, @expiry)";
 
                 using var batchCmd = new NpgsqlCommand(batchQuery, connection, transaction);
                 batchCmd.Parameters.AddWithValue("@medId", medId);
                 batchCmd.Parameters.AddWithValue("@supId", supplierId ?? (object)DBNull.Value);
                 batchCmd.Parameters.AddWithValue("@batchNo", "BATCH-" + DateTime.Now.ToString("yyyyMMdd"));
-                batchCmd.Parameters.AddWithValue("@pPrice", medicine.PurchasePrice);
-                batchCmd.Parameters.AddWithValue("@sPrice", medicine.SellingPrice);
                 batchCmd.Parameters.AddWithValue("@qty", medicine.StockQty);
+                batchCmd.Parameters.AddWithValue("@pTotal", medicine.PurchasePrice * medicine.StockQty); // Initial seed
+                batchCmd.Parameters.AddWithValue("@uCost", medicine.PurchasePrice);
+                batchCmd.Parameters.AddWithValue("@sPrice", medicine.SellingPrice);
                 batchCmd.Parameters.AddWithValue("@expiry", medicine.ExpiryDate ?? (object)DateTime.Now.AddYears(1));
 
                 await batchCmd.ExecuteNonQueryAsync();
@@ -271,8 +265,7 @@ namespace DChemist.Repositories
                 const string medQuery = @"
                     UPDATE medicines 
                     SET name = @name, generic_name = @generic, category_id = @catId, 
-                        manufacturer_id = @manId, dosage_form = @dosage, strength = @strength, barcode = @barcode,
-                        base_unit = @baseUnit, strip_size = @stripSize, box_size = @boxSize
+                        manufacturer_id = @manId, dosage_form = @dosage, strength = @strength, barcode = @barcode
                     WHERE id = @id";
                 
                 using var medCmd = new NpgsqlCommand(medQuery, connection, transaction);
@@ -284,9 +277,6 @@ namespace DChemist.Repositories
                 medCmd.Parameters.AddWithValue("@dosage", medicine.DosageForm ?? (object)DBNull.Value);
                 medCmd.Parameters.AddWithValue("@strength", medicine.Strength ?? (object)DBNull.Value);
                 medCmd.Parameters.AddWithValue("@barcode", medicine.Barcode);
-                medCmd.Parameters.AddWithValue("@baseUnit", string.IsNullOrWhiteSpace(medicine.BaseUnit) ? "unit" : medicine.BaseUnit);
-                medCmd.Parameters.AddWithValue("@stripSize", medicine.StripSize.HasValue ? (object)medicine.StripSize.Value : DBNull.Value);
-                medCmd.Parameters.AddWithValue("@boxSize", medicine.BoxSize.HasValue ? (object)medicine.BoxSize.Value : DBNull.Value);
                 await medCmd.ExecuteNonQueryAsync();
 
                 // 3. Update Inventory Batch (Price and Quantity)
@@ -294,8 +284,9 @@ namespace DChemist.Repositories
                 const string batchUpdateQuery = @"
                     UPDATE inventory_batches 
                     SET selling_price = @sPrice, 
-                        purchase_price = @pPrice, 
-                        stock_qty = @qty,
+                        unit_cost = @pPrice, 
+                        purchase_total_price = @pPrice * quantity_units,
+                        remaining_units = @qty,
                         expiry_date = @expiry,
                         supplier_id = @supId
                     WHERE medicine_id = @medId 

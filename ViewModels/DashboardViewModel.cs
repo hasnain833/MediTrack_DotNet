@@ -44,7 +44,7 @@ namespace DChemist.ViewModels
                     SELECT COUNT(*) FROM (
                         SELECT medicine_id FROM inventory_batches
                         GROUP BY medicine_id
-                        HAVING COALESCE(SUM(stock_qty), 0) < 10
+                        HAVING COALESCE(SUM(remaining_units), 0) < 10
                     ) AS low_stock", conn))
                 {
                     var lowStock = Convert.ToInt64(await cmd.ExecuteScalarAsync() ?? 0);
@@ -57,7 +57,7 @@ namespace DChemist.ViewModels
                 using (var cmd = new NpgsqlCommand(@"
                     SELECT COUNT(*) FROM inventory_batches 
                     WHERE expiry_date <= CURRENT_DATE + INTERVAL '90 days' 
-                    AND stock_qty > 0", conn))
+                    AND remaining_units > 0", conn))
                 {
                     var expiring = Convert.ToInt64(await cmd.ExecuteScalarAsync() ?? 0);
                     Metrics[1].Value = expiring.ToString("N0");
