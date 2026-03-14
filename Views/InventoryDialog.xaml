@@ -12,6 +12,7 @@
     DefaultButton="Primary"
     PrimaryButtonStyle="{StaticResource PremiumButtonStyle}"
     SecondaryButtonStyle="{StaticResource SecondaryButtonStyle}"
+    RequestedTheme="Dark"
     CornerRadius="16">
 
     <StackPanel Spacing="16" Width="400" Margin="0,10,0,0">

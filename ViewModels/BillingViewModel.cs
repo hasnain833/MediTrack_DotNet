@@ -37,6 +37,7 @@ namespace DChemist.ViewModels
         private string _barcodeText = string.Empty;
         private bool _isBusy;
         private string _statusMessage = string.Empty;
+        private bool _isStatusSuccess;
         private bool _isContinuousScanMode;
 
         public BillingViewModel(MedicineRepository medicineRepository, SaleRepository saleRepository, 
@@ -65,7 +66,8 @@ namespace DChemist.ViewModels
             SearchCommand = new AsyncRelayCommand(async _ => await SearchMedicinesAsync());
             AddToCartCommand = new AsyncRelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
             RemoveFromCartCommand = new RelayCommand(item => ExecuteRemoveFromCart(item as SaleItemViewModel), item => item is SaleItemViewModel);
-            CompleteSaleCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(), _ => CartItems.Any());
+            CompleteSaleReportedCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(true), _ => CartItems.Any());
+            CompleteSaleInternalCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(false), _ => CartItems.Any());
             PrintBillCommand = new AsyncRelayCommand(async _ => await ExecutePrintBillAsync());
             System.Diagnostics.Debug.WriteLine("[BillingViewModel] Constructor: Finished.");
         }
@@ -77,6 +79,7 @@ namespace DChemist.ViewModels
         }
 
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
+        public bool IsStatusSuccess { get => _isStatusSuccess; set => SetProperty(ref _isStatusSuccess, value); }
 
         public ObservableCollection<SaleItemViewModel> CartItems { get; }
         public ObservableCollection<Medicine> MedicineResults { get; }
@@ -127,7 +130,8 @@ namespace DChemist.ViewModels
         public ICommand SearchCommand { get; }
         public ICommand AddToCartCommand { get; }
         public ICommand RemoveFromCartCommand { get; }
-        public ICommand CompleteSaleCommand { get; }
+        public ICommand CompleteSaleReportedCommand { get; }
+        public ICommand CompleteSaleInternalCommand { get; }
         public ICommand PrintBillCommand { get; }
 
         private async Task SearchMedicinesAsync()
@@ -161,6 +165,7 @@ namespace DChemist.ViewModels
  
             if (bestBatch == null)
             {
+                IsStatusSuccess = false;
                 StatusMessage = $"⚠ '{med.Name}' is out of stock.";
                 return;
             }
@@ -184,7 +189,8 @@ namespace DChemist.ViewModels
                 CartItems.Add(newItem);
             }
             UpdateTotals();
-            ((AsyncRelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
+            ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
+            ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
         }
 
         private static string Capitalize(string s) =>
@@ -196,7 +202,8 @@ namespace DChemist.ViewModels
             item.PropertyChanged -= OnItemPropertyChanged;
             CartItems.Remove(item);
             UpdateTotals();
-            ((AsyncRelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
+            ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
+            ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
         }
 
         private void OnItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -258,6 +265,7 @@ namespace DChemist.ViewModels
                 catch (Exception ex)
                 {
                     AppLogger.LogError($"Printing failed for {billNo}", ex);
+                    IsStatusSuccess = false;
                     StatusMessage = "⚠ Sale finished, but receipt printing failed.";
                 }
             });
@@ -294,13 +302,29 @@ namespace DChemist.ViewModels
             return new Views.ReceiptTemplate(receiptVM);
         }
 
-        private async Task ExecuteCompleteSaleAsync()
+        private async Task ExecuteCompleteSaleAsync(bool reportToFbr)
         {
             if (_authService.CurrentUser == null) return;
+            if (!CartItems.Any()) return;
+
             IsBusy = true;
             StatusMessage = string.Empty;
+            IsStatusSuccess = false;
             try
             {
+                // Stock validation check across all items first
+                foreach (var item in CartItems)
+                {
+                    var totalStock = await _batchRepository.GetTotalStockAsync(item.MedicineId);
+                    if (totalStock < item.Quantity)
+                    {
+                        IsStatusSuccess = false;
+                        StatusMessage = $"⚠ Insufficient total stock for '{item.MedicineName}'. Available: {totalStock}";
+                        IsBusy = false;
+                        return;
+                    }
+                }
+
                 int? customerId = null;
                 if (!string.IsNullOrWhiteSpace(CustomerName))
                 {
@@ -318,12 +342,28 @@ namespace DChemist.ViewModels
                     Subtotal        = i.Subtotal
                 }).ToList();
 
-                StatusMessage = "Reporting to FBR...";
-                var fbrResponse = await _fiscalService.ReportSaleAsync(billNo, GrandTotal, TaxAmount);
-                string? fbrInvNo = fbrResponse.Success ? fbrResponse.InvoiceNumber : null;
+                string? fbrInvNo = null;
+                string? fbrResponseRaw = null;
+
+                if (reportToFbr)
+                {
+                    StatusMessage = "Reporting to FBR...";
+                    var fbrResponse = await _fiscalService.ReportSaleAsync(billNo, GrandTotal, TaxAmount);
+                    fbrInvNo = fbrResponse.Success ? fbrResponse.InvoiceNumber : null;
+                    fbrResponseRaw = fbrResponse.ResponseRaw;
+                    
+                    if (!fbrResponse.Success)
+                    {
+                        IsStatusSuccess = false;
+                        StatusMessage = "⚠ FBR Reporting failed. Sale aborted.";
+                        IsBusy = false;
+                        return;
+                    }
+                }
+
                 StatusMessage = "Saving transaction...";
                 await _saleRepository.CreateTransactionAsync(billNo, _authService.CurrentUser.Id, customerId, items, 
-                    TotalAmount, TaxAmount, DiscountAmount, GrandTotal, fbrInvNo, fbrResponse.ResponseRaw);
+                    TotalAmount, TaxAmount, DiscountAmount, GrandTotal, reportToFbr, fbrInvNo, fbrResponseRaw);
                 
                 await PrintCurrentReceiptAsync(billNo, fbrInvNo);
 
@@ -331,15 +371,20 @@ namespace DChemist.ViewModels
                 UpdateTotals();
                 CustomerName = "";
                 CustomerPhone = "";
-                StatusMessage = fbrResponse.Success ? "✅ Sale completed (FBR Simulator Mode)." : "⚠ Sale saved, but FBR Simulator failed.";
-                ((AsyncRelayCommand)CompleteSaleCommand).RaiseCanExecuteChanged();
+                IsStatusSuccess = true;
+                StatusMessage = reportToFbr ? "✅ Sale completed & reported to FBR." : "✅ Sale saved internally only.";
+                
+                ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
             }
             catch (InvalidOperationException ex)
             {
+                IsStatusSuccess = false;
                 StatusMessage = "⚠ " + ex.Message;
             }
             catch (Exception ex)
             {
+                IsStatusSuccess = false;
                 StatusMessage = "⚠ Sale failed: " + ex.Message;
                 System.Diagnostics.Debug.WriteLine($"[Billing] Sale error: {ex}");
             }

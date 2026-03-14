@@ -55,12 +55,16 @@
             <utils:EmptyToVisibilityConverter x:Key="EmptyToVisibilityConverter"/>
             <utils:CurrencyConverter x:Key="CurrencyConverter"/>
             <utils:DateConverter x:Key="DateConverter"/>
+            <utils:DateFormatConverter x:Key="DateFormatConverter"/>
             <utils:PositiveToColorConverter x:Key="PositiveToColorConverter"/>
+            <utils:ExpiryToColorConverter x:Key="ExpiryToColorConverter"/>
             <utils:DecimalToVisibilityConverter x:Key="DecimalToVisibilityConverter"/>
             <utils:PriceVisibilityConverter x:Key="PriceVisibilityConverter"/>
             <utils:StatusToBackgroundConverter x:Key="StatusToBackgroundConverter"/>
             <utils:StatusToForegroundConverter x:Key="StatusToForegroundConverter"/>
             <utils:DecimalToDoubleConverter x:Key="DecimalToDoubleConverter"/>
+            <utils:StatusBgConverter x:Key="StatusBgConverter"/>
+            <utils:StatusFgConverter x:Key="StatusFgConverter"/>
 
             <!-- 3. Brushes (Dependent on Tokens) -->
             <SolidColorBrush x:Key="AccentAccent" Color="#00D2FF"/>
@@ -226,8 +230,67 @@
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="Foreground" Value="#A0AEC0"/>
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="Margin" Value="0,2"/>
+                <Setter Property="Margin" Value="8,2"/>
                 <Setter Property="Padding" Value="0"/>
+                <Setter Property="MinWidth" Value="44"/>
+                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Grid x:Name="RootGrid" Background="Transparent" CornerRadius="8">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="#15FFFFFF"/>
+                                                <Setter Target="ContentPresenter.Foreground" Value="White"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="#25FFFFFF"/>
+                                                <Setter Target="ContentPresenter.Foreground" Value="White"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="#2000D2FF"/>
+                                                <Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
+                                                <Setter Target="ContentPresenter.Foreground" Value="{StaticResource AccentAccent}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="SelectedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="#3000D2FF"/>
+                                                <Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
+                                                <Setter Target="ContentPresenter.Foreground" Value="{StaticResource AccentAccent}"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                
+                                <Grid Height="44">
+                                    <!-- Selection Indicator (Vertical Bar) -->
+                                    <Rectangle x:Name="SelectionIndicator" 
+                                               Width="3" Height="18" 
+                                               Fill="{StaticResource AccentAccent}" 
+                                               HorizontalAlignment="Left" 
+                                               Visibility="Collapsed"
+                                               Margin="0,0,0,0"
+                                               RadiusX="1.5" RadiusY="1.5"/>
+                                    
+                                    <ContentPresenter x:Name="ContentPresenter"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      Content="{TemplateBinding Content}"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Margin="0"/>
+                                </Grid>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
             </Style>
 
             <!-- DataGrid Global overrides (No blue selection, no header hover) -->

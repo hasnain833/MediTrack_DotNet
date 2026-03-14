@@ -40,64 +40,59 @@
 
             <!-- Title and Add Button -->
 
-            <!-- Barcode and Search -->
-            <Grid Grid.Row="1" Margin="0,0,16,16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="200"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                
-                <StackPanel Orientation="Vertical" Spacing="6" Margin="0,0,12,0" VerticalAlignment="Bottom">
-                    <TextBlock Text="Barcode / QR Scanner" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
-                    <ToggleButton x:Name="ContinuousScanToggle"
-                                  Content="Enable Continuous Scanning" 
-                                  IsChecked="{x:Bind ViewModel.IsContinuousScanMode, Mode=TwoWay}"
-                                  Checked="ContinueusScanToggle_Checked"
-                                  Unchecked="ContinueusScanToggle_Unchecked"
-                                  CornerRadius="12" 
-                                  Height="32" 
-                                  HorizontalAlignment="Stretch" />
-                                  
-                    <!-- Visible Textbox for manual entry AND auto-scan capture -->
-                    <TextBox x:Name="BarcodeReceiver" 
-                             PlaceholderText="Scan or type barcode"
-                             Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             KeyDown="HiddenBarcodeReceiver_KeyDown"
-                             CornerRadius="8" />
-                </StackPanel>
+                <!-- Unified Search & Scanner Card -->
+                <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="20,16" Margin="0,0,16,20" Background="{ThemeResource AppBackgroundBrush}">
+                    <Grid ColumnSpacing="20">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-                <AutoSuggestBox Grid.Column="1"
-                    x:Name="MedicineSearchBox"
-                    PlaceholderText="Search medicine by name..."
-                    Header="Manual Search"
-                    QueryIcon="Find"
-                    TextMemberPath="Name"
-                    Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                    ItemsSource="{x:Bind ViewModel.MedicineResults, Mode=OneWay}"
-                    QuerySubmitted="MedicineSearchBox_QuerySubmitted"
-                    CornerRadius="12"
-                    VerticalAlignment="Bottom">
-                <AutoSuggestBox.ItemTemplate>
-                    <DataTemplate>
-                        <Grid Padding="4,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="110"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="{Binding CategoryName}"
-                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                       FontSize="12" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2" Text="{Binding Price, Converter={StaticResource CurrencyConverter}}"
-                                       Foreground="{StaticResource AccentAccent}"
-                                       HorizontalAlignment="Right" FontWeight="Bold" VerticalAlignment="Center"/>
-                        </Grid>
-                    </DataTemplate>
-                </AutoSuggestBox.ItemTemplate>
-            </AutoSuggestBox>
-        </Grid>
+                        <StackPanel Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="Continuous Scan" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
+                            <ToggleButton x:Name="ContinuousScanToggle"
+                                          Content="OFF" 
+                                          IsChecked="{x:Bind ViewModel.IsContinuousScanMode, Mode=TwoWay}"
+                                          Checked="ContinueusScanToggle_Checked"
+                                          Unchecked="ContinueusScanToggle_Unchecked"
+                                          CornerRadius="8" 
+                                          Height="36" />
+                        </StackPanel>
+
+
+                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                            <TextBlock Text="Search Local Stock" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
+                            <AutoSuggestBox x:Name="MedicineSearchBox"
+                                            PlaceholderText="Type medicine name..."
+                                            QueryIcon="Find"
+                                            TextMemberPath="Name"
+                                            Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            ItemsSource="{x:Bind ViewModel.MedicineResults, Mode=OneWay}"
+                                            QuerySubmitted="MedicineSearchBox_QuerySubmitted"
+                                            CornerRadius="8" Height="36">
+                                <AutoSuggestBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Padding="4,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="110"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding CategoryName}"
+                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                       FontSize="12" VerticalAlignment="Center"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Price, Converter={StaticResource CurrencyConverter}}"
+                                                       Foreground="{StaticResource AccentAccent}"
+                                                       HorizontalAlignment="Right" FontWeight="Bold" VerticalAlignment="Center"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </AutoSuggestBox.ItemTemplate>
+                            </AutoSuggestBox>
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
             <!-- Cart Table -->
             <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="0,0,16,16">
@@ -248,24 +243,40 @@
 
                 <!-- Actions -->
                 <StackPanel Spacing="10">
-                    <Button Content="Finish &amp; Print Receipt" Command="{x:Bind ViewModel.CompleteSaleCommand}"
+                    <Button Content="Print" 
+                            Command="{x:Bind ViewModel.CompleteSaleReportedCommand}"
                             Style="{StaticResource PremiumButtonStyle}" Height="54"
-                            HorizontalAlignment="Stretch" FontSize="15" FontWeight="Bold"/>
+                            HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
+
+                    <Button Content="SAVE" 
+                            Command="{x:Bind ViewModel.CompleteSaleInternalCommand}"
+                            Style="{StaticResource PremiumButtonStyle}" Height="54"
+                            Background="#4A5568"
+                            HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
 
                     <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                                   Foreground="{StaticResource AccentAccent}" HorizontalAlignment="Center"
                                   Width="24" Height="24" Margin="0,4,0,0"/>
 
                     <!-- Stock / error feedback — hidden when empty -->
-                    <Border Background="#FFF3F3" CornerRadius="8" Padding="12,8"
+                    <Border Background="{x:Bind ViewModel.IsStatusSuccess, Mode=OneWay, Converter={StaticResource StatusBgConverter}}" 
+                            CornerRadius="8" Padding="12,8"
                             Visibility="{x:Bind ViewModel.StatusMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}">
                         <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
-                                   TextWrapping="Wrap" Foreground="#C0392B" FontSize="12" FontWeight="SemiBold"/>
+                                   TextWrapping="Wrap" 
+                                   Foreground="{x:Bind ViewModel.IsStatusSuccess, Mode=OneWay, Converter={StaticResource StatusFgConverter}}" 
+                                   FontSize="12" FontWeight="SemiBold"/>
                     </Border>
                 </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Border>
         </Grid><!-- end inner two-column layout -->
+
+        <!-- Hidden Barcode Receiver for Pos Scanning -->
+        <TextBox x:Name="BarcodeReceiver" 
+                 Width="0" Height="0" Opacity="0"
+                 Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 KeyDown="HiddenBarcodeReceiver_KeyDown"/>
     </Grid>
 </Page>

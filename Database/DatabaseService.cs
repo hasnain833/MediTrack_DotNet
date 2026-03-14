@@ -225,6 +225,11 @@ namespace DChemist.Database
                         END IF;
                         -- Make supplier_id nullable to allow initial registration without a supplier
                         ALTER TABLE inventory_batches ALTER COLUMN supplier_id DROP NOT NULL;
+                        
+                        -- Add fbr_reported to sales
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sales' AND column_name='fbr_reported') THEN
+                            ALTER TABLE sales ADD COLUMN fbr_reported BOOLEAN DEFAULT FALSE;
+                        END IF;
                     END $$;";
                 
                 using (var migCmd = new NpgsqlCommand(migrationQuery, connection))

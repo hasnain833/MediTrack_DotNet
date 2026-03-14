@@ -25,7 +25,7 @@ namespace DChemist.Repositories
         }
 
         public async Task CreateTransactionAsync(string billNo, int userId, int? customerId, List<SaleItem> items,
-            decimal total, decimal tax, decimal discount, decimal grandTotal, string? fbrInvoiceNo = null, string? fbrResponse = null)
+            decimal total, decimal tax, decimal discount, decimal grandTotal, bool fbrReported = false, string? fbrInvoiceNo = null, string? fbrResponse = null)
         {
             _auth.EnforceAdmin();
             using var connection = _db.GetConnection();
@@ -56,8 +56,8 @@ namespace DChemist.Repositories
 
                 // ── Step 2: Insert Sale Record ────────────────────────────────────
                 const string saleQuery = @"
-                    INSERT INTO sales (bill_no, customer_id, user_id, total_amount, tax_amount, discount_amount, grand_total, fbr_invoice_no, fbr_response, sale_date)
-                    VALUES (@billNo, @customerId, @userId, @total, @tax, @discount, @grandTotal, @fbrNo, @fbrResp, @saleDate)
+                    INSERT INTO sales (bill_no, customer_id, user_id, total_amount, tax_amount, discount_amount, grand_total, fbr_reported, fbr_invoice_no, fbr_response, sale_date)
+                    VALUES (@billNo, @customerId, @userId, @total, @tax, @discount, @grandTotal, @fbrReported, @fbrNo, @fbrResp, @saleDate)
                     RETURNING id;";
 
                 using var saleCmd = new NpgsqlCommand(saleQuery, connection, transaction);
@@ -68,6 +68,7 @@ namespace DChemist.Repositories
                 saleCmd.Parameters.AddWithValue("@tax", tax);
                 saleCmd.Parameters.AddWithValue("@discount", discount);
                 saleCmd.Parameters.AddWithValue("@grandTotal", grandTotal);
+                saleCmd.Parameters.AddWithValue("@fbrReported", fbrReported);
                 saleCmd.Parameters.AddWithValue("@fbrNo", (object?)fbrInvoiceNo ?? DBNull.Value);
                 saleCmd.Parameters.AddWithValue("@fbrResp", (object?)fbrResponse ?? DBNull.Value);
                 saleCmd.Parameters.AddWithValue("@saleDate", DateTime.Now);

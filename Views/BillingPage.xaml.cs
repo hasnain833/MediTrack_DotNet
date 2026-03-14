@@ -30,6 +30,7 @@ namespace DChemist.Views
             {
                 _ = ViewModel.ExecuteAddToCartAsync(medicine);
                 sender.Text = string.Empty;
+                LockFocus(); // Maintain focus for next scan
             }
         }
 
@@ -46,7 +47,6 @@ namespace DChemist.Views
 
         private void PageRoot_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
-            // If user clicks anywhere while mode is active, reclaim focus
             if (ContinuousScanToggle.IsChecked == true)
             {
                 LockFocus();
@@ -62,18 +62,14 @@ namespace DChemist.Views
         {
             if (e.Key == Windows.System.VirtualKey.Enter)
             {
-                e.Handled = true;
-                // Since HandleBarcodeScanAsync triggers on PropertyChanged, setting the text handles it. 
-                // But just in case, we can manually trigger by clearing and resetting or simply checking the buffer.
+                e.Handled = true; 
                 if (!string.IsNullOrWhiteSpace(ViewModel.BarcodeText))
                 {
-                    // Trigger add to cart if medicine is set
-                    _ = ViewModel.ExecuteAddToCartAsync(ViewModel.SelectedMedicine);
+                    _ = ViewModel.ExecuteAddToCartAsync();
                     ViewModel.BarcodeText = string.Empty;
+                    LockFocus();
                 }
             }
-        }
-
         }
     }
 }

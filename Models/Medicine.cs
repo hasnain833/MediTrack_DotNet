@@ -54,6 +54,9 @@ namespace DChemist.Models
 
         public int StockQty { get; set; }
         public DateTime? ExpiryDate { get; set; }
+
+        // Helper for UI to show either DosageForm or Strength
+        public string FormattedDosage => !string.IsNullOrWhiteSpace(DosageForm) ? DosageForm : Strength ?? string.Empty;
     }
 }
 

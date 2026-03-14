@@ -38,8 +38,7 @@ namespace DChemist.Services
             var printManager = PrintManagerInterop.GetForWindow(hWnd);
             if (printManager == null)
             {
-                System.Diagnostics.Debug.WriteLine("[ThermalPrintService] PrintManager could not be initialized.");
-                return;
+                throw new InvalidOperationException("PrintManager could not be initialized. Ensure a printer is available.");
             }
 
             printManager.PrintTaskRequested += PrintManager_PrintTaskRequested;
@@ -52,6 +51,7 @@ namespace DChemist.Services
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"Printing Error: {ex.Message}");
+                throw; // Rethrow so the caller knows it failed
             }
             finally
             {

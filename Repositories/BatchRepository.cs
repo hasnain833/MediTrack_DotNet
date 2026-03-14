@@ -35,13 +35,28 @@ namespace DChemist.Repositories
             }
         }
 
+        public async Task<int> GetTotalStockAsync(int medicineId)
+        {
+            try
+            {
+                const string query = "SELECT COALESCE(SUM(remaining_units), 0) FROM inventory_batches WHERE medicine_id = @medId AND remaining_units > 0";
+                var parameters = new Dictionary<string, object> { { "@medId", medicineId } };
+                return await _db.FetchOneAsync(query, reader => Convert.ToInt32(reader[0]), parameters);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"BatchRepository.GetTotalStockAsync failed for medicine_id={medicineId}", ex);
+                return 0;
+            }
+        }
+
         private static InventoryBatch MapBatch(NpgsqlDataReader reader)
         {
             return new InventoryBatch
             {
                 Id                 = Convert.ToInt32(reader["id"]),
                 MedicineId         = Convert.ToInt32(reader["medicine_id"]),
-                SupplierId         = Convert.ToInt32(reader["supplier_id"]),
+                SupplierId         = reader["supplier_id"] != DBNull.Value ? Convert.ToInt32(reader["supplier_id"]) : null,
                 BatchNo            = reader["batch_no"].ToString() ?? string.Empty,
                 QuantityUnits      = Convert.ToInt32(reader["quantity_units"]),
                 PurchaseTotalPrice = Convert.ToDecimal(reader["purchase_total_price"]),
@@ -68,7 +83,7 @@ namespace DChemist.Repositories
                 var parameters = new Dictionary<string, object>
                 {
                     { "@medId", batch.MedicineId },
-                    { "@supId", batch.SupplierId },
+                    { "@supId", (object?)batch.SupplierId ?? DBNull.Value },
                     { "@batch", batch.BatchNo },
                     { "@qtyU", batch.QuantityUnits },
                     { "@pTotal", batch.PurchaseTotalPrice },
@@ -114,7 +129,7 @@ namespace DChemist.Repositories
                 {
                     using var cmd = new NpgsqlCommand(query, connection, transaction);
                     cmd.Parameters.AddWithValue("@medId",  batch.MedicineId);
-                    cmd.Parameters.AddWithValue("@supId",  batch.SupplierId > 0 ? (object)batch.SupplierId : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@supId",  batch.SupplierId.HasValue && batch.SupplierId.Value > 0 ? (object)batch.SupplierId.Value : DBNull.Value);
                     cmd.Parameters.AddWithValue("@batch",  batch.BatchNo);
                     cmd.Parameters.AddWithValue("@qtyU",   batch.QuantityUnits);
                     cmd.Parameters.AddWithValue("@pTotal", batch.PurchaseTotalPrice);

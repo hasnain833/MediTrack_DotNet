@@ -46,15 +46,7 @@ namespace DChemist.ViewModels
             });
             ClearEntryCommand    = new RelayCommand(_ => ClearEntry());
             SaveAllCommand       = new AsyncRelayCommand(async _ => await ExecuteSaveAllAsync(),
-                                                        _         => ReceivingItems.Count > 0);
-            SaveNewMedicineCommand = new AsyncRelayCommand(async _ => await ExecuteSaveNewMedicineAsync());
-            RegisterNewMedCommand = new RelayCommand(_ => {
-                IsNewMedFormVisible = true;
-                FoundMedicine = null;
-                NewMedBarcode = string.Empty;
-                NewMedName = string.Empty;
-                NewMedGeneric = string.Empty;
-            });
+                                                         _         => ReceivingItems.Count > 0);
 
             SessionInvoiceDate = DateTimeOffset.Now;
             _ = LoadSuppliersAsync();
@@ -71,7 +63,7 @@ namespace DChemist.ViewModels
                     Categories.Add(new Category { Name = "Injection" });
                     Categories.Add(new Category { Name = "Drops" });
                     Categories.Add(new Category { Name = "Capsules" });
-                    SelectedCategory = Categories.FirstOrDefault();
+                    EntryCategory = Categories.FirstOrDefault();
 
                     Manufacturers.Clear();
                     Manufacturers.Add(new Manufacturer { Name = "GSK" });
@@ -79,49 +71,12 @@ namespace DChemist.ViewModels
                     Manufacturers.Add(new Manufacturer { Name = "Pfizer" });
                     Manufacturers.Add(new Manufacturer { Name = "Getz" });
                     Manufacturers.Add(new Manufacturer { Name = "Sami" });
-                    SelectedManufacturer = Manufacturers.FirstOrDefault();
+                    EntryManufacturer = Manufacturers.FirstOrDefault();
                 });
             } catch { }
             await Task.CompletedTask;
         }
 
-        private async Task ExecuteSaveNewMedicineAsync()
-        {
-            if (string.IsNullOrWhiteSpace(NewMedName)) {
-                StatusMessage = "⚠ Medicine name is required.";
-                return;
-            }
-
-            IsBusy = true;
-            try {
-                var med = new Medicine {
-                    Name = NewMedName,
-                    GenericName = NewMedGeneric,
-                    Barcode = NewMedBarcode,
-                    CategoryName = SelectedCategory?.Name ?? "General",
-                    ManufacturerName = SelectedManufacturer?.Name ?? "Unknown",
-                    SupplierName = SessionSupplierName, // Pass current session supplier if any
-                    StockQty = 0, // Just creating the record
-                    PurchasePrice = 0,
-                    SellingPrice = 0
-                };
-                await _medicineRepo.AddAsync(med);
-                
-                // Now lookup it back to get the ID and full object
-                var saved = await _medicineRepo.GetByBarcodeAsync(NewMedBarcode);
-                if (saved != null) {
-                    FoundMedicine = saved;
-                    IsNewMedFormVisible = false;
-                    StatusMessage = $"✔ Registered: {saved.Name}";
-                    if (IsAutoAddEnabled) await ExecuteAddToListAsync();
-                }
-            } catch (Exception ex) {
-                StatusMessage = "✘ Failed to register medicine.";
-                AppLogger.LogError("StockIn.SaveNew", ex);
-            } finally {
-                IsBusy = false;
-            }
-        }
 
         // ── Header fields ─────────────────────────────────────────────────
         private string _sessionInvoiceNo = string.Empty;
@@ -175,6 +130,23 @@ namespace DChemist.ViewModels
             set => SetProperty(ref _isContinuousScanMode, value);
         }
 
+        // ── Unified Form Entry Properties ────────────────────────────────
+        private string _entryName = string.Empty;
+        public string EntryName { get => _entryName; set => SetProperty(ref _entryName, value); }
+
+        private string _entryGeneric = string.Empty;
+        public string EntryGeneric { get => _entryGeneric; set => SetProperty(ref _entryGeneric, value); }
+
+        private string _entryDosage = string.Empty; // Strength/Dosage Form
+        public string EntryDosage { get => _entryDosage; set => SetProperty(ref _entryDosage, value); }
+
+        private Category? _entryCategory;
+        public Category? EntryCategory { get => _entryCategory; set => SetProperty(ref _entryCategory, value); }
+
+        private Manufacturer? _entryManufacturer;
+        public Manufacturer? EntryManufacturer { get => _entryManufacturer; set => SetProperty(ref _entryManufacturer, value); }
+
+        // ── Form Selection Proxy (Optional for lookup) ─────────────────────
         private Medicine? _foundMedicine;
         public Medicine? FoundMedicine
         {
@@ -184,21 +156,21 @@ namespace DChemist.ViewModels
                 if (SetProperty(ref _foundMedicine, value))
                 {
                     OnPropertyChanged(nameof(HasFoundMedicine));
-                    OnPropertyChanged(nameof(FoundName));
-                    OnPropertyChanged(nameof(FoundManufacturer));
-                    OnPropertyChanged(nameof(FoundCategory));
-                    ((AsyncRelayCommand)AddToListCommand).RaiseCanExecuteChanged();
+                    if (value != null)
+                    {
+                        EntryName = value.Name;
+                        EntryGeneric = value.GenericName ?? string.Empty;
+                        EntryDosage = value.Strength ?? string.Empty;
+                        // Attempt to match category/manufacturer
+                        EntryCategory = Categories.FirstOrDefault(c => c.Name == value.CategoryName);
+                        EntryManufacturer = Manufacturers.FirstOrDefault(m => m.Name == value.ManufacturerName);
+                    }
                 }
             }
         }
         public bool HasFoundMedicine => FoundMedicine != null;
 
-        // ── Safe proxy props — used by XAML to avoid null-chain bindings ──
-        public string FoundName         => FoundMedicine?.Name            ?? string.Empty;
-        public string FoundManufacturer => FoundMedicine?.ManufacturerName ?? string.Empty;
-        public string FoundCategory     => FoundMedicine?.CategoryName     ?? string.Empty;
-
-        // ── Manual Search ─────────────────────────────────────────────────
+        // ── Search ────────────────────────────────────────────────────────
         private string _searchText = string.Empty;
         public string SearchText
         {
@@ -207,8 +179,7 @@ namespace DChemist.ViewModels
             {
                 if (SetProperty(ref _searchText, value))
                 {
-                    if (value.Length >= 2)
-                        _ = ExecuteSearchAsync(value);
+                    if (value.Length >= 2) _ = ExecuteSearchAsync(value);
                 }
             }
         }
@@ -217,19 +188,13 @@ namespace DChemist.ViewModels
 
         private async Task ExecuteSearchAsync(string query)
         {
-            try
-            {
+            try {
                 var list = await _medicineRepo.SearchAsync(query);
-                _dispatcher.TryEnqueue(() =>
-                {
+                _dispatcher.TryEnqueue(() => {
                     SearchSuggestions.Clear();
                     foreach (var m in list) SearchSuggestions.Add(m);
                 });
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError("StockInViewModel.ExecuteSearchAsync", ex);
-            }
+            } catch (Exception ex) { AppLogger.LogError("StockIn.Search", ex); }
         }
 
         public void SelectMedicine(Medicine? medicine)
@@ -237,45 +202,19 @@ namespace DChemist.ViewModels
             if (medicine != null)
             {
                 FoundMedicine = medicine;
-                StatusMessage = $"✔ Selected: {medicine.Name}";
-                SearchText = string.Empty; // clear search
+                StatusMessage = $"✔ Loaded: {medicine.Name}";
+                SearchText = string.Empty;
                 SearchSuggestions.Clear();
             }
         }
 
-
-
-        // ── Entry form ────────────────────────────────────────────────────
+        // ── Entry Details ──────────────────────────────────────────────────
         private string _batchNumber = string.Empty;
-        public string BatchNumber
-        {
-            get => _batchNumber;
-            set => SetProperty(ref _batchNumber, value);
-        }
+        public string BatchNumber { get => _batchNumber; set => SetProperty(ref _batchNumber, value); }
 
         private DateTimeOffset? _expiryDate;
-        public DateTimeOffset? ExpiryDate
-        {
-            get => _expiryDate;
-            set => SetProperty(ref _expiryDate, value);
-        }
+        public DateTimeOffset? ExpiryDate { get => _expiryDate; set => SetProperty(ref _expiryDate, value); }
 
-        // ── Automation & Visibility ──────────────────────────────────────
-        private bool _isAutoAddEnabled = true;
-        public bool IsAutoAddEnabled
-        {
-            get => _isAutoAddEnabled;
-            set => SetProperty(ref _isAutoAddEnabled, value);
-        }
-
-        private bool _isNewMedFormVisible;
-        public bool IsNewMedFormVisible
-        {
-            get => _isNewMedFormVisible;
-            set => SetProperty(ref _isNewMedFormVisible, value);
-        }
-
-        // ── Form Entry Proxies (String Bridge) ────────────────────────────
         private int _quantityUnits = 1;
         public int QuantityUnits
         {
@@ -325,79 +264,42 @@ namespace DChemist.ViewModels
         public decimal PurchasePricePerUnit => QuantityUnits > 0 ? PurchaseTotalPrice / QuantityUnits : 0;
         public decimal SellingPricePerUnit  => QuantityUnits > 0 ? TotalSellingPrice / QuantityUnits : 0;
 
-        // Bridge properties for UI (String based inputs)
         public string QuantityUnitsText
         {
             get => _quantityUnits.ToString();
-            set
-            {
-                if (int.TryParse(value, out int res)) QuantityUnits = res;
-                OnPropertyChanged(nameof(QuantityUnitsText));
-            }
+            set { if (int.TryParse(value, out int res)) QuantityUnits = res; OnPropertyChanged(nameof(QuantityUnitsText)); }
         }
 
         public string PurchaseTotalPriceText
         {
             get => _purchaseTotalPrice.ToString("G29");
-            set
-            {
-                if (decimal.TryParse(value, out decimal res)) PurchaseTotalPrice = res;
-                OnPropertyChanged(nameof(PurchaseTotalPriceText));
-            }
+            set { if (decimal.TryParse(value, out decimal res)) PurchaseTotalPrice = res; OnPropertyChanged(nameof(PurchaseTotalPriceText)); }
         }
 
         public string TotalSellingPriceText
         {
             get => _totalSellingPrice.ToString("G29");
-            set
-            {
-                if (decimal.TryParse(value, out decimal res)) TotalSellingPrice = res;
-                OnPropertyChanged(nameof(TotalSellingPriceText));
-            }
+            set { if (decimal.TryParse(value, out decimal res)) TotalSellingPrice = res; OnPropertyChanged(nameof(TotalSellingPriceText)); }
         }
 
         public string PurchasePricePerUnitText => PurchasePricePerUnit.ToString("N2");
         public string SellingPricePerUnitText  => SellingPricePerUnit.ToString("N2");
-
         public string UnitProfitText => (SellingPricePerUnit - PurchasePricePerUnit).ToString("N2");
         public string ProfitMarginText => PurchasePricePerUnit > 0 
             ? (((SellingPricePerUnit - PurchasePricePerUnit) / PurchasePricePerUnit) * 100).ToString("F0") + "%" 
             : "0%";
 
-        // ── Embedded New Medicine Form ────────────────────────────────
-        private string _newMedName = string.Empty;
-        public string NewMedName { get => _newMedName; set => SetProperty(ref _newMedName, value); }
-
-        private string _newMedGeneric = string.Empty;
-        public string NewMedGeneric { get => _newMedGeneric; set => SetProperty(ref _newMedGeneric, value); }
-
-        private string _newMedBarcode = string.Empty;
-        public string NewMedBarcode { get => _newMedBarcode; set => SetProperty(ref _newMedBarcode, value); }
-
         public ObservableCollection<Category> Categories { get; } = new();
-        private Category? _selectedCategory;
-        public Category? SelectedCategory { get => _selectedCategory; set => SetProperty(ref _selectedCategory, value); }
-
         public ObservableCollection<Manufacturer> Manufacturers { get; } = new();
-        private Manufacturer? _selectedManufacturer;
-        public Manufacturer? SelectedManufacturer { get => _selectedManufacturer; set => SetProperty(ref _selectedManufacturer, value); }
-
-        public ICommand SaveNewMedicineCommand { get; }
-        public ICommand RegisterNewMedCommand { get; }
 
         private string _statusMessage = string.Empty;
-        public string StatusMessage
-        {
-            get => _statusMessage;
-            set => SetProperty(ref _statusMessage, value);
-        }
+        public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
         private bool _isBusy;
-        public bool IsBusy
-        {
-            get => _isBusy;
-            set => SetProperty(ref _isBusy, value);
-        }
+        public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
+
+        private bool _isAutoAddEnabled = false; // Turn off by default if user wants manual form
+        public bool IsAutoAddEnabled { get => _isAutoAddEnabled; set => SetProperty(ref _isAutoAddEnabled, value); }
 
         // ── Receiving List ────────────────────────────────────────────────
         public ObservableCollection<ReceivingItem> ReceivingItems { get; }
@@ -435,81 +337,109 @@ namespace DChemist.ViewModels
             var barcode = BarcodeText.Trim();
             if (string.IsNullOrEmpty(barcode)) return;
 
-            // Immediate reset for next scan speed
-            BarcodeText = string.Empty; 
-
+            // Clear previous to ensure fresh state if lookup fails
+            Medicine? medicine = null;
             try
             {
-                var medicine = await _medicineRepo.GetByBarcodeAsync(barcode);
+                medicine = await _medicineRepo.GetByBarcodeAsync(barcode);
                 if (medicine != null)
                 {
                     FoundMedicine = medicine;
                     StatusMessage = $"✔ Found: {medicine.Name}";
-                    
-                    if (IsAutoAddEnabled)
-                    {
-                        // Auto-add uses default values for session speed
-                        await ExecuteAddToListAsync();
-                    }
+                    if (IsAutoAddEnabled) await ExecuteAddToListAsync();
                 }
                 else
                 {
-                    StatusMessage = $"⚠ Medicine not found: {barcode}. Add manually.";
-                    NewMedBarcode = barcode;
-                    IsNewMedFormVisible = true;
-                    FoundMedicine = null;
+                    StatusMessage = $"ℹ New Barcode: {barcode}";
+                    ClearEntryInternal(false); // Clear fields but keep barcode
                 }
             }
             catch (Exception ex)
             {
                 StatusMessage = "✘ Lookup failed.";
-                AppLogger.LogError("StockInViewModel.ExecuteLookupBarcodeAsync", ex);
+                AppLogger.LogError("StockIn.Lookup", ex);
             }
         }
 
         private async Task ExecuteAddToListAsync()
         {
-            if (FoundMedicine == null) return;
-
             // ── Validation ────────────────────────────────────────────────
-            if (string.IsNullOrWhiteSpace(BatchNumber))
-            {
-                StatusMessage = "⚠ Batch number required.";
-                return;
-            }
-            if (!ExpiryDate.HasValue)
-            {
-                StatusMessage = "⚠ Expiry date required.";
-                return;
-            }
-            if (QuantityUnits <= 0)
-            {
-                StatusMessage = "⚠ Quantity must be > 0.";
-                return;
-            }
+            if (string.IsNullOrWhiteSpace(EntryName)) { StatusMessage = "⚠ Medicine name is required."; return; }
+            if (string.IsNullOrWhiteSpace(BatchNumber)) { StatusMessage = "⚠ Batch number required."; return; }
+            if (!ExpiryDate.HasValue) { StatusMessage = "⚠ Expiry date required."; return; }
+            if (QuantityUnits <= 0) { StatusMessage = "⚠ Quantity must be > 0."; return; }
 
-            var item = new ReceivingItem
+            IsBusy = true;
+            try
             {
-                MedicineId         = FoundMedicine.Id,
-                MedicineName       = FoundMedicine.Name,
-                ManufacturerName   = FoundMedicine.ManufacturerName ?? string.Empty,
-                BatchNo            = BatchNumber,
-                SupplierName       = SessionSupplierName,
-                InvoiceNo          = SessionInvoiceNo,
-                InvoiceDate        = SessionInvoiceDate?.DateTime,
-                QuantityUnits      = QuantityUnits,
-                PurchaseTotalPrice = PurchaseTotalPrice,
-                TotalSellingPrice  = TotalSellingPrice,
-                ExpiryDate         = ExpiryDate.Value.DateTime
-            };
+                // 1. Resolve or Create Medicine
+                var med = FoundMedicine;
+                if (med == null)
+                {
+                    // Check if name already exists to prevent duplicate manual entries without barcodes
+                    var existing = await _medicineRepo.SearchAsync(EntryName);
+                    med = existing.FirstOrDefault(m => m.Name.Equals(EntryName, StringComparison.OrdinalIgnoreCase));
 
-            ReceivingItems.Add(item);
-            StatusMessage = $"✔ Added: {item.MedicineName}";
-            
-            // Auto-notification for 'Save All' button state
-            ((AsyncRelayCommand)SaveAllCommand).RaiseCanExecuteChanged();
-            
-            ClearEntry();
+                    if (med == null)
+                    {
+                        med = new Medicine
+                        {
+                            Name = EntryName,
+                            GenericName = EntryGeneric,
+                            Strength = EntryDosage,
+                            DosageForm = EntryDosage,
+                            Barcode = BarcodeText,
+                            CategoryName = EntryCategory?.Name ?? "General",
+                            ManufacturerName = EntryManufacturer?.Name ?? "Unknown"
+                        };
+                        await _medicineRepo.AddAsync(med);
+
+                        // 1.2 Get the back from DB (to get the generated ID)
+                        Medicine? saved = null;
+                        if (!string.IsNullOrWhiteSpace(BarcodeText))
+                        {
+                            saved = await _medicineRepo.GetByBarcodeAsync(BarcodeText);
+                        }
+                        
+                        if (saved == null)
+                        {
+                            // Fallback to name search if no barcode or barcode lookup failed
+                            var searchResults = await _medicineRepo.SearchAsync(EntryName);
+                            saved = searchResults.FirstOrDefault(m => m.Name.Equals(EntryName, StringComparison.OrdinalIgnoreCase));
+                        }
+                        med = saved;
+                    }
+                }
+
+                if (med == null) { StatusMessage = "✘ Error saving medicine record."; return; }
+
+                // 2. Add to Local Collection
+                var item = new ReceivingItem
+                {
+                    MedicineId         = med.Id,
+                    MedicineName       = med.Name,
+                    ManufacturerName   = med.ManufacturerName ?? string.Empty,
+                    BatchNo            = BatchNumber,
+                    SupplierName       = SessionSupplierName,
+                    InvoiceNo          = SessionInvoiceNo,
+                    InvoiceDate        = SessionInvoiceDate?.DateTime,
+                    QuantityUnits      = QuantityUnits,
+                    PurchaseTotalPrice = PurchaseTotalPrice,
+                    TotalSellingPrice  = TotalSellingPrice,
+                    ExpiryDate         = ExpiryDate.Value.DateTime
+                };
+
+                ReceivingItems.Add(item);
+                StatusMessage = $"✔ Added: {item.MedicineName}";
+                ((AsyncRelayCommand)SaveAllCommand).RaiseCanExecuteChanged();
+                ClearEntry();
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "✘ Failed to add item.";
+                AppLogger.LogError("StockIn.AddToList", ex);
+            }
+            finally { IsBusy = false; }
         }
 
         private async Task ExecuteSaveAllAsync()
@@ -569,14 +499,10 @@ namespace DChemist.ViewModels
                 SessionSupplierName = string.Empty;
                 SelectedSupplier = null;
             }
-            catch (DataAccessException ex)
-            {
-                StatusMessage = $"✘ {ex.Message}";
-            }
             catch (Exception ex)
             {
                 StatusMessage = "✘ Unexpected error during save.";
-                AppLogger.LogError("StockInViewModel.ExecuteSaveAllAsync", ex);
+                AppLogger.LogError("StockIn.SaveAll", ex);
             }
             finally
             {
@@ -584,15 +510,23 @@ namespace DChemist.ViewModels
             }
         }
 
-        private void ClearEntry()
+        private void ClearEntry() => ClearEntryInternal(true);
+
+        private void ClearEntryInternal(bool clearBarcode)
         {
-            FoundMedicine          = null;
-            BatchNumber            = string.Empty;
-            ExpiryDate             = null;
-            QuantityUnitsText      = "1";
+            FoundMedicine = null;
+            EntryName = string.Empty;
+            EntryGeneric = string.Empty;
+            EntryDosage = string.Empty;
+            EntryCategory = Categories.FirstOrDefault();
+            EntryManufacturer = Manufacturers.FirstOrDefault();
+
+            BatchNumber = string.Empty;
+            ExpiryDate = null;
+            QuantityUnitsText = "1";
             PurchaseTotalPriceText = "0";
-            TotalSellingPriceText  = "0";
-            BarcodeText            = string.Empty;
+            TotalSellingPriceText = "0";
+            if (clearBarcode) BarcodeText = string.Empty;
         }
 
         private static string Capitalize(string s) =>

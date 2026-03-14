@@ -30,7 +30,7 @@ namespace DChemist.Repositories
                     m.*, 
                     c.name as category_name, 
                     man.name as manufacturer_name,
-                    s.name as supplier_name,
+                    MAX(s.name) as supplier_name,
                     COALESCE(SUM(b.remaining_units), 0) as total_stock,
                     MAX(b.selling_price) as latest_price,
                     MIN(b.unit_cost) as cost_price,
@@ -40,7 +40,7 @@ namespace DChemist.Repositories
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
                 LEFT JOIN inventory_batches b ON m.id = b.medicine_id
                 LEFT JOIN suppliers s ON b.supplier_id = s.id
-                GROUP BY m.id, c.name, man.name, s.name
+                GROUP BY m.id, c.name, man.name
                 ORDER BY m.name ASC";
             try
             {
@@ -60,7 +60,7 @@ namespace DChemist.Repositories
                     m.*, 
                     c.name as category_name, 
                     man.name as manufacturer_name,
-                    s.name as supplier_name,
+                    MAX(s.name) as supplier_name,
                     COALESCE(SUM(b.remaining_units), 0) as total_stock,
                     MAX(b.selling_price) as latest_price,
                     MIN(b.unit_cost) as cost_price,
@@ -71,7 +71,7 @@ namespace DChemist.Repositories
                 LEFT JOIN inventory_batches b ON m.id = b.medicine_id
                 LEFT JOIN suppliers s ON b.supplier_id = s.id
                 WHERE m.name ILIKE @text OR m.generic_name ILIKE @text OR m.barcode = @exact
-                GROUP BY m.id, c.name, man.name, s.name";
+                GROUP BY m.id, c.name, man.name";
             var parameters = new Dictionary<string, object>
             {
                 { "@text", $"%{text}%" },
@@ -178,21 +178,24 @@ namespace DChemist.Repositories
                 int medId = Convert.ToInt32(await medCmd.ExecuteScalarAsync());
 
                 // 3. Insert Initial Batch
-                const string batchQuery = @"
-                    INSERT INTO inventory_batches (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, expiry_date)
-                    VALUES (@medId, @supId, @batchNo, @qty, @pTotal, @uCost, @sPrice, @qty, @expiry)";
+                if (medicine.StockQty > 0)
+                {
+                    const string batchQuery = @"
+                        INSERT INTO inventory_batches (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, expiry_date)
+                        VALUES (@medId, @supId, @batchNo, @qty, @pTotal, @uCost, @sPrice, @qty, @expiry)";
 
-                using var batchCmd = new NpgsqlCommand(batchQuery, connection, transaction);
-                batchCmd.Parameters.AddWithValue("@medId", medId);
-                batchCmd.Parameters.AddWithValue("@supId", supplierId ?? (object)DBNull.Value);
-                batchCmd.Parameters.AddWithValue("@batchNo", "BATCH-" + DateTime.Now.ToString("yyyyMMdd"));
-                batchCmd.Parameters.AddWithValue("@qty", medicine.StockQty);
-                batchCmd.Parameters.AddWithValue("@pTotal", medicine.PurchasePrice * medicine.StockQty); // Initial seed
-                batchCmd.Parameters.AddWithValue("@uCost", medicine.PurchasePrice);
-                batchCmd.Parameters.AddWithValue("@sPrice", medicine.SellingPrice);
-                batchCmd.Parameters.AddWithValue("@expiry", medicine.ExpiryDate ?? (object)DateTime.Now.AddYears(1));
+                    using var batchCmd = new NpgsqlCommand(batchQuery, connection, transaction);
+                    batchCmd.Parameters.AddWithValue("@medId", medId);
+                    batchCmd.Parameters.AddWithValue("@supId", supplierId ?? (object)DBNull.Value);
+                    batchCmd.Parameters.AddWithValue("@batchNo", "BATCH-" + DateTime.Now.ToString("yyyyMMdd"));
+                    batchCmd.Parameters.AddWithValue("@qty", medicine.StockQty);
+                    batchCmd.Parameters.AddWithValue("@pTotal", medicine.PurchasePrice * medicine.StockQty); // Initial seed
+                    batchCmd.Parameters.AddWithValue("@uCost", medicine.PurchasePrice);
+                    batchCmd.Parameters.AddWithValue("@sPrice", medicine.SellingPrice);
+                    batchCmd.Parameters.AddWithValue("@expiry", medicine.ExpiryDate ?? (object)DateTime.Now.AddYears(1));
 
-                await batchCmd.ExecuteNonQueryAsync();
+                    await batchCmd.ExecuteNonQueryAsync();
+                }
                 await transaction.CommitAsync();
             }
             catch (Exception ex)

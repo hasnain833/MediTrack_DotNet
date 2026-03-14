@@ -6,7 +6,7 @@ namespace DChemist.Models
     {
         public int Id { get; set; }
         public int MedicineId { get; set; }
-        public int SupplierId { get; set; }
+        public int? SupplierId { get; set; }
         public string BatchNo { get; set; } = string.Empty;
         public int QuantityUnits { get; set; }
         public decimal PurchaseTotalPrice { get; set; }
