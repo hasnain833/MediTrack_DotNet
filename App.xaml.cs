@@ -22,11 +22,22 @@ namespace DChemist
 
         public App()
         {
+            // Enable Dapper underscore to camelCase mapping
+            Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
+
             // Set up early exception handling
             this.UnhandledException += async (s, e) =>
             {
                 e.Handled = true;
                 AppLogger.LogError($"Unhandled exception: {e.Message}", e.Exception);
+
+                // Persist to Database if possible
+                try
+                {
+                    var errorRepo = Services!.GetRequiredService<ErrorLogRepository>();
+                    await errorRepo.InsertErrorAsync(e.Message, e.Exception?.StackTrace, e.Exception?.Source);
+                }
+                catch { /* DB Logging failed */ }
 
                 // Show a safe dialog so the user knows something went wrong
                 try
@@ -34,7 +45,7 @@ namespace DChemist
                     var dialog = new ContentDialog
                     {
                         Title = "Unexpected Error",
-                        Content = "An unexpected error occurred. The application will continue.\n\nDetails have been saved to the log file.",
+                        Content = "An unexpected error occurred. The application will continue.\n\nDetails have been saved to the error logs.",
                         CloseButtonText = "OK"
                     };
                     if (MainRoot?.XamlRoot != null)
@@ -86,6 +97,8 @@ namespace DChemist
             services.AddSingleton<SupplierRepository>();
             services.AddSingleton<BatchRepository>();
             services.AddSingleton<AuditRepository>();
+            services.AddSingleton<ErrorLogRepository>();
+            services.AddSingleton<IDashboardRepository, DashboardRepository>();
 
             // Services
             services.AddSingleton<AuthService>();
@@ -100,6 +113,7 @@ namespace DChemist
             services.AddSingleton<AlertService>();
             services.AddSingleton<BackupService>();
             services.AddSingleton<SettingsService>();
+            services.AddSingleton<SessionService>();
 
             // ViewModels
             services.AddTransient<LoginViewModel>();
@@ -110,6 +124,9 @@ namespace DChemist
             services.AddTransient<FinancialViewModel>();
             services.AddTransient<SettingsViewModel>();
             services.AddTransient<StockInViewModel>();
+            services.AddTransient<InventoryAdjustmentViewModel>();
+            services.AddTransient<FinancialReportViewModel>();
+            services.AddTransient<AuditLogsViewModel>();
 
             return services.BuildServiceProvider();
         }
@@ -122,6 +139,16 @@ namespace DChemist
             MainRoot = rootFrame;
             _window.Content = rootFrame;
             
+            // Start background initialization
+            var dbService = Services.GetRequiredService<DatabaseService>();
+            _ = Task.Run(async () => {
+                try {
+                    await dbService.InitializeAsync();
+                } catch (Exception ex) {
+                    AppLogger.LogError("Async DB Init failed", ex);
+                }
+            });
+
             var navService = Services.GetRequiredService<NavigationService>();
             navService.InitializeRoot(rootFrame);
             navService.Initialize(rootFrame);

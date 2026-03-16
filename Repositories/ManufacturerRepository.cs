@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DChemist.Database;
 using DChemist.Models;
 using DChemist.Services;
-using Npgsql;
+using Dapper;
 
 namespace DChemist.Repositories
 {
@@ -21,26 +22,18 @@ namespace DChemist.Repositories
 
         public async Task<List<Manufacturer>> GetAllAsync()
         {
-            const string query = "SELECT * FROM manufacturers ORDER BY name ASC";
-            return await _db.FetchAllAsync(query, MapManufacturer);
-        }
-
-        private static Manufacturer MapManufacturer(NpgsqlDataReader reader)
-        {
-            return new Manufacturer
-            {
-                Id = Convert.ToInt32(reader["id"]),
-                Name = reader["name"].ToString() ?? string.Empty,
-                CreatedAt = Convert.ToDateTime(reader["created_at"])
-            };
+            const string query = "SELECT id, name, created_at as CreatedAt FROM manufacturers ORDER BY name ASC";
+            using var conn = _db.GetConnection();
+            var manufacturers = await conn.QueryAsync<Manufacturer>(query);
+            return manufacturers.ToList();
         }
 
         public async Task AddAsync(Manufacturer manufacturer)
         {
             _auth.EnforceAdmin();
-            const string query = "INSERT INTO manufacturers (name) VALUES (@name)";
-            var parameters = new Dictionary<string, object> { { "@name", manufacturer.Name } };
-            await _db.ExecuteNonQueryAsync(query, parameters);
+            const string query = "INSERT INTO manufacturers (name) VALUES (@Name)";
+            using var conn = _db.GetConnection();
+            await conn.ExecuteAsync(query, new { manufacturer.Name });
         }
     }
 }

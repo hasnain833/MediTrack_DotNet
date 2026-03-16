@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DChemist.Database;
 using DChemist.Models;
 using DChemist.Services;
-using Npgsql;
+using Dapper;
 
 namespace DChemist.Repositories
 {
@@ -21,26 +22,18 @@ namespace DChemist.Repositories
 
         public async Task<List<Category>> GetAllAsync()
         {
-            const string query = "SELECT * FROM categories ORDER BY name ASC";
-            return await _db.FetchAllAsync(query, MapCategory);
-        }
-
-        private static Category MapCategory(NpgsqlDataReader reader)
-        {
-            return new Category
-            {
-                Id = Convert.ToInt32(reader["id"]),
-                Name = reader["name"].ToString() ?? string.Empty,
-                CreatedAt = Convert.ToDateTime(reader["created_at"])
-            };
+            const string query = "SELECT id, name, created_at as CreatedAt FROM categories ORDER BY name ASC";
+            using var conn = _db.GetConnection();
+            var categories = await conn.QueryAsync<Category>(query);
+            return categories.ToList();
         }
 
         public async Task AddAsync(Category category)
         {
             _auth.EnforceAdmin();
-            const string query = "INSERT INTO categories (name) VALUES (@name)";
-            var parameters = new Dictionary<string, object> { { "@name", category.Name } };
-            await _db.ExecuteNonQueryAsync(query, parameters);
+            const string query = "INSERT INTO categories (name) VALUES (@Name)";
+            using var conn = _db.GetConnection();
+            await conn.ExecuteAsync(query, new { category.Name });
         }
     }
 }

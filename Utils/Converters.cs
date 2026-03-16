@@ -28,6 +28,30 @@ namespace DChemist.Utils
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 
+    public class CountToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is int count) return count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            return Visibility.Collapsed;
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    public class NullToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            bool inverse = parameter as string == "Inverse";
+            bool isNull = value == null;
+            if (value is string s) isNull = string.IsNullOrWhiteSpace(s);
+            
+            bool visible = inverse ? !isNull : isNull;
+            return visible ? Visibility.Visible : Visibility.Collapsed;
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
     public class StringToVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
@@ -58,7 +82,8 @@ namespace DChemist.Utils
     {
         public object Convert(object value, Type targetType, object parameter, string language)
         {
-            return value is decimal d ? $"PKR {d:N2}" : "PKR 0.00";
+            string prefix = parameter as string ?? "PKR ";
+            return value is decimal d ? $"{prefix}{d:N2}" : $"{prefix}0.00";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language)
@@ -102,12 +127,34 @@ namespace DChemist.Utils
             if (value is DateTime dt)
             {
                 var daysUntilExpiry = (dt - DateTime.Now).TotalDays;
+                if (daysUntilExpiry <= 0) // Already Expired
+                {
+                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 38, 38)); // Dark Red (#DC2626)
+                }
                 if (daysUntilExpiry <= 30) // Within 1 month
                 {
-                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 229, 62, 62)); // Red (#E53E3E)
+                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 239, 68, 68)); // Red (#EF4444)
+                }
+                if (daysUntilExpiry <= 60) // Near Expiry (Section 2)
+                {
+                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 217, 119, 6)); // Orange (#D97706)
                 }
             }
             return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 75, 85, 99)); // Gray (#4B5563)
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    public class NearExpiryToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is DateTime dt)
+            {
+                return (dt - DateTime.Now).TotalDays <= 60 ? Visibility.Visible : Visibility.Collapsed;
+            }
+            return Visibility.Collapsed;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
@@ -155,6 +202,7 @@ namespace DChemist.Utils
         {
             var status = value as string;
             if (status == "Voided") return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 254, 226, 226)); // Red light
+            if (status == "Returned") return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 243, 191)); // Yellow light
             return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 236, 253, 245)); // Green light
         }
 
@@ -167,6 +215,7 @@ namespace DChemist.Utils
         {
             var status = value as string;
             if (status == "Voided") return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 38, 38)); // Red text
+            if (status == "Returned") return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 153, 101, 21)); // Brown/Deep Yellow text
             return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 5, 150, 105)); // Green text
         }
 
@@ -231,6 +280,16 @@ namespace DChemist.Utils
             return success ? 
                 new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 39, 103, 73)) : // Dark Green
                 new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 192, 57, 43)); // Dark Red
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    public class StringFormatConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            string? format = parameter as string;
+            return string.IsNullOrEmpty(format) ? (value?.ToString() ?? string.Empty) : string.Format(format, value);
         }
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }

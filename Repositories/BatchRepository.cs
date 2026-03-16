@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DChemist.Database;
 using DChemist.Models;
 using DChemist.Services;
 using DChemist.Utils;
+using Dapper;
 using Npgsql;
 
 namespace DChemist.Repositories
@@ -24,9 +26,10 @@ namespace DChemist.Repositories
         {
             try
             {
-                const string query = "SELECT * FROM inventory_batches WHERE medicine_id = @medId AND remaining_units > 0 ORDER BY expiry_date ASC";
-                var parameters = new Dictionary<string, object> { { "@medId", medicineId } };
-                return await _db.FetchAllAsync(query, MapBatch, parameters);
+                const string query = "SELECT * FROM inventory_batches WHERE medicine_id = @medicineId AND remaining_units > 0 ORDER BY expiry_date ASC";
+                using var conn = _db.GetConnection();
+                var batches = await conn.QueryAsync<InventoryBatch>(query, new { medicineId });
+                return batches.ToList();
             }
             catch (Exception ex)
             {
@@ -39,9 +42,9 @@ namespace DChemist.Repositories
         {
             try
             {
-                const string query = "SELECT COALESCE(SUM(remaining_units), 0) FROM inventory_batches WHERE medicine_id = @medId AND remaining_units > 0";
-                var parameters = new Dictionary<string, object> { { "@medId", medicineId } };
-                return await _db.FetchOneAsync(query, reader => Convert.ToInt32(reader[0]), parameters);
+                const string query = "SELECT COALESCE(SUM(remaining_units), 0) FROM inventory_batches WHERE medicine_id = @medicineId AND remaining_units > 0";
+                using var conn = _db.GetConnection();
+                return await conn.ExecuteScalarAsync<int>(query, new { medicineId });
             }
             catch (Exception ex)
             {
@@ -50,25 +53,51 @@ namespace DChemist.Repositories
             }
         }
 
-        private static InventoryBatch MapBatch(NpgsqlDataReader reader)
+        public async Task<List<AlertBatchItem>> GetLowStockAsync(int threshold = 10)
         {
-            return new InventoryBatch
+            try
             {
-                Id                 = Convert.ToInt32(reader["id"]),
-                MedicineId         = Convert.ToInt32(reader["medicine_id"]),
-                SupplierId         = reader["supplier_id"] != DBNull.Value ? Convert.ToInt32(reader["supplier_id"]) : null,
-                BatchNo            = reader["batch_no"].ToString() ?? string.Empty,
-                QuantityUnits      = Convert.ToInt32(reader["quantity_units"]),
-                PurchaseTotalPrice = Convert.ToDecimal(reader["purchase_total_price"]),
-                UnitCost           = Convert.ToDecimal(reader["unit_cost"]),
-                SellingPrice       = Convert.ToDecimal(reader["selling_price"]),
-                RemainingUnits     = Convert.ToInt32(reader["remaining_units"]),
-                ManufactureDate    = reader["manufacture_date"] != DBNull.Value ? Convert.ToDateTime(reader["manufacture_date"]) : null,
-                ExpiryDate         = Convert.ToDateTime(reader["expiry_date"]),
-                InvoiceNo          = reader["invoice_no"].ToString() ?? string.Empty,
-                InvoiceDate        = reader["invoice_date"] != DBNull.Value ? Convert.ToDateTime(reader["invoice_date"]) : null,
-                CreatedAt          = Convert.ToDateTime(reader["created_at"])
-            };
+                const string query = @"
+                    SELECT m.id AS MedicineId, m.name AS MedicineName, SUM(b.remaining_units) AS TotalUnits
+                    FROM inventory_batches b
+                    JOIN medicines m ON m.id = b.medicine_id
+                    WHERE b.remaining_units > 0
+                    GROUP BY m.id, m.name
+                    HAVING SUM(b.remaining_units) <= @threshold
+                    ORDER BY SUM(b.remaining_units) ASC
+                    LIMIT 50";
+                using var conn = _db.GetConnection();
+                var rows = await conn.QueryAsync<AlertBatchItem>(query, new { threshold });
+                return rows.ToList();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("BatchRepository.GetLowStockAsync failed", ex);
+                return new List<AlertBatchItem>();
+            }
+        }
+
+        public async Task<List<AlertBatchItem>> GetNearExpiryAsync(int daysAhead = 90)
+        {
+            try
+            {
+                const string query = @"
+                    SELECT b.id AS BatchId, b.medicine_id AS MedicineId, m.name AS MedicineName, b.expiry_date AS ExpiryDate, b.remaining_units AS TotalUnits
+                    FROM inventory_batches b
+                    JOIN medicines m ON m.id = b.medicine_id
+                    WHERE b.remaining_units > 0
+                      AND b.expiry_date <= CURRENT_DATE + @daysAhead
+                    ORDER BY b.expiry_date ASC
+                    LIMIT 50";
+                using var conn = _db.GetConnection();
+                var rows = await conn.QueryAsync<AlertBatchItem>(query, new { daysAhead });
+                return rows.ToList();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("BatchRepository.GetNearExpiryAsync failed", ex);
+                return new List<AlertBatchItem>();
+            }
         }
 
         public async Task AddAsync(InventoryBatch batch)
@@ -77,26 +106,21 @@ namespace DChemist.Repositories
             try
             {
                 const string query = @"
-                    INSERT INTO inventory_batches (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, manufacture_date, expiry_date, invoice_no, invoice_date)
-                    VALUES (@medId, @supId, @batch, @qtyU, @pTotal, @uCost, @sPrice, @remU, @mDate, @eDate, @invNo, @invDate)";
+                    INSERT INTO inventory_batches (
+                        medicine_id, supplier_id, batch_no, quantity_units, 
+                        purchase_total_price, unit_cost, selling_price, 
+                        remaining_units, manufacture_date, expiry_date, 
+                        invoice_no, invoice_date
+                    )
+                    VALUES (
+                        @MedicineId, @SupplierId, @BatchNo, @QuantityUnits, 
+                        @PurchaseTotalPrice, @UnitCost, @SellingPrice, 
+                        @RemainingUnits, @ManufactureDate, @ExpiryDate, 
+                        @InvoiceNo, @InvoiceDate
+                    )";
                 
-                var parameters = new Dictionary<string, object>
-                {
-                    { "@medId", batch.MedicineId },
-                    { "@supId", (object?)batch.SupplierId ?? DBNull.Value },
-                    { "@batch", batch.BatchNo },
-                    { "@qtyU", batch.QuantityUnits },
-                    { "@pTotal", batch.PurchaseTotalPrice },
-                    { "@uCost", batch.UnitCost },
-                    { "@sPrice", batch.SellingPrice },
-                    { "@remU", batch.RemainingUnits },
-                    { "@mDate", batch.ManufactureDate?.ToString("yyyy-MM-dd") ?? (object)DBNull.Value },
-                    { "@eDate", batch.ExpiryDate.ToString("yyyy-MM-dd") },
-                    { "@invNo", batch.InvoiceNo },
-                    { "@invDate", batch.InvoiceDate?.ToString("yyyy-MM-dd") ?? (object)DBNull.Value }
-                };
-
-                await _db.ExecuteNonQueryAsync(query, parameters);
+                using var conn = _db.GetConnection();
+                await conn.ExecuteAsync(query, batch);
                 AppLogger.LogInfo($"Batch added: medicine_id={batch.MedicineId}, batch={batch.BatchNo}");
             }
             catch (Exception ex)
@@ -106,10 +130,6 @@ namespace DChemist.Repositories
             }
         }
 
-        /// <summary>
-        /// Saves all receiving items as new inventory_batches rows in a single
-        /// database transaction. Rolls back completely on any failure.
-        /// </summary>
         public async Task AddBulkAsync(IEnumerable<InventoryBatch> batches)
         {
             _auth.EnforceAdmin();
@@ -119,39 +139,62 @@ namespace DChemist.Repositories
             try
             {
                 const string query = @"
-                    INSERT INTO inventory_batches
-                        (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, expiry_date, invoice_no, invoice_date)
-                    VALUES
-                        (@medId, @supId, @batch, @qtyU, @pTotal, @uCost, @sPrice, @remU, @eDate, @invNo, @invDate)";
+                    INSERT INTO inventory_batches (
+                        medicine_id, supplier_id, batch_no, quantity_units, 
+                        purchase_total_price, unit_cost, selling_price, 
+                        remaining_units, expiry_date, invoice_no, invoice_date
+                    )
+                    VALUES (
+                        @MedicineId, @SupplierId, @BatchNo, @QuantityUnits, 
+                        @PurchaseTotalPrice, @UnitCost, @SellingPrice, 
+                        @RemainingUnits, @ExpiryDate, @InvoiceNo, @InvoiceDate
+                    )";
 
-                int count = 0;
-                foreach (var batch in batches)
-                {
-                    using var cmd = new NpgsqlCommand(query, connection, transaction);
-                    cmd.Parameters.AddWithValue("@medId",  batch.MedicineId);
-                    cmd.Parameters.AddWithValue("@supId",  batch.SupplierId.HasValue && batch.SupplierId.Value > 0 ? (object)batch.SupplierId.Value : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@batch",  batch.BatchNo);
-                    cmd.Parameters.AddWithValue("@qtyU",   batch.QuantityUnits);
-                    cmd.Parameters.AddWithValue("@pTotal", batch.PurchaseTotalPrice);
-                    cmd.Parameters.AddWithValue("@uCost",  batch.UnitCost);
-                    cmd.Parameters.AddWithValue("@sPrice", batch.SellingPrice);
-                    cmd.Parameters.AddWithValue("@remU",   batch.RemainingUnits);
-                    cmd.Parameters.AddWithValue("@eDate",  batch.ExpiryDate.Date);
-                    cmd.Parameters.AddWithValue("@invNo",  batch.InvoiceNo ?? string.Empty);
-                    cmd.Parameters.AddWithValue("@invDate", batch.InvoiceDate.HasValue ? (object)batch.InvoiceDate.Value.Date : DBNull.Value);
-                    await cmd.ExecuteNonQueryAsync();
-                    count++;
-                    AppLogger.LogInfo($"[StockIn] Inserted: medicine_id={batch.MedicineId}, batch={batch.BatchNo}, remaining={batch.RemainingUnits}");
-                }
+                await connection.ExecuteAsync(query, batches, transaction);
 
                 await transaction.CommitAsync();
-                AppLogger.LogInfo($"[StockIn] Bulk save committed — {count} batch(es).");
+                AppLogger.LogInfo($"[StockIn] Bulk save committed — {batches.Count()} batch(es).");
             }
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
                 AppLogger.LogError("BatchRepository.AddBulkAsync failed — rolled back", ex);
                 throw new DataAccessException("Bulk stock save failed. All changes have been rolled back.", ex);
+            }
+        }
+        public async Task UpdateStockManualAsync(int batchId, int newQty, string reason, int userId, AuditRepository auditRepo)
+        {
+            _auth.EnforceAdmin(); // Only admins can do manual stock adjustments
+            using var connection = _db.GetConnection();
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // 1. Get current stock for logging difference
+                const string getQuery = "SELECT remaining_units, batch_no FROM inventory_batches WHERE id = @batchId";
+                var current = await connection.QuerySingleOrDefaultAsync(getQuery, new { batchId }, transaction);
+                if (current == null) throw new InvalidOperationException("Batch not found.");
+
+                int oldQty = current.remaining_units;
+                string batchNo = current.batch_no;
+
+                // 2. Update stock
+                const string updateQuery = "UPDATE inventory_batches SET remaining_units = @newQty WHERE id = @batchId";
+                await connection.ExecuteAsync(updateQuery, new { newQty, batchId }, transaction);
+
+                // 3. Log to audit
+                await auditRepo.InsertLogAsync(userId, "Stock Adjustment", 
+                    $"Manual adjustment for Batch {batchNo}: {oldQty} -> {newQty}. Reason: {reason}", 
+                    connection, transaction);
+
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                AppLogger.LogError($"BatchRepository.UpdateStockManualAsync failed for batch {batchId}", ex);
+                throw new DataAccessException("Stock adjustment failed. Please try again.", ex);
             }
         }
     }

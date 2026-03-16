@@ -6,6 +6,7 @@ using DChemist.Models;
 using DChemist.Repositories;
 using DChemist.Services;
 using DChemist.Utils;
+using System.Windows.Input;
 
 namespace DChemist.ViewModels
 {
@@ -17,11 +18,18 @@ namespace DChemist.ViewModels
         private readonly IPrintService _printService;
         private readonly IDialogService _dialogService;
         private readonly IConfiguration _configuration;
-
+        private readonly SettingsService _settingsService;
+        private readonly IFiscalService _fiscalService;
         private SaleSummary? _selectedSale;
+        private string _searchInvoiceTerm = string.Empty;
+        private DateTimeOffset? _searchDate;
+        private string _searchCustomerTerm = string.Empty;
+        private Sale? _selectedSaleDetails;
+        private bool _isDetailsLoading;
 
         public FinancialViewModel(SaleRepository saleRepo, IReportingService reportingService, 
-            AuthService authService, IPrintService printService, IDialogService dialogService, IConfiguration configuration)
+            AuthService authService, IPrintService printService, IDialogService dialogService, 
+            IConfiguration configuration, SettingsService settingsService, IFiscalService fiscalService)
         {
             _saleRepo = saleRepo;
             _reportingService = reportingService;
@@ -29,17 +37,23 @@ namespace DChemist.ViewModels
             _printService = printService;
             _dialogService = dialogService;
             _configuration = configuration;
+            _settingsService = settingsService;
+            _fiscalService = fiscalService;
             
             SalesHistory = new ObservableCollection<SaleSummary>();
             RevenueStats = new ObservableCollection<RevenueStat>();
+            SelectedInvoiceItems = new ObservableCollection<InvoiceItemViewModel>();
             
             ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportSalesToCsvAsync(SalesHistory));
             VoidSaleCommand = new AsyncRelayCommand(ExecuteVoidSaleAsync, CanExecuteSaleAction);
             ReprintReceiptCommand = new AsyncRelayCommand(ExecuteReprintReceiptAsync, CanExecuteSaleAction);
-            RefundCommand = new AsyncRelayCommand(ExecuteRefundAsync, CanExecuteSaleAction);
+            SearchCommand = new AsyncRelayCommand(async _ => await LoadDataAsync());
+            ExecuteReturnCommand = new AsyncRelayCommand(item => ExecuteReturnAsync(item as InvoiceItemViewModel));
             
             _ = LoadDataAsync();
         }
+
+        public ICommand ExecuteReturnCommand { get; }
 
         public SaleSummary? SelectedSale
         {
@@ -50,17 +64,49 @@ namespace DChemist.ViewModels
                 {
                     ((AsyncRelayCommand)VoidSaleCommand).RaiseCanExecuteChanged();
                     ((AsyncRelayCommand)ReprintReceiptCommand).RaiseCanExecuteChanged();
-                    ((AsyncRelayCommand)RefundCommand).RaiseCanExecuteChanged();
+                    _ = LoadSelectedSaleDetailsAsync();
                 }
             }
         }
+
+        public string SearchInvoiceTerm
+        {
+            get => _searchInvoiceTerm;
+            set { if (SetProperty(ref _searchInvoiceTerm, value)) _ = LoadDataAsync(); }
+        }
+
+        public DateTimeOffset? SearchDate
+        {
+            get => _searchDate;
+            set { if (SetProperty(ref _searchDate, value)) _ = LoadDataAsync(); }
+        }
+
+        public string SearchCustomerTerm
+        {
+            get => _searchCustomerTerm;
+            set { if (SetProperty(ref _searchCustomerTerm, value)) _ = LoadDataAsync(); }
+        }
+
+        public Sale? SelectedSaleDetails
+        {
+            get => _selectedSaleDetails;
+            set => SetProperty(ref _selectedSaleDetails, value);
+        }
+
+        public bool IsDetailsLoading
+        {
+            get => _isDetailsLoading;
+            set => SetProperty(ref _isDetailsLoading, value);
+        }
+
+        public ObservableCollection<InvoiceItemViewModel> SelectedInvoiceItems { get; }
 
         public ObservableCollection<SaleSummary> SalesHistory { get; }
         public ObservableCollection<RevenueStat> RevenueStats { get; }
         public System.Windows.Input.ICommand ExportCommand { get; }
         public System.Windows.Input.ICommand VoidSaleCommand { get; }
         public System.Windows.Input.ICommand ReprintReceiptCommand { get; }
-        public System.Windows.Input.ICommand RefundCommand { get; }
+        public System.Windows.Input.ICommand SearchCommand { get; }
 
         private bool CanExecuteSaleAction(object? parameter) => SelectedSale != null && SelectedSale.Status != "Voided";
 
@@ -68,8 +114,12 @@ namespace DChemist.ViewModels
         {
             try
             {
-                // 1. Load Sales History
-                var history = await _saleRepo.GetAllSummariesAsync(50);
+                // 1. Load Sales History with filters
+                var history = await _saleRepo.SearchInvoicesAsync(
+                    SearchInvoiceTerm, 
+                    SearchDate?.DateTime, 
+                    SearchCustomerTerm);
+                
                 SalesHistory.Clear();
                 foreach (var item in history) SalesHistory.Add(item);
 
@@ -155,6 +205,8 @@ namespace DChemist.ViewModels
 
                 if (!string.IsNullOrEmpty(printerName))
                 {
+                    await receiptVM.LoadStoreDetailsAsync(_settingsService);
+                    await receiptVM.InitializeQrCode(_fiscalService);
                     await _printService.PrintReceiptSilentAsync(receiptVM, printerName);
                     await _dialogService.ShowMessageAsync("Printed", "Receipt sent to printer.");
                 }
@@ -168,42 +220,103 @@ namespace DChemist.ViewModels
                 await _dialogService.ShowMessageAsync("Reprint Failed", ex.Message);
             }
         }
-        private async Task ExecuteRefundAsync(object? parameter)
+        private async Task LoadSelectedSaleDetailsAsync()
         {
-            if (SelectedSale == null) return;
+            if (SelectedSale == null)
+            {
+                SelectedSaleDetails = null;
+                SelectedInvoiceItems.Clear();
+                return;
+            }
 
+            IsDetailsLoading = true;
             try
             {
                 var fullSale = await _saleRepo.GetSaleWithItemsAsync(SelectedSale.BillNo);
-                if (fullSale == null) return;
-
-                var itemsToReturn = await _dialogService.ShowRefundDialogAsync(fullSale);
-                if (itemsToReturn == null || !itemsToReturn.Any()) return;
-
-                bool confirmed = await _dialogService.ShowConfirmationAsync(
-                    "Confirm Returns",
-                    $"Are you sure you want to process {itemsToReturn.Sum(i => i.ReturnInputQty)} item(s) to be returned for Bill # {SelectedSale.BillNo}?",
-                    "Confirm", "Cancel");
-
-                if (!confirmed) return;
-
-                int userId = _authService.CurrentUser?.Id ?? 0;
-                foreach (var item in itemsToReturn)
+                SelectedSaleDetails = fullSale;
+                
+                SelectedInvoiceItems.Clear();
+                if (fullSale != null)
                 {
-                    if (item.MedicineId.HasValue && item.BatchId.HasValue)
+                    foreach (var item in fullSale.Items)
                     {
-                        await _saleRepo.ProcessReturnAsync(fullSale.Id, item.MedicineId.Value, item.BatchId.Value, (int)item.ReturnInputQty, userId);
+                        SelectedInvoiceItems.Add(new InvoiceItemViewModel
+                        {
+                            Id = item.Id,
+                            MedicineName = item.MedicineName,
+                            Quantity = item.Quantity,
+                            ReturnedQuantity = item.ReturnedQuantity,
+                            UnitPrice = item.UnitPrice,
+                            Subtotal = item.Subtotal,
+                            ReturnInputQty = 1 // default return qty
+                        });
                     }
                 }
-
-                await _dialogService.ShowMessageAsync("Success", "Selected items have been returned and stock has been restored.");
-                await LoadDataAsync();
             }
             catch (Exception ex)
             {
-                await _dialogService.ShowMessageAsync("Refund Error", ex.Message);
+                AppLogger.LogError("Failed to load sale details", ex);
+            }
+            finally
+            {
+                IsDetailsLoading = false;
             }
         }
+
+        private async Task ExecuteReturnAsync(InvoiceItemViewModel? item)
+        {
+            if (item == null) return;
+            if (item.ReturnInputQty <= 0) return;
+            if (item.ReturnInputQty > item.RemainingQuantity)
+            {
+                await _dialogService.ShowMessageAsync("Invalid Quantity", "Return quantity cannot exceed remaining sold quantity.");
+                return;
+            }
+
+            bool confirm = await _dialogService.ShowConfirmationAsync(
+                "Confirm Return",
+                $"Are you sure you want to return {item.ReturnInputQty} units of {item.MedicineName}?",
+                "Return", "Cancel");
+
+            if (!confirm) return;
+
+            try
+            {
+                int userId = _authService.CurrentUser?.Id ?? 0;
+                await _saleRepo.ProcessReturnAsync(item.Id, item.ReturnInputQty, userId);
+                
+                await _dialogService.ShowMessageAsync("Success", "Item returned and stock restored.");
+                
+                // Refresh data
+                await LoadDataAsync();
+                await LoadSelectedSaleDetailsAsync();
+            }
+            catch (Exception ex)
+            {
+                await _dialogService.ShowMessageAsync("Return Failed", ex.Message);
+            }
+        }
+    }
+
+    public class InvoiceItemViewModel : ViewModelBase
+    {
+        public int Id { get; set; }
+        public string MedicineName { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public int ReturnedQuantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal Subtotal { get; set; }
+        
+        private int _returnInputQty;
+        public int ReturnInputQty
+        {
+            get => _returnInputQty;
+            set => SetProperty(ref _returnInputQty, value);
+        }
+
+        public int RemainingQuantity => Quantity - ReturnedQuantity;
+        public decimal CurrentTotal => RemainingQuantity * UnitPrice;
+        public bool CanReturn => RemainingQuantity > 0;
     }
 
     public class RevenueStat

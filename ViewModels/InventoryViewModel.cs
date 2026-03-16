@@ -38,7 +38,7 @@ namespace DChemist.ViewModels
             AddMedicineCommand = new AsyncRelayCommand(async _ => await ExecuteAddMedicineAsync());
             EditMedicineCommand = new AsyncRelayCommand(async m => await ExecuteEditMedicineAsync(m as Medicine));
             DeleteMedicineCommand = new AsyncRelayCommand(async m => await ExecuteDeleteMedicineAsync(m as Medicine));
-            DeleteSelectedCommand = new AsyncRelayCommand(async _ => await ExecuteDeleteSelectedAsync());
+            DeleteSelectedCommand = new AsyncRelayCommand(async _ => await ExecuteDeleteSelectedAsync(), _ => Medicines.Any(m => m.IsSelected));
             TogglePurchasePriceCommand = new RelayCommand(m => ExecuteTogglePurchasePrice(m as Medicine));
             ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportInventoryToCsvAsync(Medicines));
 
@@ -91,7 +91,11 @@ namespace DChemist.ViewModels
             {
                 var list = await _medicineRepository.GetAllAsync();
                 Medicines.Clear();
-                foreach (var item in list) Medicines.Add(item);
+                foreach (var item in list)
+                {
+                    item.PropertyChanged += OnMedicinePropertyChanged;
+                    Medicines.Add(item);
+                }
             }
             catch (DataAccessException ex)
             {
@@ -116,7 +120,11 @@ namespace DChemist.ViewModels
             {
                 var list = await _medicineRepository.SearchAsync(SearchText);
                 Medicines.Clear();
-                foreach (var item in list) Medicines.Add(item);
+                foreach (var item in list)
+                {
+                    item.PropertyChanged += OnMedicinePropertyChanged;
+                    Medicines.Add(item);
+                }
             }
             catch (DataAccessException ex)
             {
@@ -251,8 +259,17 @@ namespace DChemist.ViewModels
             }
         }
 
+        private void OnMedicinePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(Medicine.IsSelected))
+            {
+                (DeleteSelectedCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+            }
+        }
+
         public void Dispose()
         {
+            foreach (var m in Medicines) m.PropertyChanged -= OnMedicinePropertyChanged;
             _eventBus.InventoryChanged -= OnInventoryChanged;
         }
     }

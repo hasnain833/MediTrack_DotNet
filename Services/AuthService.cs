@@ -29,7 +29,7 @@ namespace DChemist.Services
                     if (BCrypt.Net.BCrypt.Verify(password, user.Password))
                     {
                         CurrentUser = user;
-                        _ = _auditRepo.InsertLogAsync(user.Id, "Login", $"User {user.Username} logged in successfully.");
+                        await _auditRepo.InsertLogAsync(user.Id, "Login", $"User {user.Username} logged in successfully.");
                         return true;
                     }
                 }
@@ -39,13 +39,25 @@ namespace DChemist.Services
             return false;
         }
 
-        public void Logout()
+        public async Task LogoutAsync()
         {
             if (CurrentUser != null)
             {
-                _ = _auditRepo.InsertLogAsync(CurrentUser.Id, "Logout", "User logged out.");
+                await _auditRepo.InsertLogAsync(CurrentUser.Id, "Logout", "User logged out.");
             }
             CurrentUser = null;
+        }
+
+        public async Task<bool> ChangePasswordAsync(string newPassword)
+        {
+            if (CurrentUser == null) return false;
+
+            var hashed = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            await _userRepository.UpdatePasswordAsync(CurrentUser.Id, hashed);
+            
+            CurrentUser.MustChangePassword = false;
+            await _auditRepo.InsertLogAsync(CurrentUser.Id, "Security", "Password changed successfully.");
+            return true;
         }
     }
 }

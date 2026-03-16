@@ -9,8 +9,8 @@
     <Product>D. Chemist</Product>
     <ApplicationTitle>D. Chemist</ApplicationTitle>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.0.3.0</Version>
-    <FileVersion>1.0.3.0</FileVersion>
+    <Version>1.0.4.0</Version>
+    <FileVersion>1.0.4.0</FileVersion>
     
     <Platforms>x64</Platforms>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
@@ -36,6 +36,7 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
     <PackageReference Include="QRCoder" Version="1.7.0" />
+    <PackageReference Include="Dapper" Version="2.1.72" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DChemist.Database;
 using DChemist.Models;
 using DChemist.Utils;
-using Npgsql;
+using Dapper;
 
 namespace DChemist.Repositories
 {
@@ -18,31 +20,40 @@ namespace DChemist.Repositories
 
         public async Task<User?> GetByUsernameAsync(string username)
         {
-            const string query = "SELECT * FROM users WHERE username = @username LIMIT 1";
-            var parameters = new System.Collections.Generic.Dictionary<string, object>
-            {
-                { "@username", username }
-            };
-            return await _db.FetchOneAsync(query, MapUser, parameters);
+            const string query = @"
+                SELECT 
+                    id, username, password, 
+                    full_name as FullName, 
+                    role, status, 
+                    must_change_password as MustChangePassword 
+                FROM users 
+                WHERE username = @username 
+                LIMIT 1";
+
+            using var conn = _db.GetConnection();
+            return await conn.QuerySingleOrDefaultAsync<User>(query, new { username });
         }
 
-        public async Task<System.Collections.Generic.List<User>> GetAllUsersAsync()
+        public async Task<List<User>> GetAllUsersAsync()
         {
-            const string query = "SELECT * FROM users";
-            return await _db.FetchAllAsync(query, MapUser);
+            const string query = @"
+                SELECT 
+                    id, username, password, 
+                    full_name as FullName, 
+                    role, status, 
+                    must_change_password as MustChangePassword 
+                FROM users";
+
+            using var conn = _db.GetConnection();
+            var users = await conn.QueryAsync<User>(query);
+            return users.ToList();
         }
 
-        private static User MapUser(NpgsqlDataReader reader)
+        public async Task UpdatePasswordAsync(int userId, string newHashedPassword)
         {
-            return new User
-            {
-                Id       = Convert.ToInt32(reader["id"]),
-                Username = reader["username"].ToString() ?? string.Empty,
-                Password = reader["password"].ToString() ?? string.Empty,
-                FullName = reader["full_name"].ToString() ?? string.Empty,
-                Role     = reader["role"].ToString() ?? string.Empty,
-                Status   = reader["status"].ToString() ?? "Active"
-            };
+            const string query = "UPDATE users SET password = @password, must_change_password = FALSE WHERE id = @id";
+            using var conn = _db.GetConnection();
+            await conn.ExecuteAsync(query, new { id = userId, password = newHashedPassword });
         }
     }
 }

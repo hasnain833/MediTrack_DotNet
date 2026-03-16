@@ -13,6 +13,7 @@ namespace DChemist.Services
         Task<List<DChemist.Views.ReturnItemModel>?> ShowRefundDialogAsync(Sale sale);
         Task ShowFiscalSettingsDialogAsync();
         Task ShowUpdateDialogAsync(UpdateInfo update, UpdateService updateService);
+        Task<string?> ShowChangePasswordDialogAsync();
     }
 
     public class DialogService : IDialogService
@@ -110,10 +111,26 @@ namespace DChemist.Services
 
             var dialog = new DChemist.Views.UpdateDialog(update, updateService)
             {
-                XamlRoot = App.MainRoot.XamlRoot
-            };
-
-            await dialog.ShowAsync();
+                    XamlRoot = App.MainRoot.XamlRoot
+                };
+    
+                await dialog.ShowAsync();
+            }
+    
+            public async Task<string?> ShowChangePasswordDialogAsync()
+            {
+                if (App.MainRoot?.XamlRoot == null) return null;
+    
+                var dialog = new DChemist.Views.ChangePasswordDialog
+                {
+                    XamlRoot = App.MainRoot.XamlRoot
+                };
+    
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                    return dialog.NewPassword;
+    
+                return null;
+            }
         }
     }
-}

@@ -16,21 +16,26 @@ namespace DChemist.Database
         public DatabaseService(IConfiguration configuration)
         {
             var dbConfig = configuration.GetSection("Database");
-            // Connection pooling: reuse connections instead of creating new ones per request
-            _connectionString =
-                $"Host={dbConfig["Host"]};Port={dbConfig["Port"]};" +
-                $"Database={dbConfig["Database"]};Username={dbConfig["User"]};Password={dbConfig["Password"]};" +
-                "Pooling=true;MinPoolSize=1;MaxPoolSize=10;Connection Lifetime=300;Command Timeout=30;";
             
-            InitializeDatabase();
+            var builder = new NpgsqlConnectionStringBuilder
+            {
+                Host = dbConfig["Host"],
+                Port = int.Parse(dbConfig["Port"] ?? "5432"),
+                Database = dbConfig["Database"],
+                Username = dbConfig["User"],
+                Password = dbConfig["Password"],
+                Pooling = true
+            };
+            
+            _connectionString = builder.ToString();
         }
 
-        private void InitializeDatabase()
+        public async Task InitializeAsync()
         {
             try
             {
                 using var connection = new NpgsqlConnection(_connectionString);
-                connection.Open();
+                await connection.OpenAsync();
 
                 const string schema = @"
                     CREATE TABLE IF NOT EXISTS users (
@@ -40,6 +45,7 @@ namespace DChemist.Database
                         full_name   TEXT NOT NULL,
                         role        VARCHAR(20) NOT NULL DEFAULT 'Admin',
                         status      VARCHAR(20) NOT NULL DEFAULT 'Active',
+                        must_change_password BOOLEAN NOT NULL DEFAULT FALSE,
                         created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                     );
 
@@ -146,11 +152,20 @@ namespace DChemist.Database
                         created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                     );
                     CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at DESC);
+
+                    CREATE TABLE IF NOT EXISTS error_logs (
+                        id          SERIAL PRIMARY KEY,
+                        message     TEXT NOT NULL,
+                        stack_trace TEXT,
+                        source      TEXT,
+                        created_at  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    );
+                    CREATE INDEX IF NOT EXISTS idx_error_logs_created_at ON error_logs(created_at DESC);
                 ";
 
                 using (var command = new NpgsqlCommand(schema, connection))
                 {
-                    command.ExecuteNonQuery();
+                    await command.ExecuteNonQueryAsync();
                 }
 
                 // ── MIGRATIONS: Add columns that might be missing from older installs ──
@@ -226,15 +241,40 @@ namespace DChemist.Database
                         -- Make supplier_id nullable to allow initial registration without a supplier
                         ALTER TABLE inventory_batches ALTER COLUMN supplier_id DROP NOT NULL;
                         
-                        -- Add fbr_reported to sales
-                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sales' AND column_name='fbr_reported') THEN
-                            ALTER TABLE sales ADD COLUMN fbr_reported BOOLEAN DEFAULT FALSE;
+                        -- Add must_change_password to users
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='must_change_password') THEN
+                            ALTER TABLE users ADD COLUMN must_change_password BOOLEAN NOT NULL DEFAULT FALSE;
+                        END IF;
+                        
+                        -- Phase 2: Payment status for batches
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='payment_status') THEN
+                            ALTER TABLE inventory_batches ADD COLUMN payment_status TEXT NOT NULL DEFAULT 'Cash';
+                        END IF;
+
+                        -- Phase 4: Performance Indexes (Section 9)
+                        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_medicines_barcode') THEN
+                            CREATE INDEX idx_medicines_barcode ON medicines(barcode);
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_medicines_name') THEN
+                            CREATE INDEX idx_medicines_name ON medicines(name);
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_sales_bill_no') THEN
+                            CREATE INDEX idx_sales_bill_no ON sales(bill_no);
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_sales_sale_date') THEN
+                            CREATE INDEX idx_sales_sale_date ON sales(sale_date);
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_batches_medicine_id') THEN
+                            CREATE INDEX idx_batches_medicine_id ON inventory_batches(medicine_id);
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_batches_expiry_date') THEN
+                            CREATE INDEX idx_batches_expiry_date ON inventory_batches(expiry_date);
                         END IF;
                     END $$;";
                 
                 using (var migCmd = new NpgsqlCommand(migrationQuery, connection))
                 {
-                    migCmd.ExecuteNonQuery();
+                    await migCmd.ExecuteNonQueryAsync();
                 }
                 const string postMigrationIndexes = @"
                     CREATE INDEX IF NOT EXISTS idx_batches_stock_positive
@@ -242,14 +282,25 @@ namespace DChemist.Database
                 ";
                 using (var idxCmd = new NpgsqlCommand(postMigrationIndexes, connection))
                 {
-                    idxCmd.ExecuteNonQuery();
+                    await idxCmd.ExecuteNonQueryAsync();
+                }
+
+                // Phase 2: Fuzzy Search Extensions
+                const string fuzzySearchSql = @"
+                    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+                    CREATE INDEX IF NOT EXISTS idx_medicines_name_trgm ON medicines USING GIST (name gist_trgm_ops);
+                    CREATE INDEX IF NOT EXISTS idx_medicines_generic_trgm ON medicines USING GIST (generic_name gist_trgm_ops);
+                ";
+                using (var fuzzyCmd = new NpgsqlCommand(fuzzySearchSql, connection))
+                {
+                    await fuzzyCmd.ExecuteNonQueryAsync();
                 }
 
                 // Ensure settings table exists
                 const string checkSettingsTableSql = "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'settings')";
                 using (var checkCmd = new NpgsqlCommand(checkSettingsTableSql, connection))
                 {
-                    if (!(bool)(checkCmd.ExecuteScalar() ?? false))
+                    if (!(bool)(await checkCmd.ExecuteScalarAsync() ?? false))
                     {
                         const string createSettingsSql = @"
                             CREATE TABLE settings (
@@ -263,40 +314,30 @@ namespace DChemist.Database
                             INSERT INTO settings (key, value) VALUES ('fbr_token', '');
                         ";
                         using var createCmd = new NpgsqlCommand(createSettingsSql, connection);
-                        createCmd.ExecuteNonQuery();
+                        await createCmd.ExecuteNonQueryAsync();
                     }
                 }
 
-                // Ensure admin exists with new credentials
+                // Ensure admin exists with default credentials ONLY if not present
                 using (var checkCmd = new NpgsqlCommand("SELECT id FROM users WHERE LOWER(username) = 'admin' LIMIT 1", connection))
                 {
-                    var userId = checkCmd.ExecuteScalar();
-                    var hashedPassword = BCrypt.Net.BCrypt.HashPassword("@dmin8787");
-                    
-                    if (userId == null)
+                    if (await checkCmd.ExecuteScalarAsync() == null)
                     {
+                        var hashedPassword = BCrypt.Net.BCrypt.HashPassword("@dmin8787");
                         const string insertQuery = @"
-                            INSERT INTO users (username, password, full_name, role, status)
-                            VALUES ('Admin', @password, 'Administrator', 'Admin', 'Active')";
+                            INSERT INTO users (username, password, full_name, role, status, must_change_password)
+                            VALUES ('Admin', @password, 'Administrator', 'Admin', 'Active', TRUE)";
                         using var insertCmd = new NpgsqlCommand(insertQuery, connection);
                         insertCmd.Parameters.AddWithValue("@password", hashedPassword);
-                        insertCmd.ExecuteNonQuery();
-                    }
-                    else
-                    {
-                        const string updateQuery = @"
-                           UPDATE users SET username = 'Admin', password = @password WHERE id = @id";
-                        using var updateCmd = new NpgsqlCommand(updateQuery, connection);
-                        updateCmd.Parameters.AddWithValue("@password", hashedPassword);
-                        updateCmd.Parameters.AddWithValue("@id", userId);
-                        updateCmd.ExecuteNonQuery();
+                        await insertCmd.ExecuteNonQueryAsync();
+                        AppLogger.LogInfo("Default Admin user created (password change required).");
                     }
                 }
 
                 // Insert Sample Data if empty
                 using (var checkDataCmd = new NpgsqlCommand("SELECT COUNT(*) FROM medicines", connection))
                 {
-                    if (Convert.ToInt64(checkDataCmd.ExecuteScalar()) == 0)
+                    if (Convert.ToInt64(await checkDataCmd.ExecuteScalarAsync()) == 0)
                     {
                         const string sampleDataText = @"
                             INSERT INTO categories (name) VALUES ('Pain Killer'), ('Antibiotic'), ('Cough Syrup');
@@ -310,7 +351,7 @@ namespace DChemist.Database
                             VALUES (1, 1, 'PK1023', 500, 750, 1.5, 2.0, 500, '2024-01-01', '2027-05-01');
                         ";
                         using var insertDataCmd = new NpgsqlCommand(sampleDataText, connection);
-                        insertDataCmd.ExecuteNonQuery();
+                        await insertDataCmd.ExecuteNonQueryAsync();
                     }
                 }
             }

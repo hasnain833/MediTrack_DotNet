@@ -13,7 +13,16 @@ namespace DChemist.Views
         {
             this.InitializeComponent();
             ViewModel = App.Current.Services.GetRequiredService<StockInViewModel>();
+            ViewModel.RequestFocus += OnViewModelRequestFocus;
             this.Loaded += (s, e) => LockFocus();
+        }
+
+        private void OnViewModelRequestFocus(object? sender, string target)
+        {
+            if (target == "MedicineName")
+            {
+                MedicineNameBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+            }
         }
 
         private void PageRoot_PointerPressed(object sender, PointerRoutedEventArgs e)

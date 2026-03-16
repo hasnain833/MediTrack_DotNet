@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Text.Json;
 using QRCoder;
 using DChemist.Utils;
 
@@ -32,7 +34,7 @@ namespace DChemist.Services
             }
         }
 
-        public async Task<FbrReportResponse> ReportSaleAsync(string billNo, decimal total, decimal tax)
+        public async Task<FbrReportResponse> ReportSaleAsync(string billNo, decimal total, decimal tax, System.Collections.Generic.List<DChemist.Models.SaleItem> items)
         {
             bool isLive = (await _settings.GetSettingAsync("fbr_is_live", "false")).ToLower() == "true";
             if (!isLive) return await RunSimulatorAsync(billNo, total, tax);
@@ -47,44 +49,46 @@ namespace DChemist.Services
 
                 var payload = new
                 {
-                    InvoiceNumber = "", // FBR will return this
+                    InvoiceNumber = "", 
                     POSID = posId,
                     USIN = billNo,
                     DateTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"),
                     BuyerName = "Customer",
-                    BuyerNTN = "0000000-0",
-                    TotalBillAmount = total,
-                    TotalTaxAmount = tax,
-                    TotalQuantity = 1,
+                    BuyerNTN = await _settings.GetPharmacyNtnAsync(),
+                    TotalBillAmount = (double)total,
+                    TotalTaxAmount = (double)tax,
+                    TotalQuantity = items.Sum(i => i.Quantity),
                     PaymentMode = 1, // Cash
                     InvoiceType = 1, // New
-                    Items = new[] {
-                        new {
-                            ItemCode = "MED-001",
-                            ItemName = "Medicines",
-                            PCTCode = "3004.9099",
-                            Quantity = 1,
-                            TaxRate = 0,
-                            SaleValue = total,
-                            TaxAmount = tax,
-                            Discount = 0
-                        }
-                    }
+                    Items = items.Select(i => new {
+                        ItemCode = i.MedicineId?.ToString() ?? "000",
+                        ItemName = i.MedicineName,
+                        PCTCode = "3004.9099", // Default Pharma PCT Code
+                        Quantity = i.Quantity,
+                        TaxRate = 0.0,
+                        SaleValue = (double)i.Subtotal,
+                        TaxAmount = 0.0,
+                        Discount = 0.0
+                    }).ToArray()
                 };
 
-                var json = System.Text.Json.JsonSerializer.Serialize(payload);
-                var content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json");
-                
-                if (!string.IsNullOrEmpty(token))
-                    _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                string json = JsonSerializer.Serialize(payload);
+                using var request = new System.Net.Http.HttpRequestMessage(System.Net.Http.HttpMethod.Post, apiUrl);
+                request.Content = new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8);
+                request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
 
-                var response = await _httpClient.PostAsync(apiUrl, content);
+                if (!string.IsNullOrEmpty(token))
+                {
+                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+                }
+
+                var response = await _httpClient.SendAsync(request);
                 var responseBody = await response.Content.ReadAsStringAsync();
 
                 if (response.IsSuccessStatusCode)
                 {
                     var result = System.Text.Json.JsonDocument.Parse(responseBody);
-                    string invNo = result.RootElement.GetProperty("InvoiceNumber").GetString() ?? billNo;
+                    string invNo = result.RootElement.TryGetProperty("InvoiceNumber", out var invProp) ? invProp.GetString() ?? billNo : billNo;
                     
                     return new FbrReportResponse { 
                         Success = true, 

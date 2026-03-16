@@ -6,7 +6,7 @@ namespace DChemist.Services
     {
         Task<string> GenerateFiscalQrDataAsync(string billNo, decimal amount, decimal tax, string fbrInvoiceNo);
         byte[] GenerateQrCodeImage(string data);
-        Task<FbrReportResponse> ReportSaleAsync(string billNo, decimal total, decimal tax);
+        Task<FbrReportResponse> ReportSaleAsync(string billNo, decimal total, decimal tax, System.Collections.Generic.List<DChemist.Models.SaleItem> items);
     }
 
     public class FbrReportResponse

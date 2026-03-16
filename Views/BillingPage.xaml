@@ -8,7 +8,7 @@
     mc:Ignorable="d"
     x:Name="PageRoot">
 
-    <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light">
+    <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light" KeyDown="PageRoot_KeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -60,37 +60,43 @@
                         </StackPanel>
 
 
-                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
-                            <TextBlock Text="Search Local Stock" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
-                            <AutoSuggestBox x:Name="MedicineSearchBox"
-                                            PlaceholderText="Type medicine name..."
-                                            QueryIcon="Find"
-                                            TextMemberPath="Name"
-                                            Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                            ItemsSource="{x:Bind ViewModel.MedicineResults, Mode=OneWay}"
-                                            QuerySubmitted="MedicineSearchBox_QuerySubmitted"
-                                            CornerRadius="8" Height="36">
-                                <AutoSuggestBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <Grid Padding="4,6">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="90"/>
-                                                <ColumnDefinition Width="110"/>
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                                            <TextBlock Grid.Column="1" Text="{Binding CategoryName}"
-                                                       Foreground="{StaticResource TextSecondaryBrush}"
-                                                       FontSize="12" VerticalAlignment="Center"/>
-                                            <TextBlock Grid.Column="2" Text="{Binding Price, Converter={StaticResource CurrencyConverter}}"
-                                                       Foreground="{StaticResource AccentAccent}"
-                                                       HorizontalAlignment="Right" FontWeight="Bold" VerticalAlignment="Center"/>
-                                        </Grid>
-                                    </DataTemplate>
-                                </AutoSuggestBox.ItemTemplate>
-                            </AutoSuggestBox>
-                        </StackPanel>
+                        <Grid Grid.Column="1" VerticalAlignment="Center">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Search Local Stock" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
+                                <AutoSuggestBox x:Name="MedicineSearchBox"
+                                                PlaceholderText="Type medicine name..."
+                                                QueryIcon="Find"
+                                                TextMemberPath="Name"
+                                                Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                ItemsSource="{x:Bind ViewModel.MedicineResults, Mode=OneWay}"
+                                                QuerySubmitted="MedicineSearchBox_QuerySubmitted"
+                                                CornerRadius="8" Height="36">
+                                    <AutoSuggestBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Padding="4,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="90"/>
+                                                    <ColumnDefinition Width="110"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding CategoryName}"
+                                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                                           FontSize="12" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2" Text="{Binding Price, Converter={StaticResource CurrencyConverter}}"
+                                                           Foreground="{StaticResource AccentAccent}"
+                                                           HorizontalAlignment="Right" FontWeight="Bold" VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </AutoSuggestBox.ItemTemplate>
+                                </AutoSuggestBox>
+                            </StackPanel>
+                            <ProgressRing IsActive="{x:Bind ViewModel.IsSearching, Mode=OneWay}"
+                                          Width="20" Height="20" HorizontalAlignment="Right" 
+                                          Margin="0,20,40,0" VerticalAlignment="Center"
+                                          Foreground="{StaticResource AccentAccent}"/>
+                        </Grid>
                     </Grid>
                 </Border>
 
@@ -148,10 +154,13 @@
                                                        Foreground="{StaticResource TextSecondaryBrush}"
                                                        VerticalAlignment="Center" Margin="4,0" FontSize="13"/>
                                             <!-- Quantity -->
-                                            <TextBox Grid.Column="2"
-                                                     Text="{x:Bind Quantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                     HorizontalAlignment="Stretch" VerticalAlignment="Center"
-                                                     TextAlignment="Center" Margin="2,8"/>
+                                            <NumberBox Grid.Column="2"
+                                                       Value="{x:Bind Quantity, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                       SpinButtonPlacementMode="Compact"
+                                                       SmallChange="1"
+                                                       LargeChange="5"
+                                                       HorizontalAlignment="Stretch" VerticalAlignment="Center"
+                                                       Margin="2,8"/>
                                             <!-- Subtotal -->
                                             <TextBlock Grid.Column="3"
                                                        Text="{x:Bind Subtotal, Converter={StaticResource CurrencyConverter}, Mode=OneWay}"

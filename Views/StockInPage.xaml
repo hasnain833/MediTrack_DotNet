@@ -58,7 +58,8 @@
                                      Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      KeyDown="OnBarcodeKeyDown" PlaceholderText="Lookup barcode or leave empty…"/>
 
-                            <AutoSuggestBox Header="Medicine Name" 
+                            <AutoSuggestBox x:Name="MedicineNameBox"
+                                            Header="Medicine Name" 
                                             Text="{x:Bind ViewModel.EntryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             ItemsSource="{x:Bind ViewModel.SearchSuggestions, Mode=OneWay}"
                                             SuggestionChosen="OnSuggestionChosen"
@@ -286,5 +287,9 @@
                 </Border>
             </Grid>
         </Grid>
+        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Width="60" Height="60" Foreground="{StaticResource AccentAccent}"
+                      Canvas.ZIndex="100"/>
     </Grid>
 </Page>

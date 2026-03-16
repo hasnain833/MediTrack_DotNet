@@ -13,25 +13,32 @@ namespace DChemist.ViewModels
 {
     public class StockInViewModel : ViewModelBase
     {
-        private readonly MedicineRepository  _medicineRepo;
-        private readonly BatchRepository     _batchRepo;
-        private readonly SupplierRepository  _supplierRepo;
-        private readonly InventoryEventBus   _eventBus;
-        private readonly IDialogService      _dialogService;
-        private readonly DispatcherQueue     _dispatcher;
+        public event EventHandler<string>? RequestFocus;
+        private readonly MedicineRepository     _medicineRepo;
+        private readonly BatchRepository        _batchRepo;
+        private readonly SupplierRepository     _supplierRepo;
+        private readonly ManufacturerRepository _manufacturerRepo;
+        private readonly CategoryRepository     _categoryRepo;
+        private readonly InventoryEventBus      _eventBus;
+        private readonly IDialogService          _dialogService;
+        private readonly DispatcherQueue         _dispatcher;
 
         public StockInViewModel(
             MedicineRepository medicineRepo,
             BatchRepository batchRepo,
             SupplierRepository supplierRepo,
+            ManufacturerRepository manufacturerRepo,
+            CategoryRepository categoryRepo,
             InventoryEventBus eventBus,
             IDialogService dialogService)
         {
-            _medicineRepo  = medicineRepo;
-            _batchRepo     = batchRepo;
-            _supplierRepo  = supplierRepo;
-            _eventBus      = eventBus;
-            _dialogService = dialogService;
+            _medicineRepo     = medicineRepo;
+            _batchRepo        = batchRepo;
+            _supplierRepo     = supplierRepo;
+            _manufacturerRepo = manufacturerRepo;
+            _categoryRepo     = categoryRepo;
+            _eventBus         = eventBus;
+            _dialogService    = dialogService;
             _dispatcher    = DispatcherQueue.GetForCurrentThread();
 
             ReceivingItems = new ObservableCollection<ReceivingItem>();
@@ -56,25 +63,30 @@ namespace DChemist.ViewModels
         private async Task LoadMetaDataAsync()
         {
             try {
+                var categories = await _categoryRepo.GetAllAsync();
+                var manufacturers = await _manufacturerRepo.GetAllAsync();
+
                 _dispatcher.TryEnqueue(() => {
                     Categories.Clear();
-                    Categories.Add(new Category { Name = "Tablets" });
-                    Categories.Add(new Category { Name = "Syrup" });
-                    Categories.Add(new Category { Name = "Injection" });
-                    Categories.Add(new Category { Name = "Drops" });
-                    Categories.Add(new Category { Name = "Capsules" });
+                    foreach (var c in categories) Categories.Add(c);
+                    if (!Categories.Any())
+                    {
+                        Categories.Add(new Category { Name = "Tablets" });
+                        Categories.Add(new Category { Name = "Syrup" });
+                        Categories.Add(new Category { Name = "Injection" });
+                    }
                     EntryCategory = Categories.FirstOrDefault();
 
                     Manufacturers.Clear();
-                    Manufacturers.Add(new Manufacturer { Name = "GSK" });
-                    Manufacturers.Add(new Manufacturer { Name = "Abbott" });
-                    Manufacturers.Add(new Manufacturer { Name = "Pfizer" });
-                    Manufacturers.Add(new Manufacturer { Name = "Getz" });
-                    Manufacturers.Add(new Manufacturer { Name = "Sami" });
+                    foreach (var m in manufacturers) Manufacturers.Add(m);
+                    if (!Manufacturers.Any())
+                    {
+                        Manufacturers.Add(new Manufacturer { Name = "GSK" });
+                        Manufacturers.Add(new Manufacturer { Name = "Abbott" });
+                    }
                     EntryManufacturer = Manufacturers.FirstOrDefault();
                 });
-            } catch { }
-            await Task.CompletedTask;
+            } catch (Exception ex) { AppLogger.LogError("StockIn.LoadMetaData", ex); }
         }
 
 
@@ -352,6 +364,7 @@ namespace DChemist.ViewModels
                 {
                     StatusMessage = $"ℹ New Barcode: {barcode}";
                     ClearEntryInternal(false); // Clear fields but keep barcode
+                    RequestFocus?.Invoke(this, "MedicineName");
                 }
             }
             catch (Exception ex)
@@ -392,22 +405,7 @@ namespace DChemist.ViewModels
                             CategoryName = EntryCategory?.Name ?? "General",
                             ManufacturerName = EntryManufacturer?.Name ?? "Unknown"
                         };
-                        await _medicineRepo.AddAsync(med);
-
-                        // 1.2 Get the back from DB (to get the generated ID)
-                        Medicine? saved = null;
-                        if (!string.IsNullOrWhiteSpace(BarcodeText))
-                        {
-                            saved = await _medicineRepo.GetByBarcodeAsync(BarcodeText);
-                        }
-                        
-                        if (saved == null)
-                        {
-                            // Fallback to name search if no barcode or barcode lookup failed
-                            var searchResults = await _medicineRepo.SearchAsync(EntryName);
-                            saved = searchResults.FirstOrDefault(m => m.Name.Equals(EntryName, StringComparison.OrdinalIgnoreCase));
-                        }
-                        med = saved;
+                        med = await _medicineRepo.AddAsync(med);
                     }
                 }
 
@@ -433,6 +431,7 @@ namespace DChemist.ViewModels
                 StatusMessage = $"✔ Added: {item.MedicineName}";
                 ((AsyncRelayCommand)SaveAllCommand).RaiseCanExecuteChanged();
                 ClearEntry();
+                RequestFocus?.Invoke(this, "MedicineName");
             }
             catch (Exception ex)
             {

@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using DChemist.Database;
 using DChemist.Services;
+using DChemist.Repositories;
 using DChemist.Utils;
 using Npgsql;
 
@@ -10,12 +11,13 @@ namespace DChemist.ViewModels
 {
     public class DashboardViewModel : ViewModelBase
     {
-        private readonly DatabaseService _db;
+        private readonly IDashboardRepository _dashboardRepo;
         private readonly AuthorizationService _auth;
+        private bool _isBusy;
 
-        public DashboardViewModel(DatabaseService db, AuthorizationService auth)
+        public DashboardViewModel(IDashboardRepository dashboardRepo, AuthorizationService auth)
         {
-            _db = db;
+            _dashboardRepo = dashboardRepo;
             _auth = auth;
             
             Metrics = new ObservableCollection<MetricItem>
@@ -30,69 +32,63 @@ namespace DChemist.ViewModels
 
         public ObservableCollection<MetricItem> Metrics { get; }
         public ObservableCollection<RecentSaleItem> RecentSales { get; } = new();
+        public ObservableCollection<CriticalAlertViewModel> CriticalAlerts { get; } = new();
         public bool IsAdmin => _auth.IsAdmin;
+        public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
 
         private async Task LoadRealStatsAsync()
         {
+            IsBusy = true;
             try
             {
-                using var conn = _db.GetConnection();
-                await conn.OpenAsync();
+                // 1. Low stock items
+                var lowStock = await _dashboardRepo.GetLowStockCountAsync();
+                Metrics[0].Value = lowStock.ToString("N0");
+                Metrics[0].Trend = lowStock == 0 ? "All items well stocked" : $"{lowStock} items need restocking";
+                Metrics[0].Positive = lowStock == 0;
 
-                // 1. Low stock items (< 10 units total)
-                using (var cmd = new NpgsqlCommand(@"
-                    SELECT COUNT(*) FROM (
-                        SELECT medicine_id FROM inventory_batches
-                        GROUP BY medicine_id
-                        HAVING COALESCE(SUM(remaining_units), 0) < 10
-                    ) AS low_stock", conn))
-                {
-                    var lowStock = Convert.ToInt64(await cmd.ExecuteScalarAsync() ?? 0);
-                    Metrics[0].Value = lowStock.ToString("N0");
-                    Metrics[0].Trend = lowStock == 0 ? "All items well stocked" : $"{lowStock} items need restocking";
-                    Metrics[0].Positive = lowStock == 0;
-                }
-
-                // 2. Expiring soon (within 90 days)
-                using (var cmd = new NpgsqlCommand(@"
-                    SELECT COUNT(*) FROM inventory_batches 
-                    WHERE expiry_date <= CURRENT_DATE + INTERVAL '90 days' 
-                    AND remaining_units > 0", conn))
-                {
-                    var expiring = Convert.ToInt64(await cmd.ExecuteScalarAsync() ?? 0);
-                    Metrics[1].Value = expiring.ToString("N0");
-                    Metrics[1].Trend = expiring == 0 ? "No imminent expiries" : $"{expiring} batches expiring soon";
-                    Metrics[1].Positive = expiring == 0;
-                }
+                // 2. Expiring soon
+                var expiring = await _dashboardRepo.GetExpiringSoonCountAsync();
+                Metrics[1].Value = expiring.ToString("N0");
+                Metrics[1].Trend = expiring == 0 ? "No imminent expiries" : $"{expiring} batches expiring soon";
+                Metrics[1].Positive = expiring == 0;
 
                 // 3. Today's revenue
-                using (var cmd = new NpgsqlCommand(
-                    "SELECT COALESCE(SUM(grand_total), 0) FROM sales WHERE sale_date::date = CURRENT_DATE", conn))
-                {
-                    var revenue = Convert.ToDecimal(await cmd.ExecuteScalarAsync() ?? 0);
-                    Metrics[2].Value = $"PKR {revenue:N0}";
-                    Metrics[2].Trend = revenue > 0 ? "Sales active today" : "No sales yet today";
-                    Metrics[2].Positive = revenue > 0;
-                }
+                var revenue = await _dashboardRepo.GetTodaysRevenueAsync();
+                Metrics[2].Value = $"PKR {revenue:N0}";
+                Metrics[2].Trend = revenue > 0 ? "Sales active today" : "No sales yet today";
+                Metrics[2].Positive = revenue > 0;
 
                 // 4. Recent Sales Activity
-                using (var cmd = new NpgsqlCommand(
-                    "SELECT bill_no, sale_date, grand_total FROM sales ORDER BY sale_date DESC LIMIT 5", conn))
-                using (var reader = await cmd.ExecuteReaderAsync())
+                var recentSales = await _dashboardRepo.GetRecentSalesAsync();
+                
+                // 5. Critical Alerts
+                var criticalAlertsData = await _dashboardRepo.GetCriticalAlertsAsync();
+
+                App.MainRoot?.DispatcherQueue.TryEnqueue(() => 
                 {
-                    App.MainRoot?.DispatcherQueue.TryEnqueue(() => RecentSales.Clear());
-                    while (await reader.ReadAsync())
+                    RecentSales.Clear();
+                    foreach (var sale in recentSales)
                     {
-                        var sale = new RecentSaleItem
+                        RecentSales.Add(new RecentSaleItem
                         {
-                            Invoice = reader["bill_no"].ToString() ?? "N/A",
-                            Date = Convert.ToDateTime(reader["sale_date"]),
-                            Total = Convert.ToDecimal(reader["grand_total"]),
-                            Method = "Cash" // Default as column is missing
-                        };
-                        App.MainRoot?.DispatcherQueue.TryEnqueue(() => RecentSales.Add(sale));
+                            Invoice = sale.Invoice,
+                            Date = sale.Date,
+                            Total = sale.Total,
+                            Method = sale.Method
+                        });
                     }
-                }
+
+                    CriticalAlerts.Clear();
+                    foreach (var alert in criticalAlertsData)
+                    {
+                        CriticalAlerts.Add(new CriticalAlertViewModel
+                        {
+                            Message = alert.Message,
+                            Type = alert.Type
+                        });
+                    }
+                });
 
                 // Force UI refresh for all metrics
                 foreach (var m in Metrics) m.NotifyChanged();
@@ -103,6 +99,10 @@ namespace DChemist.ViewModels
             {
                 AppLogger.LogError("DashboardViewModel.LoadRealStatsAsync failed", ex);
                 foreach (var m in Metrics) { m.Trend = "Could not load data"; m.NotifyChanged(); }
+            }
+            finally
+            {
+                IsBusy = false;
             }
         }
     }
@@ -131,5 +131,12 @@ namespace DChemist.ViewModels
         public DateTime Date { get; set; }
         public decimal Total { get; set; }
         public string Method { get; set; } = string.Empty;
+    }
+
+    public class CriticalAlertViewModel
+    {
+        public string Message { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public string Color => Type == "Low Stock" ? "#D93025" : "#F9AB00"; // Red for stock, Amber for expiry
     }
 }

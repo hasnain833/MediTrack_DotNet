@@ -15,6 +15,7 @@ namespace DChemist.Services
     {
         Task<bool> ExportSalesToCsvAsync(IEnumerable<SaleSummary> sales);
         Task<bool> ExportInventoryToCsvAsync(IEnumerable<Medicine> inventory);
+        Task<bool> ExportFinancialReportToCsvAsync(FinancialReport report);
     }
 
     public class ReportingService : IReportingService
@@ -39,6 +40,24 @@ namespace DChemist.Services
                 sb.AppendLine($"{Escape(m.Name)},{Escape(m.GenericName)},{Escape(m.CategoryName)},{Escape(m.ManufacturerName)},{Escape(m.DosageForm)},{Escape(m.Strength)},{m.StockQty},{m.SellingPrice},{m.PurchasePrice},{m.ExpiryDate?.ToString("yyyy-MM-dd")}");
             }
             return await SaveFileAsync(sb.ToString(), "Inventory_Report_" + DateTime.Now.ToString("yyyyMMdd") + ".csv", ".csv");
+        }
+
+        public async Task<bool> ExportFinancialReportToCsvAsync(FinancialReport report)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("Metric,Value");
+            sb.AppendLine($"Report Date,{report.ReportDate:yyyy-MM-dd}");
+            sb.AppendLine($"Gross Sales,{report.GrossSales:F2}");
+            sb.AppendLine($"Total Returns,{report.TotalReturns:F2}");
+            sb.AppendLine($"Net Sales,{report.NetSales:F2}");
+            sb.AppendLine($"Total Tax,{report.TotalTax:F2}");
+            sb.AppendLine($"Total Discount,{report.TotalDiscount:F2}");
+            sb.AppendLine($"Total Sales Count,{report.TotalSalesCount}");
+            sb.AppendLine($"FBR Sales Count,{report.FbrSalesCount}");
+            sb.AppendLine($"Internal Sales Count,{report.InternalSalesCount}");
+            sb.AppendLine($"Returns Count,{report.ReturnsCount}");
+
+            return await SaveFileAsync(sb.ToString(), "Financial_Z_Report_" + report.ReportDate.ToString("yyyyMMdd") + ".csv", ".csv");
         }
 
         private async Task<bool> SaveFileAsync(string content, string fileName, string extension)

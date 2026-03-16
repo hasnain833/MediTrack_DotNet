@@ -8,5 +8,6 @@ namespace DChemist.Models
         public string FullName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
         public string Status { get; set; } = "Active";
+        public bool MustChangePassword { get; set; }
     }
 }

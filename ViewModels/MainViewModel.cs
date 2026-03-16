@@ -15,11 +15,12 @@ namespace DChemist.ViewModels
         private readonly UpdateService _updateService;
         private readonly IDialogService _dialogService;
         private readonly AlertService _alertService;
+        private readonly BackupService _backupService;
         private string _title = "Dashboard";
         private User? _currentUser;
         private NavigationItem? _selectedItem;
 
-        public MainViewModel(AuthService authService, AuthorizationService auth, NavigationService navigationService, UpdateService updateService, IDialogService dialogService, AlertService alertService)
+        public MainViewModel(AuthService authService, AuthorizationService auth, NavigationService navigationService, UpdateService updateService, IDialogService dialogService, AlertService alertService, BackupService backupService)
         {
             _authService = authService;
             _auth = auth;
@@ -27,6 +28,7 @@ namespace DChemist.ViewModels
             _updateService = updateService;
             _dialogService = dialogService;
             _alertService = alertService;
+            _backupService = backupService;
             CurrentUser = _authService.CurrentUser;
 
             var items = new List<NavigationItem>
@@ -35,7 +37,10 @@ namespace DChemist.ViewModels
                 new NavigationItem { Title = "Inventory", Icon = "\uE950", PageType = "DChemist.Views.InventoryPage", RequiresAdmin = false },
                 new NavigationItem { Title = "Stock In",  Icon = "\uE896", PageType = "DChemist.Views.StockInPage",   RequiresAdmin = true  },
                 new NavigationItem { Title = "Billing",   Icon = "\uE8A1", PageType = "DChemist.Views.BillingPage",   RequiresAdmin = false },
-                new NavigationItem { Title = "Financials", Icon = "\uE825", PageType = "DChemist.Views.FinancialPage", RequiresAdmin = true },
+                new NavigationItem { Title = "Invoices",  Icon = "\uE990", PageType = "DChemist.Views.FinancialPage", RequiresAdmin = false },
+                new NavigationItem { Title = "Daily Report", Icon = "\uE9D9", PageType = "DChemist.Views.FinancialReportPage", RequiresAdmin = true },
+                new NavigationItem { Title = "Stock Adjustment", Icon = "\uE7BE", PageType = "DChemist.Views.InventoryAdjustmentPage", RequiresAdmin = true },
+                new NavigationItem { Title = "Audit Logs", Icon = "\uE81C", PageType = "DChemist.Views.AuditLogsPage", RequiresAdmin = true },
                 new NavigationItem { Title = "Settings", Icon = "\uE713", PageType = "DChemist.Views.SettingsPage", RequiresAdmin = true }
             };
 
@@ -56,6 +61,9 @@ namespace DChemist.ViewModels
 
             // Check for alerts (dispatch to UI thread so dialogs don't crash)
             _ = CheckForAlertsAsync();
+
+            // Run automated backup check
+            _ = _backupService.CheckAndRunScheduledBackupAsync();
         }
 
         private bool _isSidebarCollapsed;
@@ -127,10 +135,10 @@ namespace DChemist.ViewModels
         public ICommand LogoutCommand { get; }
         public ICommand ToggleSidebarCommand { get; }
 
-        private void ExecuteLogout()
+        private async void ExecuteLogout()
         {
             _alertService.ResetSession();
-            _authService.Logout();
+            await _authService.LogoutAsync();
             _navigationService.NavigateRoot("DChemist.Views.LoginPage");
         }
     }

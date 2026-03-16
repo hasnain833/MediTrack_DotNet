@@ -50,6 +50,58 @@
                 </StackPanel>
             </Border>
 
+            <!-- Pharmacy Information -->
+            <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
+                <StackPanel Spacing="20">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Pharmacy Information" FontSize="16" FontWeight="SemiBold"/>
+                        <TextBlock Text="Configure pharmacy details for receipts and fiscal reporting." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
+                    </StackPanel>
+                    
+                    <Grid RowSpacing="16" ColumnSpacing="24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Pharmacy Name" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBox Text="{x:Bind ViewModel.PharmacyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. D. Chemist"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Spacing="6">
+                            <TextBlock Text="NTN Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBox Text="{x:Bind ViewModel.PharmacyNtn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. I736466-5"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Spacing="6" Grid.ColumnSpan="2">
+                            <TextBlock Text="Address" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBox Text="{x:Bind ViewModel.PharmacyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Enter full address..."/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Spacing="6">
+                            <TextBlock Text="Phone Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBox Text="{x:Bind ViewModel.PharmacyPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. +92-332-8787833"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6">
+                            <TextBlock Text="License Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBox Text="{x:Bind ViewModel.PharmacyLicense, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. 01-372-0011-134212M"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <Button Content="Save Pharmacy Details" 
+                            Command="{x:Bind ViewModel.SavePharmacyDetailsCommand}"
+                            Style="{StaticResource PremiumButtonStyle}" 
+                            HorizontalAlignment="Right"/>
+                </StackPanel>
+            </Border>
+
             <!-- FBR / Fiscal Integration -->
             <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
                 <StackPanel Spacing="16">

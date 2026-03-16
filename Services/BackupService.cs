@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using DChemist.Utils;
+using DChemist.Repositories;
 using Npgsql;
 
 namespace DChemist.Services
@@ -13,12 +14,136 @@ namespace DChemist.Services
         private readonly IConfiguration _config;
         private readonly IDialogService _dialogService;
         private readonly AuthorizationService _auth;
+        private readonly AuditRepository _auditRepo;
+        private readonly SettingsService _settings;
 
-        public BackupService(IConfiguration config, IDialogService dialogService, AuthorizationService auth)
+        public BackupService(IConfiguration config, IDialogService dialogService, AuthorizationService auth, AuditRepository auditRepo, SettingsService settings)
         {
             _config = config;
             _dialogService = dialogService;
             _auth = auth;
+            _auditRepo = auditRepo;
+            _settings = settings;
+        }
+
+        public async Task CheckAndRunScheduledBackupAsync()
+        {
+            try
+            {
+                if (!await _settings.IsAutoBackupEnabledAsync()) return;
+
+                string lastBackup = await _settings.GetSettingAsync("last_backup_date", "");
+                if (DateTime.TryParse(lastBackup, out DateTime lastDate))
+                {
+                    if (lastDate.Date == DateTime.Today) return; // Already backed up today
+                }
+
+                // Perform auto backup to dedicated folder
+                await RunAutoBackupAsync();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Scheduled backup check failed", ex);
+            }
+        }
+
+        private async Task RunAutoBackupAsync()
+        {
+            try
+            {
+                string backupDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Backups");
+                if (!Directory.Exists(backupDir)) Directory.CreateDirectory(backupDir);
+
+                string fileName = $"backup_{DateTime.Now:yyyy_MM_dd}.sql";
+                string fullPath = Path.Combine(backupDir, fileName);
+
+                var dbConfig = _config.GetSection("Database");
+                var builder = new NpgsqlConnectionStringBuilder
+                {
+                    Host = dbConfig["Host"],
+                    Port = int.Parse(dbConfig["Port"] ?? "5432"),
+                    Database = dbConfig["Database"],
+                    Username = dbConfig["User"],
+                    Password = dbConfig["Password"],
+                    Pooling = true
+                };
+                
+                string host = string.IsNullOrEmpty(builder.Host) ? "localhost" : builder.Host;
+                int port = builder.Port > 0 ? builder.Port : 5432;
+
+                string pgDumpPath = GetPgDumpPath();
+                if (string.IsNullOrEmpty(pgDumpPath)) return;
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = pgDumpPath,
+                    Arguments = $"-h \"{host}\" -p {port} -U \"{builder.Username}\" -d \"{builder.Database}\" -f \"{fullPath}\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+                psi.EnvironmentVariables["PGPASSWORD"] = builder.Password;
+
+                var process = Process.Start(psi);
+                if (process != null)
+                {
+                    await process.WaitForExitAsync();
+                    if (process.ExitCode == 0)
+                    {
+                        AppLogger.LogInfo($"Auto-backup successful: {fileName}");
+                        await _settings.SaveSettingAsync("last_backup_date", DateTime.Today.ToString("yyyy-MM-dd"));
+                        await _auditRepo.InsertLogAsync(0, "System", $"Automatic database backup created: {fileName}");
+                        
+                        // Enforce 7-day retention
+                        CleanupOldBackups(backupDir);
+                    }
+                    else
+                    {
+                        string error = await process.StandardError.ReadToEndAsync();
+                        AppLogger.LogError($"Auto-backup failed: {error}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("RunAutoBackupAsync failed", ex);
+            }
+        }
+
+        private void CleanupOldBackups(string directory)
+        {
+            try
+            {
+                var files = Directory.GetFiles(directory, "backup_*.sql");
+                if (files.Length > 7)
+                {
+                    var oldFiles = files.Select(f => new FileInfo(f))
+                                        .OrderByDescending(f => f.CreationTime)
+                                        .Skip(7);
+                    
+                    foreach (var file in oldFiles)
+                    {
+                        file.Delete();
+                        AppLogger.LogInfo($"Deleted old backup: {file.Name}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("CleanupOldBackups failed", ex);
+            }
+        }
+
+        private string GetPgDumpPath()
+        {
+            string pgDumpPath = _config["Database:PgDumpPath"] ?? @"C:\Program Files\PostgreSQL\16\bin\pg_dump.exe";
+            if (File.Exists(pgDumpPath)) return pgDumpPath;
+            
+            pgDumpPath = @"C:\Program Files\PostgreSQL\15\bin\pg_dump.exe";
+            if (File.Exists(pgDumpPath)) return pgDumpPath;
+
+            return string.Empty;
         }
 
         public async Task RunBackupAsync()
@@ -31,10 +156,16 @@ namespace DChemist.Services
 
             try
             {
-                string connectionString = _config.GetConnectionString("DefaultConnection") ?? "";
-                if (string.IsNullOrEmpty(connectionString)) throw new Exception("Database connection string not found.");
-
-                var builder = new NpgsqlConnectionStringBuilder(connectionString);
+                var dbConfig = _config.GetSection("Database");
+                var builder = new NpgsqlConnectionStringBuilder
+                {
+                    Host = dbConfig["Host"],
+                    Port = int.Parse(dbConfig["Port"] ?? "5432"),
+                    Database = dbConfig["Database"],
+                    Username = dbConfig["User"],
+                    Password = dbConfig["Password"],
+                    Pooling = true
+                };
                 
                 // Allow user to pick where to save the backup
                 var picker = new Windows.Storage.Pickers.FileSavePicker();

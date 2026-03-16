@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DChemist.Database;
 using DChemist.Models;
 using DChemist.Utils;
+using Dapper;
 using Npgsql;
 
 namespace DChemist.Repositories
@@ -17,7 +19,7 @@ namespace DChemist.Repositories
             _db = db;
         }
 
-        public async Task InsertLogAsync(int userId, string action, string details)
+        public async Task InsertLogAsync(int userId, string action, string details, NpgsqlConnection? conn = null, NpgsqlTransaction? trans = null)
         {
             try
             {
@@ -25,14 +27,15 @@ namespace DChemist.Repositories
                     INSERT INTO audit_logs (user_id, action, details)
                     VALUES (@userId, @action, @details)";
 
-                var parameters = new Dictionary<string, object>
+                if (conn != null && trans != null)
                 {
-                    { "@userId", userId },
-                    { "@action", action },
-                    { "@details", details }
-                };
-
-                await _db.ExecuteNonQueryAsync(query, parameters);
+                    await conn.ExecuteAsync(query, new { userId, action, details }, trans);
+                }
+                else
+                {
+                    using var connection = _db.GetConnection();
+                    await connection.ExecuteAsync(query, new { userId, action, details });
+                }
             }
             catch (Exception ex)
             {
@@ -40,30 +43,44 @@ namespace DChemist.Repositories
             }
         }
 
-        public async Task<List<AuditLog>> GetLogsAsync(int limit = 100)
+        public async Task<List<AuditLog>> GetLogsAsync(int? userId = null, string? action = null, DateTime? date = null, int limit = 100)
         {
-            const string query = @"
-                SELECT a.id, a.user_id, COALESCE(u.username, 'System') as username, a.action, a.details, a.created_at
+            var query = @"
+                SELECT 
+                    a.id, 
+                    a.user_id as UserId, 
+                    COALESCE(u.username, 'System') as Username, 
+                    a.action, 
+                    a.details, 
+                    a.created_at as CreatedAt
                 FROM audit_logs a
                 LEFT JOIN users u ON a.user_id = u.id
-                ORDER BY a.created_at DESC
-                LIMIT @limit";
+                WHERE 1=1";
 
-            var parameters = new Dictionary<string, object> { { "@limit", limit } };
-            return await _db.FetchAllAsync(query, MapAuditLog, parameters);
-        }
+            var parameters = new DynamicParameters();
+            parameters.Add("limit", limit);
 
-        private AuditLog MapAuditLog(NpgsqlDataReader reader)
-        {
-            return new AuditLog
+            if (userId.HasValue)
             {
-                Id = Convert.ToInt32(reader["id"]),
-                UserId = reader["user_id"] != DBNull.Value ? Convert.ToInt32(reader["user_id"]) : 0,
-                Username = reader["username"].ToString() ?? "System",
-                Action = reader["action"].ToString() ?? "",
-                Details = reader["details"].ToString() ?? "",
-                CreatedAt = Convert.ToDateTime(reader["created_at"])
-            };
+                query += " AND a.user_id = @userId";
+                parameters.Add("userId", userId.Value);
+            }
+            if (!string.IsNullOrWhiteSpace(action))
+            {
+                query += " AND a.action = @action";
+                parameters.Add("action", action);
+            }
+            if (date.HasValue)
+            {
+                query += " AND a.created_at::date = @date";
+                parameters.Add("date", date.Value.Date);
+            }
+
+            query += " ORDER BY a.created_at DESC LIMIT @limit";
+
+            using var conn = _db.GetConnection();
+            var logs = await conn.QueryAsync<AuditLog>(query, parameters);
+            return logs.ToList();
         }
     }
 }

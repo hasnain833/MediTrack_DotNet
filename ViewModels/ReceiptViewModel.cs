@@ -12,11 +12,20 @@ namespace DChemist.ViewModels
 {
     public class ReceiptViewModel : ViewModelBase
     {
-        public string PharmacyName => "D. Chemist";
-        public string PharmacyAddress => "Khewra Road, Choa Saidan Shah, District Chakwal";
-        public string PharmacyPhone => "+92-332-8787833";
-        public string PharmacyLicense => "License No: 01-372-0011-134212M";
-        public string PharmacyNtn => "NTN: 5000297-7";
+        public string PharmacyName { get; set; } = "D. Chemist";
+        public string PharmacyAddress { get; set; } = "Khewra Road, Choa Saidan Shah, District Chakwal";
+        public string PharmacyPhone { get; set; } = "+92-332-8787833";
+        public string PharmacyLicense { get; set; } = "License No: 01-372-0011-134212M";
+        public string PharmacyNtn { get; set; } = "NTN: I736466-5";
+
+        public async Task LoadStoreDetailsAsync(SettingsService settings)
+        {
+            PharmacyName = await settings.GetPharmacyNameAsync();
+            PharmacyAddress = await settings.GetPharmacyAddressAsync();
+            PharmacyPhone = await settings.GetPharmacyPhoneAsync();
+            PharmacyLicense = "License No: " + await settings.GetPharmacyLicenseAsync();
+            PharmacyNtn = "NTN: " + await settings.GetPharmacyNtnAsync();
+        }
         
         public string BillNo { get; set; } = string.Empty;
         public string Date { get; set; } = DateTime.Now.ToString("dd-MMM-yyyy HH:mm");

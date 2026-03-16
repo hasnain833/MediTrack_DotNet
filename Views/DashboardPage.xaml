@@ -127,10 +127,41 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
+
+                            <Border Style="{StaticResource PremiumCardStyle}" Padding="24" Grid.Row="1">
+                                <StackPanel Spacing="16">
+                                    <TextBlock Text="Critical Alerts" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                    
+                                    <ItemsControl ItemsSource="{x:Bind ViewModel.CriticalAlerts}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:CriticalAlertViewModel">
+                                                <Grid Margin="0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <Border Width="4" Height="32" Background="{x:Bind Color}" CornerRadius="2" Margin="0,0,12,0" Grid.Column="0"/>
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Text="{x:Bind Type}" FontSize="12" FontWeight="Bold" Foreground="{x:Bind Color}"/>
+                                                        <TextBlock Text="{x:Bind Message}" FontSize="13" TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="No critical alerts today." FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" 
+                                               Visibility="{x:Bind ViewModel.CriticalAlerts.Count, Converter={StaticResource EmptyToVisibilityConverter}}"/>
+                                </StackPanel>
+                            </Border>
                         </Grid>
                     </Grid>
                 </StackPanel>
             </StackPanel>
         </ScrollViewer>
+        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Width="60" Height="60" Foreground="{StaticResource AccentAccent}"
+                      Canvas.ZIndex="100"/>
     </Grid>
 </Page>

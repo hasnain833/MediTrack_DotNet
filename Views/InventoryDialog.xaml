@@ -14,6 +14,15 @@
     SecondaryButtonStyle="{StaticResource SecondaryButtonStyle}"
     RequestedTheme="Dark"
     CornerRadius="16">
+    
+    <ContentDialog.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource GlassInputBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource GlassInputBorderBrush}"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+    </ContentDialog.Resources>
 
     <StackPanel Spacing="16" Width="400" Margin="0,10,0,0">
         <Grid ColumnSpacing="16">

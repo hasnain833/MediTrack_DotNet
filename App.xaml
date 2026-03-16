@@ -51,8 +51,10 @@
             <!-- 2. Converters -->
             <utils:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
             <utils:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+            <utils:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
             <utils:InverseBooleanConverter x:Key="InverseBooleanConverter"/>
             <utils:EmptyToVisibilityConverter x:Key="EmptyToVisibilityConverter"/>
+            <utils:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
             <utils:CurrencyConverter x:Key="CurrencyConverter"/>
             <utils:DateConverter x:Key="DateConverter"/>
             <utils:DateFormatConverter x:Key="DateFormatConverter"/>
@@ -65,6 +67,7 @@
             <utils:DecimalToDoubleConverter x:Key="DecimalToDoubleConverter"/>
             <utils:StatusBgConverter x:Key="StatusBgConverter"/>
             <utils:StatusFgConverter x:Key="StatusFgConverter"/>
+            <utils:NearExpiryToVisibilityConverter x:Key="NearExpiryToVisibilityConverter"/>
 
             <!-- 3. Brushes (Dependent on Tokens) -->
             <SolidColorBrush x:Key="AccentAccent" Color="#00D2FF"/>
@@ -143,8 +146,7 @@
                                         <VisualState x:Name="Normal"/>
                                         <VisualState x:Name="PointerOver">
                                             <VisualState.Setters>
-                                                <!-- Slightly lighter/opaque overlay for hover effect on gradient -->
-                                                <Setter Target="RootBorder.Background" Value="#20FFFFFF"/>
+                                                <Setter Target="RootBorder.Background" Value="#20000000"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">

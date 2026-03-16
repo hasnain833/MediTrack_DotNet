@@ -98,48 +98,8 @@ namespace DChemist.Services
             {
                 try
                 {
-                    var sb = new System.Text.StringBuilder();
-                    // ESC/POS Init
-                    sb.Append((char)27).Append((char)64);
-                    // Center justify
-                    sb.Append((char)27).Append((char)97).Append((char)1);
-                    
-                    sb.AppendLine(receipt.PharmacyName);
-                    sb.AppendLine(receipt.PharmacyAddress);
-                    sb.AppendLine(receipt.PharmacyPhone);
-                    sb.AppendLine("--------------------------------");
-                    
-                    // Left justify
-                    sb.Append((char)27).Append((char)97).Append((char)0);
-                    sb.AppendLine($"Bill No: {receipt.BillNo}");
-                    sb.AppendLine($"Date:    {receipt.Date}");
-                    sb.AppendLine("--------------------------------");
-                    
-                    foreach(var item in receipt.Items)
-                    {
-                        sb.AppendLine($"{item.Name}");
-                        sb.AppendLine($"  {item.Quantity} x {item.Price:F2}    = {item.Total:F2}");
-                    }
-                    sb.AppendLine("--------------------------------");
-                    sb.AppendLine($"Subtotal:       {receipt.TotalAmount:F2}");
-                    sb.AppendLine($"{receipt.TaxRateText,-16}{receipt.TaxAmount:F2}");
-                    if (receipt.DiscountAmount > 0)
-                        sb.AppendLine($"Discount:      -{receipt.DiscountAmount:F2}");
-                    
-                    sb.AppendLine("--------------------------------");
-                    sb.AppendLine($"GRAND TOTAL:    {receipt.GrandTotal:F2}");
-                    sb.AppendLine("--------------------------------");
-                    
-                    // Center
-                    sb.Append((char)27).Append((char)97).Append((char)1);
-                    sb.AppendLine("FBR SIMULATOR MODE");
-                    sb.AppendLine(receipt.FbrInvoiceNo);
-                    sb.AppendLine("Thank you for your visit!");
-                    
-                    // Feed and cut
-                    sb.Append((char)29).Append((char)86).Append((char)66).Append((char)0);
-
-                    return RawPrinterHelper.SendStringToPrinter(printerName, sb.ToString());
+                    string receiptContent = ReceiptBuilder.BuildReceiptString(receipt);
+                    return RawPrinterHelper.SendStringToPrinter(printerName, receiptContent);
                 }
                 catch (Exception ex)
                 {

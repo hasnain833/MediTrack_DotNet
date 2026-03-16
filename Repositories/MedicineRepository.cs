@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using DChemist.Database;
 using DChemist.Models;
 using DChemist.Services;
 using DChemist.Utils;
+using Dapper;
 using Npgsql;
 
 namespace DChemist.Repositories
@@ -22,19 +24,18 @@ namespace DChemist.Repositories
             _eventBus = eventBus;
         }
 
-
         public async Task<List<Medicine>> GetAllAsync()
         {
             const string query = @"
                 SELECT 
                     m.*, 
-                    c.name as category_name, 
-                    man.name as manufacturer_name,
-                    MAX(s.name) as supplier_name,
-                    COALESCE(SUM(b.remaining_units), 0) as total_stock,
-                    MAX(b.selling_price) as latest_price,
-                    MIN(b.unit_cost) as cost_price,
-                    MIN(b.expiry_date) as earliest_expiry
+                    c.name as CategoryName, 
+                    man.name as ManufacturerName,
+                    MAX(s.name) as SupplierName,
+                    COALESCE(SUM(b.remaining_units), 0) as StockQty,
+                    MAX(b.selling_price) as SellingPrice,
+                    MIN(b.unit_cost) as PurchasePrice,
+                    MIN(b.expiry_date) as ExpiryDate
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
@@ -44,7 +45,9 @@ namespace DChemist.Repositories
                 ORDER BY m.name ASC";
             try
             {
-                return await _db.FetchAllAsync(query, MapMedicine);
+                using var conn = _db.GetConnection();
+                var results = await conn.QueryAsync<Medicine>(query);
+                return results.ToList();
             }
             catch (Exception ex)
             {
@@ -58,28 +61,31 @@ namespace DChemist.Repositories
             const string query = @"
                 SELECT 
                     m.*, 
-                    c.name as category_name, 
-                    man.name as manufacturer_name,
-                    MAX(s.name) as supplier_name,
-                    COALESCE(SUM(b.remaining_units), 0) as total_stock,
-                    MAX(b.selling_price) as latest_price,
-                    MIN(b.unit_cost) as cost_price,
-                    MIN(b.expiry_date) as earliest_expiry
+                    c.name as CategoryName, 
+                    man.name as ManufacturerName,
+                    MAX(s.name) as SupplierName,
+                    COALESCE(SUM(b.remaining_units), 0) as StockQty,
+                    MAX(b.selling_price) as SellingPrice,
+                    MIN(b.unit_cost) as PurchasePrice,
+                    MIN(b.expiry_date) as ExpiryDate
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
                 LEFT JOIN inventory_batches b ON m.id = b.medicine_id
                 LEFT JOIN suppliers s ON b.supplier_id = s.id
-                WHERE m.name ILIKE @text OR m.generic_name ILIKE @text OR m.barcode = @exact
-                GROUP BY m.id, c.name, man.name";
-            var parameters = new Dictionary<string, object>
-            {
-                { "@text", $"%{text}%" },
-                { "@exact", text }
-            };
+                WHERE m.name ILIKE @text 
+                   OR m.generic_name ILIKE @text 
+                   OR m.barcode = @exact
+                   OR man.name ILIKE @text
+                GROUP BY m.id, c.name, man.name
+                ORDER BY m.name ASC
+                LIMIT 20";
+            
             try
             {
-                return await _db.FetchAllAsync(query, MapMedicine, parameters);
+                using var conn = _db.GetConnection();
+                var results = await conn.QueryAsync<Medicine>(query, new { text = $"%{text}%", exact = text });
+                return results.ToList();
             }
             catch (Exception ex)
             {
@@ -93,12 +99,12 @@ namespace DChemist.Repositories
             const string query = @"
                 SELECT 
                     m.*, 
-                    c.name as category_name, 
-                    man.name as manufacturer_name,
-                    COALESCE(SUM(b.remaining_units), 0) as total_stock,
-                    MAX(b.selling_price) as latest_price,
-                    MIN(b.unit_cost) as cost_price,
-                    MIN(b.expiry_date) as earliest_expiry
+                    c.name as CategoryName, 
+                    man.name as ManufacturerName,
+                    COALESCE(SUM(b.remaining_units), 0) as StockQty,
+                    MAX(b.selling_price) as SellingPrice,
+                    MIN(b.unit_cost) as PurchasePrice,
+                    MIN(b.expiry_date) as ExpiryDate
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
@@ -106,41 +112,20 @@ namespace DChemist.Repositories
                 WHERE m.barcode = @barcode 
                 GROUP BY m.id, c.name, man.name
                 LIMIT 1";
-            var parameters = new Dictionary<string, object> { { "@barcode", barcode } };
+            
             try
             {
-                return await _db.FetchOneAsync(query, MapMedicine, parameters);
+                using var conn = _db.GetConnection();
+                return await conn.QuerySingleOrDefaultAsync<Medicine>(query, new { barcode });
             }
             catch (Exception ex)
             {
                 AppLogger.LogError($"MedicineRepository.GetByBarcodeAsync failed for barcode '{barcode}'", ex);
                 throw new DataAccessException("Could not look up medicine by barcode.", ex);
             }
-        }        private static Medicine MapMedicine(NpgsqlDataReader reader)
-        {
-            return new Medicine
-            {
-                Id              = Convert.ToInt32(reader["id"]),
-                Name            = reader["name"].ToString() ?? string.Empty,
-                GenericName     = reader["generic_name"] != DBNull.Value ? reader["generic_name"].ToString() : null,
-                CategoryId      = reader["category_id"] != DBNull.Value ? Convert.ToInt32(reader["category_id"]) : null,
-                ManufacturerId  = reader["manufacturer_id"] != DBNull.Value ? Convert.ToInt32(reader["manufacturer_id"]) : null,
-                DosageForm      = reader["dosage_form"] != DBNull.Value ? reader["dosage_form"].ToString() : null,
-                Strength        = reader["strength"] != DBNull.Value ? reader["strength"].ToString() : null,
-                Barcode         = reader["barcode"].ToString() ?? string.Empty,
-                CreatedAt       = Convert.ToDateTime(reader["created_at"]),
-                // Joined aggregates
-                CategoryName    = reader["category_name"] != DBNull.Value ? reader["category_name"].ToString() : null,
-                ManufacturerName = reader["manufacturer_name"] != DBNull.Value ? reader["manufacturer_name"].ToString() : null,
-                SupplierName    = reader["supplier_name"] != DBNull.Value ? reader["supplier_name"].ToString() : null,
-                StockQty        = reader["total_stock"] != DBNull.Value ? Convert.ToInt32(reader["total_stock"]) : 0,
-                SellingPrice    = reader["latest_price"] != DBNull.Value ? Convert.ToDecimal(reader["latest_price"]) : 0,
-                PurchasePrice   = reader["cost_price"] != DBNull.Value ? Convert.ToDecimal(reader["cost_price"]) : 0,
-                ExpiryDate      = reader["earliest_expiry"] != DBNull.Value ? Convert.ToDateTime(reader["earliest_expiry"]) : null
-            };
         }
 
-        public async Task AddAsync(Medicine medicine)
+        public async Task<Medicine> AddAsync(Medicine medicine)
         {
             _auth.EnforceAdmin();
             using var connection = _db.GetConnection();
@@ -163,19 +148,11 @@ namespace DChemist.Repositories
                 // 2. Insert Medicine
                 const string medQuery = @"
                     INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode)
-                    VALUES (@name, @generic, @catId, @manId, @dosage, @strength, @barcode)
+                    VALUES (@Name, @GenericName, @CategoryId, @ManufacturerId, @DosageForm, @Strength, @Barcode)
                     RETURNING id;";
 
-                using var medCmd = new NpgsqlCommand(medQuery, connection, transaction);
-                medCmd.Parameters.AddWithValue("@name", medicine.Name);
-                medCmd.Parameters.AddWithValue("@generic", medicine.GenericName ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@catId", medicine.CategoryId ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@manId", medicine.ManufacturerId ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@dosage", medicine.DosageForm ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@strength", medicine.Strength ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@barcode", medicine.Barcode);
-
-                int medId = Convert.ToInt32(await medCmd.ExecuteScalarAsync());
+                int medId = await connection.ExecuteScalarAsync<int>(medQuery, medicine, transaction);
+                medicine.Id = medId;
 
                 // 3. Insert Initial Batch
                 if (medicine.StockQty > 0)
@@ -184,17 +161,17 @@ namespace DChemist.Repositories
                         INSERT INTO inventory_batches (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, expiry_date)
                         VALUES (@medId, @supId, @batchNo, @qty, @pTotal, @uCost, @sPrice, @qty, @expiry)";
 
-                    using var batchCmd = new NpgsqlCommand(batchQuery, connection, transaction);
-                    batchCmd.Parameters.AddWithValue("@medId", medId);
-                    batchCmd.Parameters.AddWithValue("@supId", supplierId ?? (object)DBNull.Value);
-                    batchCmd.Parameters.AddWithValue("@batchNo", "BATCH-" + DateTime.Now.ToString("yyyyMMdd"));
-                    batchCmd.Parameters.AddWithValue("@qty", medicine.StockQty);
-                    batchCmd.Parameters.AddWithValue("@pTotal", medicine.PurchasePrice * medicine.StockQty); // Initial seed
-                    batchCmd.Parameters.AddWithValue("@uCost", medicine.PurchasePrice);
-                    batchCmd.Parameters.AddWithValue("@sPrice", medicine.SellingPrice);
-                    batchCmd.Parameters.AddWithValue("@expiry", medicine.ExpiryDate ?? (object)DateTime.Now.AddYears(1));
-
-                    await batchCmd.ExecuteNonQueryAsync();
+                    await connection.ExecuteAsync(batchQuery, new 
+                    { 
+                        medId, 
+                        supId = supplierId, 
+                        batchNo = "BATCH-" + DateTime.Now.ToString("yyyyMMdd"),
+                        qty = medicine.StockQty,
+                        pTotal = medicine.PurchasePrice * medicine.StockQty,
+                        uCost = medicine.PurchasePrice,
+                        sPrice = medicine.SellingPrice,
+                        expiry = medicine.ExpiryDate ?? DateTime.Now.AddYears(1)
+                    }, transaction);
                 }
                 await transaction.CommitAsync();
             }
@@ -206,43 +183,42 @@ namespace DChemist.Repositories
             }
 
             _eventBus.Publish(InventoryChangeType.MedicineAdded);
+            return medicine;
         }
 
-        private async Task<int> GetOrCreateCategoryAsync(string name, NpgsqlConnection conn, NpgsqlTransaction trans)
+        private async Task<int> GetOrCreateCategoryAsync(NpgsqlConnection conn, string name, NpgsqlTransaction trans)
         {
-            using var cmd = new NpgsqlCommand("SELECT id FROM categories WHERE LOWER(name) = LOWER(@name) LIMIT 1", conn, trans);
-            cmd.Parameters.AddWithValue("@name", name);
-            var id = await cmd.ExecuteScalarAsync();
-            if (id != null) return Convert.ToInt32(id);
+            var id = await conn.ExecuteScalarAsync<int?>("SELECT id FROM categories WHERE LOWER(name) = LOWER(@name) LIMIT 1", new { name }, trans);
+            if (id.HasValue) return id.Value;
 
-            using var insCmd = new NpgsqlCommand("INSERT INTO categories (name) VALUES (@name) RETURNING id", conn, trans);
-            insCmd.Parameters.AddWithValue("@name", name);
-            return Convert.ToInt32(await insCmd.ExecuteScalarAsync());
+            return await conn.ExecuteScalarAsync<int>("INSERT INTO categories (name) VALUES (@name) RETURNING id", new { name }, trans);
+        }
+
+        // Overload for when we don't have a transaction but the old code passed (string, conn, trans)
+        private async Task<int> GetOrCreateCategoryAsync(string name, NpgsqlConnection conn, NpgsqlTransaction trans) 
+            => await GetOrCreateCategoryAsync(conn, name, trans);
+
+        private async Task<int> GetOrCreateManufacturerAsync(NpgsqlConnection conn, string name, NpgsqlTransaction trans)
+        {
+            var id = await conn.ExecuteScalarAsync<int?>("SELECT id FROM manufacturers WHERE LOWER(name) = LOWER(@name) LIMIT 1", new { name }, trans);
+            if (id.HasValue) return id.Value;
+
+            return await conn.ExecuteScalarAsync<int>("INSERT INTO manufacturers (name) VALUES (@name) RETURNING id", new { name }, trans);
         }
 
         private async Task<int> GetOrCreateManufacturerAsync(string name, NpgsqlConnection conn, NpgsqlTransaction trans)
-        {
-            using var cmd = new NpgsqlCommand("SELECT id FROM manufacturers WHERE LOWER(name) = LOWER(@name) LIMIT 1", conn, trans);
-            cmd.Parameters.AddWithValue("@name", name);
-            var id = await cmd.ExecuteScalarAsync();
-            if (id != null) return Convert.ToInt32(id);
+            => await GetOrCreateManufacturerAsync(conn, name, trans);
 
-            using var insCmd = new NpgsqlCommand("INSERT INTO manufacturers (name) VALUES (@name) RETURNING id", conn, trans);
-            insCmd.Parameters.AddWithValue("@name", name);
-            return Convert.ToInt32(await insCmd.ExecuteScalarAsync());
+        private async Task<int> GetOrCreateSupplierAsync(NpgsqlConnection conn, string name, NpgsqlTransaction trans)
+        {
+            var id = await conn.ExecuteScalarAsync<int?>("SELECT id FROM suppliers WHERE LOWER(name) = LOWER(@name) LIMIT 1", new { name }, trans);
+            if (id.HasValue) return id.Value;
+
+            return await conn.ExecuteScalarAsync<int>("INSERT INTO suppliers (name) VALUES (@name) RETURNING id", new { name }, trans);
         }
 
         private async Task<int> GetOrCreateSupplierAsync(string name, NpgsqlConnection conn, NpgsqlTransaction trans)
-        {
-            using var cmd = new NpgsqlCommand("SELECT id FROM suppliers WHERE LOWER(name) = LOWER(@name) LIMIT 1", conn, trans);
-            cmd.Parameters.AddWithValue("@name", name);
-            var id = await cmd.ExecuteScalarAsync();
-            if (id != null) return Convert.ToInt32(id);
-
-            using var insCmd = new NpgsqlCommand("INSERT INTO suppliers (name) VALUES (@name) RETURNING id", conn, trans);
-            insCmd.Parameters.AddWithValue("@name", name);
-            return Convert.ToInt32(await insCmd.ExecuteScalarAsync());
-        }
+            => await GetOrCreateSupplierAsync(conn, name, trans);
 
         public async Task UpdateAsync(Medicine medicine)
         {
@@ -267,42 +243,38 @@ namespace DChemist.Repositories
                 // 2. Update Medicine Metadata
                 const string medQuery = @"
                     UPDATE medicines 
-                    SET name = @name, generic_name = @generic, category_id = @catId, 
-                        manufacturer_id = @manId, dosage_form = @dosage, strength = @strength, barcode = @barcode
-                    WHERE id = @id";
+                    SET name = @Name, generic_name = @GenericName, category_id = @CategoryId, 
+                        manufacturer_id = @ManufacturerId, dosage_form = @DosageForm, strength = @Strength, barcode = @Barcode
+                    WHERE id = @Id";
                 
-                using var medCmd = new NpgsqlCommand(medQuery, connection, transaction);
-                medCmd.Parameters.AddWithValue("@id", medicine.Id);
-                medCmd.Parameters.AddWithValue("@name", medicine.Name);
-                medCmd.Parameters.AddWithValue("@generic", medicine.GenericName ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@catId", medicine.CategoryId ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@manId", medicine.ManufacturerId ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@dosage", medicine.DosageForm ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@strength", medicine.Strength ?? (object)DBNull.Value);
-                medCmd.Parameters.AddWithValue("@barcode", medicine.Barcode);
-                await medCmd.ExecuteNonQueryAsync();
+                await connection.ExecuteAsync(medQuery, medicine, transaction);
 
-                // 3. Update Inventory Batch (Price and Quantity)
-                // We update the most recent batch for this medicine to reflect the changes made in the 'Edit' dialog
-                const string batchUpdateQuery = @"
+                // 3. Update Inventory Batches
+                const string globalPriceUpdateQuery = @"
                     UPDATE inventory_batches 
-                    SET selling_price = @sPrice, 
-                        unit_cost = @pPrice, 
-                        purchase_total_price = @pPrice * quantity_units,
-                        remaining_units = @qty,
-                        expiry_date = @expiry,
+                    SET selling_price = @SellingPrice
+                    WHERE medicine_id = @Id AND remaining_units > 0";
+
+                await connection.ExecuteAsync(globalPriceUpdateQuery, medicine, transaction);
+
+                const string latestBatchUpdateQuery = @"
+                    UPDATE inventory_batches 
+                    SET unit_cost = @PurchasePrice, 
+                        purchase_total_price = @PurchasePrice * quantity_units,
+                        remaining_units = @StockQty,
+                        expiry_date = @ExpiryDate,
                         supplier_id = @supId
                     WHERE medicine_id = @medId 
                     AND id = (SELECT id FROM inventory_batches WHERE medicine_id = @medId ORDER BY id DESC LIMIT 1)";
 
-                using var batchCmd = new NpgsqlCommand(batchUpdateQuery, connection, transaction);
-                batchCmd.Parameters.AddWithValue("@medId", medicine.Id);
-                batchCmd.Parameters.AddWithValue("@sPrice", medicine.SellingPrice);
-                batchCmd.Parameters.AddWithValue("@pPrice", medicine.PurchasePrice);
-                batchCmd.Parameters.AddWithValue("@qty", medicine.StockQty);
-                batchCmd.Parameters.AddWithValue("@expiry", medicine.ExpiryDate ?? (object)DateTime.Now.AddYears(1));
-                batchCmd.Parameters.AddWithValue("@supId", supplierId ?? (object)DBNull.Value);
-                await batchCmd.ExecuteNonQueryAsync();
+                await connection.ExecuteAsync(latestBatchUpdateQuery, new 
+                { 
+                    medId = medicine.Id,
+                    medicine.PurchasePrice,
+                    medicine.StockQty,
+                    ExpiryDate = medicine.ExpiryDate ?? DateTime.Now.AddYears(1),
+                    supId = supplierId
+                }, transaction);
 
                 await transaction.CommitAsync();
             }
@@ -319,10 +291,8 @@ namespace DChemist.Repositories
         {
             _auth.EnforceAdmin();
             const string query = "DELETE FROM medicines WHERE id = @id";
-            var parameters = new Dictionary<string, object> { { "@id", id } };
-            await _db.ExecuteNonQueryAsync(query, parameters);
-
-            // Notify all screens about the deleted medicine
+            using var conn = _db.GetConnection();
+            await conn.ExecuteAsync(query, new { id });
             _eventBus.Publish(InventoryChangeType.MedicineDeleted);
         }
 
@@ -338,9 +308,7 @@ namespace DChemist.Repositories
             try
             {
                 const string query = "DELETE FROM medicines WHERE id = ANY(@ids)";
-                using var cmd = new NpgsqlCommand(query, connection, transaction);
-                cmd.Parameters.AddWithValue("ids", ids.ToArray());
-                await cmd.ExecuteNonQueryAsync();
+                await connection.ExecuteAsync(query, new { ids = ids.ToArray() }, transaction);
                 await transaction.CommitAsync();
             }
             catch (Exception ex)
@@ -350,7 +318,6 @@ namespace DChemist.Repositories
                 throw new DataAccessException("Could not delete selected medicines. Ensure they are not tied to existing sales.", ex);
             }
 
-            // Notify all screens about the deleted medicines
             _eventBus.Publish(InventoryChangeType.MedicineDeleted);
         }
     }

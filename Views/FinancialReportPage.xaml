@@ -1,0 +1,146 @@
+<Page
+    x:Class="DChemist.Views.FinancialReportPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:utils="using:DChemist.Utils"
+    mc:Ignorable="d">
+
+    <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <Border Background="{StaticResource PremiumBackgroundBrush}"
+                CornerRadius="0,0,24,24" Padding="40,32" Margin="0,0,0,24">
+            <Grid>
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Daily Financial Report" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
+                    <TextBlock Text="Daily Z-Report for sales, returns and tax settlements." FontSize="15" Foreground="#A0AEC0"/>
+                </StackPanel>
+                
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="16">
+                    <DatePicker x:Name="ReportDatePicker" 
+                                Date="{x:Bind ViewModel.ReportDate, Mode=TwoWay}"
+                                Header="Select Date" Foreground="White"/>
+                    <Button Content="Export CSV" 
+                            Command="{x:Bind ViewModel.ExportCsvCommand}"
+                            Style="{StaticResource PremiumButtonStyle}"
+                            Height="40" Padding="20,0" Margin="0,24,0,0"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1" Padding="40,0,40,40">
+            <StackPanel Spacing="32">
+                <!-- KPI Row -->
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Gross Sales -->
+                    <Border Style="{StaticResource PremiumCardStyle}" Padding="24">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Total Gross Sales" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Bind ViewModel.Report.GrossSales, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
+                                       FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            <TextBlock Text="{x:Bind ViewModel.Report.TotalSalesCount, Mode=OneWay, ConverterParameter='{}Total Invoices: {0}', Converter={StaticResource StringFormatConverter}}" 
+                                       FontSize="12" Foreground="#48BB78" FontWeight="Medium"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Returns -->
+                    <Border Grid.Column="1" Style="{StaticResource PremiumCardStyle}" Padding="24">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Total Returns" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Bind ViewModel.Report.TotalReturns, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
+                                       FontSize="28" FontWeight="Bold" Foreground="#E53E3E"/>
+                            <TextBlock Text="{x:Bind ViewModel.Report.ReturnsCount, Mode=OneWay, ConverterParameter='{}Return Events: {0}', Converter={StaticResource StringFormatConverter}}" 
+                                       FontSize="12" Foreground="#E53E3E" FontWeight="Medium"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Net Revenue -->
+                    <Border Grid.Column="2" Style="{StaticResource PremiumCardStyle}" Padding="24" Background="#F7FAFC" BorderBrush="{StaticResource AccentAccent}" BorderThickness="1">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Net Daily Revenue" FontSize="13" Foreground="{StaticResource AccentAccent}" FontWeight="Bold"/>
+                            <TextBlock Text="{x:Bind ViewModel.Report.NetSales, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
+                                       FontSize="28" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
+                            <TextBlock Text="Post-Return Total" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Detailed Metrics -->
+                <Grid ColumnSpacing="32">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="1.2*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Tax & Discounts -->
+                    <Border Style="{StaticResource PremiumCardStyle}" Padding="24">
+                        <StackPanel Spacing="20">
+                            <TextBlock Text="Tax &amp; Discounts" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            
+                            <Grid Margin="0,10">
+                                <TextBlock Text="FBR Tax Collected" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.Report.TotalTax, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
+                                           HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                            </Grid>
+                            <Border Height="1" Background="#EDF2F7"/>
+                            <Grid Margin="0,10">
+                                <TextBlock Text="Discounts Given" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.Report.TotalDiscount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
+                                           HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="#D69E2E"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- FBR Compliance Summary -->
+                    <Border Grid.Column="1" Style="{StaticResource PremiumCardStyle}" Padding="24">
+                        <StackPanel Spacing="20">
+                            <TextBlock Text="FBR vs Internal Reporting" FontSize="18" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                            
+                            <Grid ColumnSpacing="20">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="FBR Reported" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{x:Bind ViewModel.Report.FbrSalesCount, Mode=OneWay}" FontSize="24" FontWeight="Bold"/>
+                                    <ProgressBar Value="{x:Bind ViewModel.Report.FbrSalesCount, Mode=OneWay}" 
+                                                 Maximum="{x:Bind ViewModel.Report.TotalSalesCount, Mode=OneWay}"
+                                                 Foreground="#3182CE"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Spacing="12">
+                                    <TextBlock Text="Internal Cache" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
+                                    <TextBlock Text="{x:Bind ViewModel.Report.InternalSalesCount, Mode=OneWay}" FontSize="24" FontWeight="Bold"/>
+                                    <ProgressBar Value="{x:Bind ViewModel.Report.InternalSalesCount, Mode=OneWay}" 
+                                                 Maximum="{x:Bind ViewModel.Report.TotalSalesCount, Mode=OneWay}"
+                                                 Foreground="#718096"/>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" 
+                           HorizontalAlignment="Center" Foreground="{StaticResource TextSecondaryBrush}" FontSize="12"/>
+            </StackPanel>
+        </ScrollViewer>
+
+        <ProgressRing Grid.Row="1" IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                      HorizontalAlignment="Center" VerticalAlignment="Center" Width="40" Height="40"
+                      Foreground="{StaticResource AccentAccent}"/>
+    </Grid>
+</Page>

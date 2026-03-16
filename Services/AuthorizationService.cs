@@ -12,7 +12,7 @@ namespace DChemist.Services
             _authService = authService;
         }
 
-        public bool IsAdmin => _authService.CurrentUser != null;
+        public bool IsAdmin => _authService.CurrentUser != null && _authService.CurrentUser.Role == "Admin";
 
         public bool CanManageInventory() => IsAdmin;
         public bool CanViewReports() => IsAdmin;
