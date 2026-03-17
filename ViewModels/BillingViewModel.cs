@@ -3,6 +3,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using Microsoft.Extensions.DependencyInjection;
 using DChemist.Models;
 using DChemist.Repositories;
 using DChemist.Services;
@@ -251,13 +252,13 @@ namespace DChemist.ViewModels
             await PrintCurrentReceiptAsync("BILL-" + DateTime.Now.Ticks.ToString().Substring(10), null);
         }
 
-        private async Task PrintCurrentReceiptAsync(string billNo, string? fbrInvNo)
+        private async Task<ReceiptViewModel> CreateReceiptViewModelAsync(string billNo, string? fbrInvNo)
         {
             var receiptVM = new ReceiptViewModel
             {
                 BillNo = billNo,
                 FbrInvoiceNo = fbrInvNo,
-                CustomerName = CustomerName,
+                CustomerName = string.IsNullOrWhiteSpace(CustomerName) ? "Walk-in Customer" : CustomerName,
                 CustomerPhone = CustomerPhone,
                 TotalAmount = TotalAmount,
                 TaxAmount = TaxAmount,
@@ -276,22 +277,48 @@ namespace DChemist.ViewModels
                 });
             }
 
+            await receiptVM.LoadStoreDetailsAsync(_settingsService);
+            await receiptVM.InitializeQrCode(_fiscalService);
+            return receiptVM;
+        }
+
+        private async Task PrintCurrentReceiptAsync(string billNo, string? fbrInvNo)
+        {
+            // IMPORTANT: Create the ViewModel HERE, immediately, while the cart still has items.
+            // If we do it inside the dispatcher, the cart might already be cleared by the UI thread.
+            var receiptVM = await CreateReceiptViewModelAsync(billNo, fbrInvNo);
+
             _dispatcher.TryEnqueue(async () =>
             {
                 try
                 {
-                    await receiptVM.LoadStoreDetailsAsync(_settingsService);
-                    await receiptVM.InitializeQrCode(_fiscalService);
-    
-                    var receiptControl = new Views.ReceiptTemplate(receiptVM);
-                    
-                    await _printService.PrintReceiptAsync(receiptControl, "Sale Receipt " + billNo);
+                    bool isSilent = await _settingsService.IsSilentPrintEnabledAsync();
+                    string printerName = await _settingsService.GetPrinterNameAsync();
+
+                    if (isSilent)
+                    {
+                        if (string.IsNullOrWhiteSpace(printerName))
+                        {
+                            throw new InvalidOperationException("Silent printing is enabled, but no printer is selected. Please go to Settings and select a printer.");
+                        }
+
+                        bool success = await _printService.PrintReceiptSilentAsync(receiptVM, printerName);
+                        if (!success)
+                        {
+                            throw new InvalidOperationException($"Silent print failed for printer '{printerName}'. Please check if the printer is connected and the name is correct in Settings.");
+                        }
+                    }
+                    else
+                    {
+                        var receiptControl = new Views.ReceiptTemplate(receiptVM);
+                        await _printService.PrintReceiptAsync(receiptControl, "Sale Receipt " + billNo);
+                    }
                 }
                 catch (Exception ex)
                 {
                     AppLogger.LogError($"Printing failed for {billNo}", ex);
                     IsStatusSuccess = false;
-                    StatusMessage = "⚠ Sale finished, but receipt printing failed.";
+                    StatusMessage = "⚠ Sale finished, but receipt printing failed: " + ex.Message;
                 }
             });
             await Task.CompletedTask;

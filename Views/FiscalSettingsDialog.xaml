@@ -10,6 +10,20 @@
     SecondaryButtonText="Cancel"
     DefaultButton="Primary">
 
+    <ContentDialog.Resources>
+        <Style x:Key="DarkInputStyle" TargetType="Control">
+            <Setter Property="Background" Value="#2D3748"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#4A5568"/>
+            <Setter Property="CornerRadius" Value="8"/>
+        </Style>
+        <Style TargetType="TextBox" BasedOn="{StaticResource DarkInputStyle}">
+            <Setter Property="PlaceholderForeground" Value="#A0AEC0"/>
+        </Style>
+        <Style TargetType="PasswordBox" BasedOn="{StaticResource DarkInputStyle}">
+        </Style>
+    </ContentDialog.Resources>
+
     <StackPanel Spacing="16" Width="400">
         <TextBlock Text="Configure your real-time FBR reporting settings." 
                    Foreground="{StaticResource TextSecondaryBrush}" FontSize="12" TextWrapping="Wrap"/>

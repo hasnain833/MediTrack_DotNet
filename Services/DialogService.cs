@@ -1,7 +1,9 @@
 using Microsoft.UI.Xaml.Controls;
 using System;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using DChemist.Models;
+using DChemist.ViewModels;
 
 namespace DChemist.Services
 {
@@ -14,6 +16,7 @@ namespace DChemist.Services
         Task ShowFiscalSettingsDialogAsync();
         Task ShowUpdateDialogAsync(UpdateInfo update, UpdateService updateService);
         Task<string?> ShowChangePasswordDialogAsync();
+        Task ShowReceiptPreviewAsync(ReceiptViewModel receipt);
     }
 
     public class DialogService : IDialogService
@@ -23,6 +26,22 @@ namespace DChemist.Services
         public DialogService(SettingsService settings)
         {
             _settings = settings;
+        }
+
+        public async Task ShowReceiptPreviewAsync(ReceiptViewModel receipt)
+        {
+            if (App.MainRoot?.XamlRoot == null) return;
+
+            var receiptView = new DChemist.Views.ReceiptTemplate(receipt);
+            var dialog = new ContentDialog
+            {
+                Title = "Receipt Preview",
+                Content = receiptView,
+                CloseButtonText = "Close",
+                XamlRoot = App.MainRoot.XamlRoot
+            };
+
+            await dialog.ShowAsync();
         }
         public async Task<bool> ShowConfirmationAsync(string title, string content, string primaryButtonText, string cancelButtonText)
         {

@@ -63,5 +63,13 @@ namespace DChemist.Services
             var val = await GetSettingAsync("auto_backup_enabled", "true");
             return val.ToLower() == "true";
         }
+
+        public async Task<string> GetPrinterNameAsync() => await GetSettingAsync("printer_name", "");
+        
+        public async Task<bool> IsSilentPrintEnabledAsync()
+        {
+            var val = await GetSettingAsync("silent_print_enabled", "false");
+            return val.ToLower() == "true";
+        }
     }
 }

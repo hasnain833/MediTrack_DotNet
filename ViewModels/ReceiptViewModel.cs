@@ -15,16 +15,16 @@ namespace DChemist.ViewModels
         public string PharmacyName { get; set; } = "D. Chemist";
         public string PharmacyAddress { get; set; } = "Khewra Road, Choa Saidan Shah, District Chakwal";
         public string PharmacyPhone { get; set; } = "+92-332-8787833";
-        public string PharmacyLicense { get; set; } = "License No: 01-372-0011-134212M";
-        public string PharmacyNtn { get; set; } = "NTN: I736466-5";
+        public string PharmacyLicense { get; set; } = "01-372-0011-134212M";
+        public string PharmacyNtn { get; set; } = "I736466-5";
 
         public async Task LoadStoreDetailsAsync(SettingsService settings)
         {
             PharmacyName = await settings.GetPharmacyNameAsync();
             PharmacyAddress = await settings.GetPharmacyAddressAsync();
             PharmacyPhone = await settings.GetPharmacyPhoneAsync();
-            PharmacyLicense = "License No: " + await settings.GetPharmacyLicenseAsync();
-            PharmacyNtn = "NTN: " + await settings.GetPharmacyNtnAsync();
+            PharmacyLicense = await settings.GetPharmacyLicenseAsync();
+            PharmacyNtn = await settings.GetPharmacyNtnAsync();
         }
         
         public string BillNo { get; set; } = string.Empty;

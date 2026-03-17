@@ -35,10 +35,19 @@ namespace DChemist.Services
             IntPtr hWnd = WindowNative.GetWindowHandle(window);
 
             // Access the PrintManager for the window
-            var printManager = PrintManagerInterop.GetForWindow(hWnd);
+            PrintManager? printManager = null;
+            try
+            {
+                printManager = PrintManagerInterop.GetForWindow(hWnd);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[ThermalPrintService] PrintManager initialization failed: {ex.Message}");
+            }
+
             if (printManager == null)
             {
-                throw new InvalidOperationException("PrintManager could not be initialized. Ensure a printer is available.");
+                throw new InvalidOperationException("PrintManager could not be initialized. This is a known Windows issue for some system configurations. \n\nTIP: Enable 'Silent Printing' in Settings and select your printer to bypass this problem.");
             }
 
             printManager.PrintTaskRequested += PrintManager_PrintTaskRequested;
@@ -252,6 +261,15 @@ namespace DChemist.Services
 
         [DllImport("winspool.Drv", EntryPoint = "WritePrinter", SetLastError = true, ExactSpelling = true, CallingConvention = CallingConvention.StdCall)]
         public static extern bool WritePrinter(IntPtr hPrinter, IntPtr pBytes, int dwCount, out int dwWritten);
+
+        public static bool SendBytesToPrinter(string szPrinterName, byte[] bytes)
+        {
+            IntPtr pBytes = Marshal.AllocCoTaskMem(bytes.Length);
+            Marshal.Copy(bytes, 0, pBytes, bytes.Length);
+            bool bSuccess = SendBytesToPrinter(szPrinterName, pBytes, bytes.Length);
+            Marshal.FreeCoTaskMem(pBytes);
+            return bSuccess;
+        }
 
         public static bool SendStringToPrinter(string szPrinterName, string szString)
         {

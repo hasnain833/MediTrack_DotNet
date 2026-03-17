@@ -13,112 +13,148 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Page Banner -->
-        <Border Background="{StaticResource PremiumBackgroundBrush}"
-                CornerRadius="0,0,24,24" Padding="40,32">
-            <StackPanel Spacing="6">
-                <TextBlock Text="Settings" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
-                <TextBlock Text="Configure system preferences and integrations." FontSize="15" Foreground="#A0AEC0"/>
+        <!-- Page Header -->
+        <Border Background="White" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1" Padding="40,24">
+            <StackPanel Spacing="4">
+                <TextBlock Text="Settings" FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <TextBlock Text="Manage your pharmacy configuration and system operations." Foreground="{StaticResource TextSecondaryBrush}" FontSize="14"/>
             </StackPanel>
         </Border>
 
-        <ScrollViewer Grid.Row="1" Padding="32,24,32,32">
-            <StackPanel Spacing="32" MaxWidth="1000" HorizontalAlignment="Left">
-
-            <!-- Database Management -->
-            <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
+        <ScrollViewer Grid.Row="1" Padding="40,32">
+            <StackPanel Spacing="32" MaxWidth="900" HorizontalAlignment="Left" Padding="0,0,0,40">
+                
+                <!-- Database Section -->
                 <StackPanel Spacing="16">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Database Operations" FontSize="16" FontWeight="SemiBold"/>
-                        <TextBlock Text="Manage your PostgreSQL database backups and restoration." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
-                    </StackPanel>
-                    
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <Button Style="{StaticResource SecondaryButtonStyle}" Command="{x:Bind ViewModel.BackupCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE896;" FontSize="14"/>
-                                <TextBlock Text="Backup Database"/>
+                    <TextBlock Text="Database Operations" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Manage your database backups and restoration." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
+                            
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Button Style="{StaticResource SecondaryButtonStyle}" Command="{x:Bind ViewModel.BackupCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE896;" FontSize="14"/>
+                                        <TextBlock Text="Backup Database"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SecondaryButtonStyle}" Command="{x:Bind ViewModel.RestoreCommand}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE777;" FontSize="14"/>
+                                        <TextBlock Text="Restore Database"/>
+                                    </StackPanel>
+                                </Button>
                             </StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource SecondaryButtonStyle}" Command="{x:Bind ViewModel.RestoreCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE777;" FontSize="14"/>
-                                <TextBlock Text="Restore Database"/>
-                            </StackPanel>
-                        </Button>
-                    </StackPanel>
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
-            </Border>
 
-            <!-- Pharmacy Information -->
-            <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
-                <StackPanel Spacing="20">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Pharmacy Information" FontSize="16" FontWeight="SemiBold"/>
-                        <TextBlock Text="Configure pharmacy details for receipts and fiscal reporting." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
-                    </StackPanel>
-                    
-                    <Grid RowSpacing="16" ColumnSpacing="24">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
-
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="Pharmacy Name" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBox Text="{x:Bind ViewModel.PharmacyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. D. Chemist"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Column="1" Spacing="6">
-                            <TextBlock Text="NTN Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBox Text="{x:Bind ViewModel.PharmacyNtn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. I736466-5"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="1" Spacing="6" Grid.ColumnSpan="2">
-                            <TextBlock Text="Address" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBox Text="{x:Bind ViewModel.PharmacyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Enter full address..."/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="2" Spacing="6">
-                            <TextBlock Text="Phone Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBox Text="{x:Bind ViewModel.PharmacyPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. +92-332-8787833"/>
-                        </StackPanel>
-
-                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6">
-                            <TextBlock Text="License Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBox Text="{x:Bind ViewModel.PharmacyLicense, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. 01-372-0011-134212M"/>
-                        </StackPanel>
-                    </Grid>
-
-                    <Button Content="Save Pharmacy Details" 
-                            Command="{x:Bind ViewModel.SavePharmacyDetailsCommand}"
-                            Style="{StaticResource PremiumButtonStyle}" 
-                            HorizontalAlignment="Right"/>
-                </StackPanel>
-            </Border>
-
-            <!-- FBR / Fiscal Integration -->
-            <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
+                <!-- Pharmacy Info Section -->
                 <StackPanel Spacing="16">
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="FBR Fiscal Integration" FontSize="16" FontWeight="SemiBold"/>
-                        <TextBlock Text="Configure real-time reporting to the FBR IMS system." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
-                    </StackPanel>
-                    
-                    <Button Style="{StaticResource SecondaryButtonStyle}" Command="{x:Bind ViewModel.ShowFiscalSettingsCommand}" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE713;" FontSize="14"/>
-                            <TextBlock Text="Configure Fiscal Settings"/>
+                    <TextBlock Text="Pharmacy Information" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
+                        <StackPanel Spacing="20">
+                            <TextBlock Text="These details will appear on your receipts and fiscal reports." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
+                            
+                            <Grid RowSpacing="16" ColumnSpacing="24">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Pharmacy Name" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. D. Chemist"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="1" Spacing="6">
+                                    <TextBlock Text="NTN Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyNtn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. I736466-5"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Spacing="6" Grid.ColumnSpan="2">
+                                    <TextBlock Text="Address" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Enter full address..."/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Spacing="6">
+                                    <TextBlock Text="Phone Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. +92-332-8787833"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6">
+                                    <TextBlock Text="License Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyLicense, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. 01-372-0011-134212M"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Button Content="Save Pharmacy Details" 
+                                    Command="{x:Bind ViewModel.SavePharmacyDetailsCommand}"
+                                    Style="{StaticResource PremiumButtonStyle}" 
+                                    HorizontalAlignment="Right"/>
                         </StackPanel>
-                    </Button>
+                    </Border>
                 </StackPanel>
-            </Border>
-        </StackPanel>
+
+                <!-- Integrations Section -->
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Integrations &amp; API" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
+                        <StackPanel Spacing="16">
+                            <TextBlock Text="Configure real-time reporting to the FBR IMS system." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
+                            
+                            <Button Style="{StaticResource SecondaryButtonStyle}" Command="{x:Bind ViewModel.ShowFiscalSettingsCommand}" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE713;" FontSize="14"/>
+                                    <TextBlock Text="Configure Fiscal Settings"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Printing Configuration -->
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Printing Configuration" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
+                        <StackPanel Spacing="20">
+                            <TextBlock Text="Set up your thermal printer for fast, reliable receipt printing." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
+                            
+                            <StackPanel Spacing="24">
+                                <ToggleSwitch Header="Enable Silent Printing (Bypass Dialog)" 
+                                              Foreground="{StaticResource TextPrimaryBrush}"
+                                              IsOn="{x:Bind ViewModel.IsSilentPrintEnabled, Mode=TwoWay}"
+                                              OnContent="Enabled" OffContent="Disabled"/>
+
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="Thermal Printer Name" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <ComboBox x:Name="PrinterSelector" 
+                                              ItemsSource="{x:Bind ViewModel.AvailablePrinters}"
+                                              SelectedItem="{x:Bind ViewModel.PrinterName, Mode=TwoWay}"
+                                              PlaceholderText="Select Thermal Printer..."
+                                              HorizontalAlignment="Stretch"
+                                              CornerRadius="8"/>
+                                    <TextBlock Text="If your printer is not in the list, type its name exactly as seen in Windows Settings." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontStyle="Italic"/>
+                                    <TextBox Text="{x:Bind ViewModel.PrinterName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
+                                             PlaceholderText="Or type printer name manually..."
+                                             Margin="0,4,0,0"
+                                             CornerRadius="8"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <Button Content="Save Printing Settings" 
+                                    Command="{x:Bind ViewModel.SavePrintingSettingsCommand}"
+                                    Style="{StaticResource PremiumButtonStyle}" 
+                                    HorizontalAlignment="Right"/>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
         </ScrollViewer>
     </Grid>
 </Page>

@@ -250,31 +250,83 @@ namespace DChemist.Repositories
                 await connection.ExecuteAsync(medQuery, medicine, transaction);
 
                 // 3. Update Inventory Batches
+                AppLogger.LogInfo($"[UpdateAsync] Starting stock update for Medicine ID {medicine.Id}. Requested Total Stock: {medicine.StockQty}");
+
+                // Update selling price across all active batches for this medicine
                 const string globalPriceUpdateQuery = @"
                     UPDATE inventory_batches 
                     SET selling_price = @SellingPrice
                     WHERE medicine_id = @Id AND remaining_units > 0";
 
-                await connection.ExecuteAsync(globalPriceUpdateQuery, medicine, transaction);
+                int priceUpdatedCount = await connection.ExecuteAsync(globalPriceUpdateQuery, medicine, transaction);
+                AppLogger.LogInfo($"[UpdateAsync] Updated selling price for {priceUpdatedCount} active batches.");
 
-                const string latestBatchUpdateQuery = @"
-                    UPDATE inventory_batches 
-                    SET unit_cost = @PurchasePrice, 
-                        purchase_total_price = @PurchasePrice * quantity_units,
-                        remaining_units = @StockQty,
-                        expiry_date = @ExpiryDate,
-                        supplier_id = @supId
-                    WHERE medicine_id = @medId 
-                    AND id = (SELECT id FROM inventory_batches WHERE medicine_id = @medId ORDER BY id DESC LIMIT 1)";
+                // Get all batches for this medicine to balance stock
+                const string batchInfoQuery = @"
+                    SELECT id, remaining_units as RemainingUnits 
+                    FROM inventory_batches 
+                    WHERE medicine_id = @Id 
+                    ORDER BY id DESC";
+                
+                var existingBatches = (await connection.QueryAsync(batchInfoQuery, new { Id = medicine.Id }, transaction)).ToList();
+                AppLogger.LogInfo($"[UpdateAsync] Found {existingBatches.Count} existing batches.");
 
-                await connection.ExecuteAsync(latestBatchUpdateQuery, new 
-                { 
-                    medId = medicine.Id,
-                    medicine.PurchasePrice,
-                    medicine.StockQty,
-                    ExpiryDate = medicine.ExpiryDate ?? DateTime.Now.AddYears(1),
-                    supId = supplierId
-                }, transaction);
+                if (!existingBatches.Any())
+                {
+                    // No batches exist yet, but user wants to set stock
+                    if (medicine.StockQty > 0)
+                    {
+                        AppLogger.LogInfo($"[UpdateAsync] No batches found. Creating initial 'ADJ' batch with qty {medicine.StockQty}.");
+                        const string insertBatchQuery = @"
+                            INSERT INTO inventory_batches (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, expiry_date)
+                            VALUES (@medId, @supId, @batchNo, @qty, @pTotal, @uCost, @sPrice, @qty, @expiry)";
+
+                        await connection.ExecuteAsync(insertBatchQuery, new 
+                        { 
+                            medId = medicine.Id, 
+                            supId = supplierId, 
+                            batchNo = "ADJ-" + DateTime.Now.ToString("yyyyMMdd"),
+                            qty = medicine.StockQty,
+                            pTotal = medicine.PurchasePrice * medicine.StockQty,
+                            uCost = medicine.PurchasePrice,
+                            sPrice = medicine.SellingPrice,
+                            expiry = medicine.ExpiryDate ?? DateTime.Now.AddYears(1)
+                        }, transaction);
+                    }
+                    else
+                    {
+                        AppLogger.LogInfo("[UpdateAsync] No batches found and StockQty is 0. Doing nothing for batches.");
+                    }
+                }
+                else
+                {
+                    // Batches exist. We adjust the LATEST batch so the SUM matches the requested StockQty.
+                    var latestBatch = existingBatches.First();
+                    // Using property names from the SELECT alias
+                    int otherBatchesTotal = existingBatches.Skip(1).Sum(b => (int)(b.RemainingUnits ?? 0));
+                    int newLatestQty = Math.Max(0, medicine.StockQty - otherBatchesTotal);
+                    
+                    AppLogger.LogInfo($"[UpdateAsync] Adjusting latest batch (ID: {latestBatch.id}). Other batches total: {otherBatchesTotal}. New latest qty: {newLatestQty}.");
+
+                    const string updateLatestBatchQuery = @"
+                        UPDATE inventory_batches 
+                        SET unit_cost = @PurchasePrice, 
+                            purchase_total_price = @PurchasePrice * quantity_units,
+                            remaining_units = @NewQty,
+                            expiry_date = @ExpiryDate,
+                            supplier_id = @supId
+                        WHERE id = @batchId";
+
+                    await connection.ExecuteAsync(updateLatestBatchQuery, new 
+                    { 
+                        batchId = (int)latestBatch.id,
+                        medicine.PurchasePrice,
+                        NewQty = newLatestQty,
+                        ExpiryDate = medicine.ExpiryDate ?? DateTime.Now.AddYears(1),
+                        supId = supplierId
+                    }, transaction);
+                    AppLogger.LogInfo($"[UpdateAsync] Successfully updated latest batch ID {latestBatch.id}.");
+                }
 
                 await transaction.CommitAsync();
             }

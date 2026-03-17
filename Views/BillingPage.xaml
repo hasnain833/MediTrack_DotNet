@@ -257,7 +257,7 @@
                             Style="{StaticResource PremiumButtonStyle}" Height="54"
                             HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
 
-                    <Button Content="SAVE" 
+                    <Button Content="SAVE INTERNALLY" 
                             Command="{x:Bind ViewModel.CompleteSaleInternalCommand}"
                             Style="{StaticResource PremiumButtonStyle}" Height="54"
                             Background="#4A5568"
