@@ -11,7 +11,7 @@ namespace DChemist.Repositories
     public interface IDashboardRepository
     {
         Task<long> GetLowStockCountAsync(int threshold = 10);
-        Task<long> GetExpiringSoonCountAsync(int days = 90);
+        Task<long> GetExpiringSoonCountAsync(int days = 30);
         Task<decimal> GetTodaysRevenueAsync();
         Task<List<DashboardSaleItem>> GetRecentSalesAsync(int limit = 5);
         Task<List<CriticalAlert>> GetCriticalAlertsAsync();
@@ -39,7 +39,7 @@ namespace DChemist.Repositories
             return await conn.ExecuteScalarAsync<long>(query, new { threshold });
         }
 
-        public async Task<long> GetExpiringSoonCountAsync(int days = 90)
+        public async Task<long> GetExpiringSoonCountAsync(int days = 30)
         {
             string query = $@"
                 SELECT COUNT(*) FROM inventory_batches 

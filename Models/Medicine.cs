@@ -13,6 +13,8 @@ namespace DChemist.Models
         public string? DosageForm { get; set; }
         public string? Strength { get; set; }
         public string Barcode { get; set; } = string.Empty;
+        public decimal GstPercent { get; set; } = 0;
+        public string FormattedGst => GstPercent > 0 ? $"{GstPercent:G29}%" : "0%";
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         private bool _isSelected;
@@ -26,6 +28,7 @@ namespace DChemist.Models
         public string? CategoryName { get; set; }
         public string? ManufacturerName { get; set; }
         public string? SupplierName { get; set; }
+        public string? BatchNo { get; set; }
         
         private decimal _sellingPrice;
         public decimal SellingPrice 

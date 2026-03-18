@@ -30,19 +30,20 @@ namespace DChemist.Repositories
                 SELECT 
                     m.*, 
                     c.name as CategoryName, 
-                    man.name as ManufacturerName,
-                    MAX(s.name) as SupplierName,
-                    COALESCE(SUM(b.remaining_units), 0) as StockQty,
-                    MAX(b.selling_price) as SellingPrice,
-                    MIN(b.unit_cost) as PurchasePrice,
-                    MIN(b.expiry_date) as ExpiryDate
+                    COALESCE(man.name, 'GSK') as ManufacturerName,
+                    s.name as SupplierName,
+                    b.batch_no as BatchNo,
+                    b.remaining_units as StockQty,
+                    b.selling_price as SellingPrice,
+                    b.unit_cost as PurchasePrice,
+                    b.expiry_date as ExpiryDate,
+                    m.gst_percent as GstPercent
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
                 LEFT JOIN inventory_batches b ON m.id = b.medicine_id
                 LEFT JOIN suppliers s ON b.supplier_id = s.id
-                GROUP BY m.id, c.name, man.name
-                ORDER BY m.name ASC";
+                ORDER BY m.name ASC, b.expiry_date ASC";
             try
             {
                 using var conn = _db.GetConnection();
@@ -62,24 +63,25 @@ namespace DChemist.Repositories
                 SELECT 
                     m.*, 
                     c.name as CategoryName, 
-                    man.name as ManufacturerName,
-                    MAX(s.name) as SupplierName,
-                    COALESCE(SUM(b.remaining_units), 0) as StockQty,
-                    MAX(b.selling_price) as SellingPrice,
-                    MIN(b.unit_cost) as PurchasePrice,
-                    MIN(b.expiry_date) as ExpiryDate
+                    COALESCE(man.name, 'GSK') as ManufacturerName,
+                    s.name as SupplierName,
+                    b.batch_no as BatchNo,
+                    b.remaining_units as StockQty,
+                    b.selling_price as SellingPrice,
+                    b.unit_cost as PurchasePrice,
+                    b.expiry_date as ExpiryDate,
+                    m.gst_percent as GstPercent
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
                 LEFT JOIN inventory_batches b ON m.id = b.medicine_id
                 LEFT JOIN suppliers s ON b.supplier_id = s.id
-                WHERE m.name ILIKE @text 
+                WHERE (m.name ILIKE @text 
                    OR m.generic_name ILIKE @text 
                    OR m.barcode = @exact
-                   OR man.name ILIKE @text
-                GROUP BY m.id, c.name, man.name
-                ORDER BY m.name ASC
-                LIMIT 20";
+                   OR man.name ILIKE @text)
+                ORDER BY m.name ASC, b.expiry_date ASC
+                LIMIT 50";
             
             try
             {
@@ -100,17 +102,19 @@ namespace DChemist.Repositories
                 SELECT 
                     m.*, 
                     c.name as CategoryName, 
-                    man.name as ManufacturerName,
-                    COALESCE(SUM(b.remaining_units), 0) as StockQty,
-                    MAX(b.selling_price) as SellingPrice,
-                    MIN(b.unit_cost) as PurchasePrice,
-                    MIN(b.expiry_date) as ExpiryDate
+                    COALESCE(man.name, 'GSK') as ManufacturerName,
+                    b.batch_no as BatchNo,
+                    COALESCE(b.remaining_units, 0) as StockQty,
+                    b.selling_price as SellingPrice,
+                    b.unit_cost as PurchasePrice,
+                    b.expiry_date as ExpiryDate,
+                    m.gst_percent as GstPercent
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
                 LEFT JOIN inventory_batches b ON m.id = b.medicine_id
                 WHERE m.barcode = @barcode 
-                GROUP BY m.id, c.name, man.name
+                ORDER BY b.expiry_date DESC
                 LIMIT 1";
             
             try
@@ -147,8 +151,8 @@ namespace DChemist.Repositories
 
                 // 2. Insert Medicine
                 const string medQuery = @"
-                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode)
-                    VALUES (@Name, @GenericName, @CategoryId, @ManufacturerId, @DosageForm, @Strength, @Barcode)
+                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode, gst_percent)
+                    VALUES (@Name, @GenericName, @CategoryId, @ManufacturerId, @DosageForm, @Strength, @Barcode, @GstPercent)
                     RETURNING id;";
 
                 int medId = await connection.ExecuteScalarAsync<int>(medQuery, medicine, transaction);
@@ -240,11 +244,22 @@ namespace DChemist.Repositories
                 if (!string.IsNullOrWhiteSpace(medicine.SupplierName))
                     supplierId = await GetOrCreateSupplierAsync(medicine.SupplierName, connection, transaction);
 
+                // Check for barcode uniqueness
+                if (!string.IsNullOrWhiteSpace(medicine.Barcode))
+                {
+                    const string checkBarcodeQuery = "SELECT id FROM medicines WHERE barcode = @Barcode AND id != @Id LIMIT 1";
+                    var existingId = await connection.ExecuteScalarAsync<int?>(checkBarcodeQuery, new { medicine.Barcode, medicine.Id }, transaction);
+                    if (existingId.HasValue)
+                    {
+                        throw new DataAccessException($"Barcode '{medicine.Barcode}' is already assigned to another medicine.");
+                    }
+                }
+
                 // 2. Update Medicine Metadata
                 const string medQuery = @"
                     UPDATE medicines 
                     SET name = @Name, generic_name = @GenericName, category_id = @CategoryId, 
-                        manufacturer_id = @ManufacturerId, dosage_form = @DosageForm, strength = @Strength, barcode = @Barcode
+                        manufacturer_id = @ManufacturerId, dosage_form = @DosageForm, strength = @Strength, barcode = @Barcode, gst_percent = @GstPercent
                     WHERE id = @Id";
                 
                 await connection.ExecuteAsync(medQuery, medicine, transaction);

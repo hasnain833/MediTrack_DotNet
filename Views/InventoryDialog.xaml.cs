@@ -28,14 +28,13 @@ namespace DChemist.Views
                     PurchasePrice  = medicine.PurchasePrice,
                     StockQty       = medicine.StockQty,
                     ExpiryDate     = medicine.ExpiryDate,
-                    SupplierName   = medicine.SupplierName
+                    SupplierName   = medicine.SupplierName,
+                    GstPercent     = medicine.GstPercent
                 };
                 
                 Title = "Edit Medicine";
                 NameInput.Text          = Result.Name;
-                GenericNameInput.Text   = Result.GenericName ?? "";
-                CategoryInput.Text      = Result.CategoryName ?? "";
-                ManufacturerInput.Text  = Result.ManufacturerName ?? "";
+
                 DosageFormInput.Text    = Result.DosageForm ?? "";
                 StrengthInput.Text      = Result.Strength ?? "";
                 BarcodeInput.Text       = Result.Barcode;
@@ -44,6 +43,7 @@ namespace DChemist.Views
                 StockInput.Value        = Result.StockQty;
                 ExpiryInput.Date        = Result.ExpiryDate;
                 SupplierInput.Text      = Result.SupplierName ?? "";
+                GstInput.Value          = (double)Result.GstPercent;
             }
             else
             {
@@ -63,9 +63,9 @@ namespace DChemist.Views
 
                 // --- Collect values ---
                 Result.Name           = NameInput.Text;
-                Result.GenericName    = GenericNameInput.Text;
-                Result.CategoryName   = CategoryInput.Text ?? "";
-                Result.ManufacturerName = ManufacturerInput.Text ?? "";
+                Result.GenericName    = "";
+                Result.CategoryName   = "General";
+                Result.ManufacturerName = "GSK";
                 Result.DosageForm     = DosageFormInput.Text ?? "";
                 Result.Strength       = StrengthInput.Text ?? "";
                 Result.Barcode        = BarcodeInput.Text ?? "";
@@ -73,6 +73,7 @@ namespace DChemist.Views
                 Result.PurchasePrice  = (decimal)PurchasePriceInput.Value;
                 Result.StockQty       = (int)StockInput.Value;
                 Result.SupplierName   = SupplierInput.Text;
+                Result.GstPercent     = (decimal)GstInput.Value;
                 Result.ExpiryDate     = ExpiryInput.Date?.DateTime;
             };
         }

@@ -127,7 +127,7 @@ namespace DChemist.ViewModels
         public string BarcodeText
         {
             get => _barcodeText;
-            set { if (SetProperty(ref _barcodeText, value)) _ = HandleBarcodeScanAsync(); }
+            set => SetProperty(ref _barcodeText, value);
         }
         public bool IsContinuousScanMode { get => _isContinuousScanMode; set => SetProperty(ref _isContinuousScanMode, value); }
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
@@ -153,16 +153,21 @@ namespace DChemist.ViewModels
             finally { IsSearching = false; }
         }
 
-        private async Task HandleBarcodeScanAsync()
+        public async Task ProcessBarcodeAsync(string barcode)
         {
-            if (string.IsNullOrWhiteSpace(BarcodeText)) return;
+            if (string.IsNullOrWhiteSpace(barcode)) return;
             
-            var medicine = await _medicineRepository.GetByBarcodeAsync(BarcodeText);
+            var medicine = await _medicineRepository.GetByBarcodeAsync(barcode);
             if (medicine != null)
             {
-                SelectedMedicine = medicine;
-                await ExecuteAddToCartAsync();
-                BarcodeText = string.Empty; 
+                await ExecuteAddToCartAsync(medicine);
+                SearchMedicineText = string.Empty;
+                BarcodeText = string.Empty;
+            }
+            else
+            {
+                IsStatusSuccess = false;
+                StatusMessage = $"⚠ No medicine found with barcode '{barcode}'.";
             }
         }
 

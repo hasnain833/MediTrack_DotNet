@@ -23,7 +23,7 @@ namespace DChemist.ViewModels
             Metrics = new ObservableCollection<MetricItem>
             {
                 new() { Title = "Low Stock Items",  Icon = "\uE7BA", Value = "—", Trend = "Loading…",          Positive = false },
-                new() { Title = "Expiring Soon",    Icon = "\uE916", Value = "—", Trend = "Within 90 days",    Positive = false },
+                new() { Title = "Expiring Soon",    Icon = "\uE916", Value = "—", Trend = "Within 30 days",    Positive = false },
                 new() { Title = "Today's Revenue",  Icon = "\uE94C", Value = "—", Trend = "Loading…",          Positive = true  },
             };
 

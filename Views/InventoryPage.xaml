@@ -114,12 +114,13 @@
                                     </DataTemplate>
                                 </controls:DataGridTemplateColumn.CellTemplate>
                             </controls:DataGridTemplateColumn>
-                            <controls:DataGridTextColumn Header="Medicine" Binding="{Binding Name}" Width="160"/>
-                            <controls:DataGridTextColumn Header="Generic Name" Binding="{Binding GenericName}" Width="150" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <controls:DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="120"/>
-                            <controls:DataGridTextColumn Header="Dosage" Binding="{Binding FormattedDosage}" Width="100"/>
-                            <controls:DataGridTextColumn Header="Selling Price (Per Unit)" Binding="{Binding SellingPrice, Converter={StaticResource CurrencyConverter}}" Width="140"/>
-                            <controls:DataGridTextColumn Header="Quantity" Binding="{Binding StockQty}" Width="80"/>
+                            <controls:DataGridTextColumn Header="Medicine" Binding="{Binding Name}" Width="180"/>
+                            <controls:DataGridTextColumn Header="Batch" Binding="{Binding BatchNo}" Width="100"/>
+                            <controls:DataGridTextColumn Header="Manufacturer" Binding="{Binding ManufacturerName}" Width="120"/>
+                            <controls:DataGridTextColumn Header="Dosage" Binding="{Binding FormattedDosage}" Width="90"/>
+                            <controls:DataGridTextColumn Header="Selling Price" Binding="{Binding SellingPrice, Converter={StaticResource CurrencyConverter}}" Width="150"/>
+                            <controls:DataGridTextColumn Header="GST %" Binding="{Binding FormattedGst}" Width="80"/>
+                            <controls:DataGridTextColumn Header="Quantity" Binding="{Binding StockQty}" Width="90"/>
                             <controls:DataGridTemplateColumn Header="Expiry" Width="120">
                                 <controls:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate x:DataType="models:Medicine">

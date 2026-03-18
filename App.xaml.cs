@@ -114,6 +114,7 @@ namespace DChemist
             services.AddSingleton<BackupService>();
             services.AddSingleton<SettingsService>();
             services.AddSingleton<SessionService>();
+            services.AddSingleton<BarcodeLookupService>();
 
             // ViewModels
             services.AddTransient<LoginViewModel>();

@@ -193,6 +193,10 @@ namespace DChemist.Database
                         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='sale_items' AND column_name='returned_qty') THEN
                             ALTER TABLE sale_items ADD COLUMN returned_qty INTEGER NOT NULL DEFAULT 0;
                         END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='gst_percent') THEN
+                            ALTER TABLE medicines ADD COLUMN gst_percent NUMERIC NOT NULL DEFAULT 0;
+                        END IF;
+                        
                         -- ── Multi-unit medicine support REMOVAL ──
                         IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='base_unit') THEN
                             ALTER TABLE medicines DROP COLUMN base_unit;

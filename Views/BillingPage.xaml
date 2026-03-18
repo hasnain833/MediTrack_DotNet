@@ -285,7 +285,7 @@
         <!-- Hidden Barcode Receiver for Pos Scanning -->
         <TextBox x:Name="BarcodeReceiver" 
                  Width="0" Height="0" Opacity="0"
-                 Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                 Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay}"
                  KeyDown="HiddenBarcodeReceiver_KeyDown"/>
     </Grid>
 </Page>

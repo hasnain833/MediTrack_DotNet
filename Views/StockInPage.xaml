@@ -9,7 +9,7 @@
     mc:Ignorable="d"
     x:Name="PageRoot">
 
-    <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light" PointerPressed="PageRoot_PointerPressed">
+    <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light" PointerPressed="PageRoot_PointerPressed" KeyDown="PageRoot_KeyDown">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -67,30 +67,13 @@
 
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="2*"/>
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Header="Generic Name" HeaderTemplate="{StaticResource SmallHeader}"
-                                         Text="{x:Bind ViewModel.EntryGeneric, Mode=TwoWay}" PlaceholderText="Paracetamol…"/>
-                                <TextBox Grid.Column="1" Header="Dosage/Strength" HeaderTemplate="{StaticResource SmallHeader}"
+                                <TextBox Header="Dosage/Strength" HeaderTemplate="{StaticResource SmallHeader}"
                                          Text="{x:Bind ViewModel.EntryDosage, Mode=TwoWay}" PlaceholderText="500mg…"/>
-                            </Grid>
-
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <ComboBox Header="Category" HeaderTemplate="{StaticResource SmallHeader}"
-                                          ItemsSource="{x:Bind ViewModel.Categories, Mode=OneWay}"
-                                          DisplayMemberPath="Name"
-                                          SelectedItem="{x:Bind ViewModel.EntryCategory, Mode=TwoWay}"
-                                          HorizontalAlignment="Stretch"/>
-                                <ComboBox Grid.Column="1" Header="Manufacturer" HeaderTemplate="{StaticResource SmallHeader}"
-                                          ItemsSource="{x:Bind ViewModel.Manufacturers, Mode=OneWay}"
-                                          DisplayMemberPath="Name"
-                                          SelectedItem="{x:Bind ViewModel.EntryManufacturer, Mode=TwoWay}"
-                                          HorizontalAlignment="Stretch"/>
+                                <TextBox Grid.Column="1" Header="GST %" HeaderTemplate="{StaticResource SmallHeader}"
+                                         Text="{x:Bind ViewModel.EntryGstText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="18…"/>
                             </Grid>
                         </StackPanel>
 
@@ -209,11 +192,11 @@
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="80"/>
-                                    <ColumnDefinition Width="50"/>
-                                    <ColumnDefinition Width="90"/>
-                                    <ColumnDefinition Width="90"/>
-                                    <ColumnDefinition Width="90"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="60"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="100"/>
+                                    <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="40"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Medicine" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
@@ -233,16 +216,15 @@
                                         <Grid Padding="20,8" ColumnSpacing="12" BorderBrush="#F0F0F0" BorderThickness="0,0,0,1">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="80"/>
-                                                <ColumnDefinition Width="50"/>
-                                                <ColumnDefinition Width="90"/>
-                                                <ColumnDefinition Width="90"/>
-                                                <ColumnDefinition Width="90"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="60"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="100"/>
+                                                <ColumnDefinition Width="100"/>
                                                 <ColumnDefinition Width="40"/>
                                             </Grid.ColumnDefinitions>
                                             <StackPanel VerticalAlignment="Center">
                                                 <TextBlock Text="{x:Bind MedicineName}" FontWeight="Bold" FontSize="12" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"/>
-                                                <TextBlock Text="{x:Bind ExpiryDate, Converter={StaticResource DateFormatConverter}, ConverterParameter='EXP: {0:MMM yyyy}'}" FontSize="10" Foreground="#E53E3E"/>
                                             </StackPanel>
                                             
                                             <TextBlock Grid.Column="1" Text="{x:Bind BatchNo}" VerticalAlignment="Center" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>

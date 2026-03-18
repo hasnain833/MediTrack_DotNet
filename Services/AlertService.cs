@@ -43,7 +43,7 @@ namespace DChemist.Services
                 // Check expiring
                 using var expiringCmd = new NpgsqlCommand(@"
                     SELECT COUNT(*) FROM inventory_batches 
-                    WHERE expiry_date <= CURRENT_DATE + INTERVAL '90 days' 
+                    WHERE expiry_date <= CURRENT_DATE + INTERVAL '30 days' 
                     AND remaining_units > 0", conn);
                 var expiringCount = Convert.ToInt64(await expiringCmd.ExecuteScalarAsync() ?? 0);
 
@@ -51,7 +51,7 @@ namespace DChemist.Services
                 {
                     var msg = "You have items needing attention:\n\n";
                     if (lowStockCount > 0) msg += $"• {lowStockCount} medicines have low stock (less than 10 units).\n";
-                    if (expiringCount > 0) msg += $"• {expiringCount} batches will expire within 90 days.";
+                    if (expiringCount > 0) msg += $"• {expiringCount} batches will expire within 30 days.";
 
                     await _dialogService.ShowMessageAsync("Inventory Alerts", msg);
                 }
