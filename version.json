@@ -1,5 +1,5 @@
 {
-    "LatestVersion": "1.0.4.0",
-    "DownloadUrl": "https://raw.githubusercontent.com/hasnain833/DChemistUpdates/main/UpdatePackage-1.0.4.0.zip",
-    "ReleaseNotes": "Phase 5 Update - Stability & Data Integrity\n\nFixes & Improvements:\n- CRITICAL: Fixed broken automated backup configuration.\n- Dynamic Metadata: Stock In form now loads categories and manufacturers from live database.\n- Performance: Optimized medicine creation workflow to reduce redundant database hits.\n- UI/UX: Added vertical scrolling to Inventory page for better accessibility on smaller screens.\n- Resolved compilation errors in StockInViewModel."
+  "LatestVersion": "1.1.0.0",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.1.0/DChemist-v1.1.0.zip",
+  "ReleaseNotes": "v1.1.0 - GST support, auto-update system, multi-batch inventory, continuous scanning"
 }
