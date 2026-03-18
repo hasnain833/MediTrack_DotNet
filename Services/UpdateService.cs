@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -11,8 +12,8 @@ namespace DChemist.Services
     public class UpdateInfo
     {
         public string LatestVersion { get; set; } = string.Empty;
-        public string DownloadUrl { get; set; } = string.Empty;
-        public string ReleaseNotes { get; set; } = string.Empty;
+        public string DownloadUrl   { get; set; } = string.Empty;
+        public string ReleaseNotes  { get; set; } = string.Empty;
     }
 
     public class UpdateService
@@ -20,148 +21,200 @@ namespace DChemist.Services
         private readonly IConfiguration _configuration;
         private readonly AuthorizationService _authService;
         private readonly HttpClient _httpClient;
-        private readonly string _currentVersion;
-        private readonly string _updateServerUrl;
+        private readonly string _versionJsonUrl;
+
+        // ── Read version from assembly so it's always accurate ──────────────
+        public string CurrentVersion { get; }
 
         public UpdateService(IConfiguration configuration, AuthorizationService authService)
         {
             _configuration = configuration;
-            _authService = authService;
-            _httpClient = new HttpClient();
-            _currentVersion = _configuration["Update:CurrentVersion"] ?? "1.0.0";
-            _updateServerUrl = _configuration["Update:UpdateServerUrl"] ?? string.Empty;
+            _authService   = authService;
+
+            _httpClient = new HttpClient
+            {
+                Timeout = TimeSpan.FromSeconds(15)
+            };
+
+            // Assembly version (set in .csproj → <Version>)
+            var asmVersion = Assembly.GetEntryAssembly()?.GetName().Version;
+            CurrentVersion = asmVersion != null
+                ? $"{asmVersion.Major}.{asmVersion.Minor}.{asmVersion.Build}.{asmVersion.Revision}"
+                : (_configuration["Update:CurrentVersion"] ?? "1.0.0.0");
+
+            // Full URL to version.json — fall back to base URL + filename
+            var baseUrl = _configuration["Update:UpdateServerUrl"] ?? string.Empty;
+            _versionJsonUrl = _configuration["Update:VersionJsonUrl"]
+                              ?? (baseUrl.TrimEnd('/') + "/version.json");
         }
 
-        public string CurrentVersion => _currentVersion;
-
+        /// <summary>
+        /// Checks GitHub for a newer version. Returns UpdateInfo if one is found,
+        /// or null if up-to-date / network unavailable. Never throws.
+        /// </summary>
         public async Task<UpdateInfo?> CheckForUpdatesAsync()
         {
-            if (!_authService.IsAdmin) return null;
-            if (string.IsNullOrEmpty(_updateServerUrl)) return null;
+            if (string.IsNullOrEmpty(_versionJsonUrl))
+            {
+                AppLogger.LogWarning("UpdateService: UpdateServerUrl is not configured.");
+                return null;
+            }
 
             try
             {
-                using var response = await _httpClient.GetAsync(_updateServerUrl + "version.json");
+                AppLogger.LogInfo($"UpdateService: Checking for updates at {_versionJsonUrl}");
+                using var response = await _httpClient.GetAsync(_versionJsonUrl);
+
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    // Update server not yet ready/configured - fail silently or log a warning
-                    AppLogger.LogWarning($"Update server returned 404. Checking URL: {_updateServerUrl}version.json");
+                    AppLogger.LogWarning("UpdateService: version.json not found (404).");
                     return null;
                 }
 
                 response.EnsureSuccessStatusCode();
                 var json = await response.Content.ReadAsStringAsync();
+
                 var updateInfo = JsonSerializer.Deserialize<UpdateInfo>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
 
-                if (updateInfo != null && IsNewerVersion(updateInfo.LatestVersion))
+                if (updateInfo == null)
                 {
+                    AppLogger.LogWarning("UpdateService: version.json deserialized to null.");
+                    return null;
+                }
+
+                if (IsNewerVersion(updateInfo.LatestVersion))
+                {
+                    AppLogger.LogInfo($"UpdateService: Update available — {CurrentVersion} → {updateInfo.LatestVersion}");
                     return updateInfo;
                 }
+
+                AppLogger.LogInfo($"UpdateService: App is up-to-date (v{CurrentVersion}).");
+                return null;
+            }
+            catch (TaskCanceledException)
+            {
+                AppLogger.LogWarning("UpdateService: Update check timed out.");
+                return null;
             }
             catch (HttpRequestException ex)
             {
-                AppLogger.LogWarning($"Could not reach update server: {ex.Message}");
+                AppLogger.LogWarning($"UpdateService: Could not reach update server: {ex.Message}");
+                return null;
+            }
+            catch (JsonException ex)
+            {
+                AppLogger.LogError("UpdateService: Invalid version.json format", ex);
+                return null;
             }
             catch (Exception ex)
             {
-                AppLogger.LogError("Failed to check for updates", ex);
+                AppLogger.LogError("UpdateService: Unexpected error during update check", ex);
+                return null;
             }
-
-            return null;
         }
 
         private bool IsNewerVersion(string latestVersion)
         {
-            if (Version.TryParse(latestVersion, out var latest) && Version.TryParse(_currentVersion, out var current))
+            if (Version.TryParse(latestVersion, out var latest) &&
+                Version.TryParse(CurrentVersion,  out var current))
             {
                 return latest > current;
             }
             return false;
         }
 
+        /// <summary>
+        /// Downloads the update zip to a local temp folder with progress reporting.
+        /// Returns the local zip path on success, or null on failure.
+        /// </summary>
         public async Task<string?> DownloadUpdateAsync(string downloadUrl, Action<double> progressCallback)
         {
-            if (!_authService.IsAdmin) return null;
             try
             {
-                var updateDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "D. Chemist", "Updates");
+                var updateDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "D. Chemist", "Updates");
                 Directory.CreateDirectory(updateDir);
 
                 var fileName = Path.GetFileName(new Uri(downloadUrl).LocalPath);
                 if (string.IsNullOrEmpty(fileName)) fileName = "update.zip";
-                
+
                 var filePath = Path.Combine(updateDir, fileName);
 
-                using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                AppLogger.LogInfo($"UpdateService: Downloading update from {downloadUrl}");
+
+                using var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
+                response.EnsureSuccessStatusCode();
+
+                var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+                await using var contentStream = await response.Content.ReadAsStreamAsync();
+                await using var fileStream    = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
+
+                var buffer    = new byte[8192];
+                var totalRead = 0L;
+                int read;
+
+                while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length)) != 0)
                 {
-                    response.EnsureSuccessStatusCode();
+                    await fileStream.WriteAsync(buffer, 0, read);
+                    totalRead += read;
 
-                    var totalBytes = response.Content.Headers.ContentLength ?? -1L;
-                    using (var contentStream = await response.Content.ReadAsStreamAsync())
-                    using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
-                    {
-                        var buffer = new byte[8192];
-                        var totalRead = 0L;
-                        int read;
-
-                        while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length)) != 0)
-                        {
-                            await fileStream.WriteAsync(buffer, 0, read);
-                            totalRead += read;
-
-                            if (totalBytes != -1)
-                            {
-                                progressCallback((double)totalRead / totalBytes * 100);
-                            }
-                        }
-                    }
+                    if (totalBytes > 0)
+                        progressCallback((double)totalRead / totalBytes * 100);
                 }
 
+                AppLogger.LogInfo($"UpdateService: Download complete → {filePath}");
                 return filePath;
             }
             catch (Exception ex)
             {
-                AppLogger.LogError("Failed to download update", ex);
+                AppLogger.LogError("UpdateService: Download failed", ex);
                 return null;
             }
         }
 
+        /// <summary>
+        /// Launches updater.exe, passing the app path, zip path, and current process ID.
+        /// </summary>
         public void LaunchUpdater(string zipPath)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
                 {
-                    AppLogger.LogError($"Update file not found or invalid path: {zipPath}");
+                    AppLogger.LogError($"UpdateService: Update file not found: {zipPath}");
                     return;
                 }
-                var appPath = AppDomain.CurrentDomain.BaseDirectory;
+
+                var appPath    = AppDomain.CurrentDomain.BaseDirectory;
                 var updaterPath = Path.Combine(appPath, "updater.exe");
-                
+
                 if (!File.Exists(updaterPath))
                 {
-                    AppLogger.LogError("Updater.exe not found.");
+                    AppLogger.LogError("UpdateService: updater.exe not found — cannot apply update.");
                     return;
                 }
 
                 var processId = System.Diagnostics.Process.GetCurrentProcess().Id;
-                
+
+                AppLogger.LogInfo($"UpdateService: Launching updater (PID: {processId}) → {updaterPath}");
+
                 var startInfo = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName = updaterPath,
-                    Arguments = $"\"{appPath}\" \"{zipPath}\" {processId}",
+                    FileName        = updaterPath,
+                    Arguments       = $"\"{appPath}\" \"{zipPath}\" {processId}",
                     UseShellExecute = true,
-                    Verb = "runas" // Request elevation
+                    Verb            = "runas"
                 };
 
                 System.Diagnostics.Process.Start(startInfo);
             }
             catch (Exception ex)
             {
-                AppLogger.LogError("Failed to launch updater", ex);
+                AppLogger.LogError("UpdateService: Failed to launch updater", ex);
             }
         }
     }

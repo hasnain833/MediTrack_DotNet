@@ -158,6 +158,36 @@ namespace DChemist
             navService.Navigate("DChemist.Views.LoginPage");
             
             _window.Activate();
+
+            // ── Background update check (5s delay so login page renders first) ──
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(5000);
+                    var updateService = Services.GetRequiredService<UpdateService>();
+                    var update = await updateService.CheckForUpdatesAsync();
+                    if (update != null)
+                    {
+                        rootFrame.DispatcherQueue.TryEnqueue(async () =>
+                        {
+                            try
+                            {
+                                var dialogService = Services.GetRequiredService<IDialogService>();
+                                await dialogService.ShowUpdateDialogAsync(update, updateService);
+                            }
+                            catch (Exception ex)
+                            {
+                                AppLogger.LogError("Update dialog failed to show", ex);
+                            }
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.LogError("Startup update check failed", ex);
+                }
+            });
         }
     }
 }
