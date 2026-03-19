@@ -382,6 +382,10 @@ namespace DChemist.Repositories
             {
                 await transaction.RollbackAsync();
                 AppLogger.LogError("MedicineRepository.DeleteBulkAsync failed", ex);
+                if (ex.Message.Contains("23503"))
+                {
+                    throw new DataAccessException("Could not delete selected medicines because they are tied to existing sales. You must clear sales data first from Settings.", ex);
+                }
                 throw new DataAccessException("Could not delete selected medicines. Ensure they are not tied to existing sales.", ex);
             }
 

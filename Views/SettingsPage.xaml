@@ -22,7 +22,7 @@
         </Border>
 
         <ScrollViewer Grid.Row="1" Padding="40,32">
-            <StackPanel Spacing="32" MaxWidth="900" HorizontalAlignment="Left" Padding="0,0,0,40">
+            <StackPanel Spacing="40" MaxWidth="1200" HorizontalAlignment="Left" Padding="0,0,0,60">
                 
                 <!-- Database Section -->
                 <StackPanel Spacing="16">
@@ -42,6 +42,15 @@
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon Glyph="&#xE777;" FontSize="14"/>
                                         <TextBlock Text="Restore Database"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource SecondaryButtonStyle}" 
+                                        Command="{x:Bind ViewModel.ResetSalesDataCommand}"
+                                        Foreground="Red"
+                                        Visibility="{x:Bind ViewModel.IsAdmin, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="14"/>
+                                        <TextBlock Text="Clear Sales Data"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>

@@ -71,7 +71,7 @@ namespace DChemist.Views
                     _scannerBuffer.Clear();
                     
                     // Don't duplicate if focus was already inside BarcodeReceiver and handled by OnBarcodeKeyDown
-                    if (FocusManager.GetFocusedElement(this.XamlRoot) != BarcodeReceiver)
+                    if (!ReferenceEquals(FocusManager.GetFocusedElement(this.XamlRoot), BarcodeReceiver))
                     {
                         ViewModel.BarcodeText = barcode;
                         ViewModel.LookupBarcodeCommand.Execute(null);

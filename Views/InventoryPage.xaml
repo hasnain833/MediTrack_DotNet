@@ -7,6 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:DChemist.Models"
+    xmlns:primitives="using:CommunityToolkit.WinUI.UI.Controls.Primitives"
     mc:Ignorable="d"
     x:Name="PageRoot">
 
@@ -21,7 +22,7 @@
         <!-- Page Banner -->
         <Border Background="{StaticResource PremiumBackgroundBrush}"
                 CornerRadius="0,0,24,24" Padding="40,32" Margin="0,0,0,24">
-            <StackPanel Spacing="6">
+            <StackPanel Spacing="10" Margin="60,0,0,16">
                 <TextBlock Text="Inventory" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
                 <TextBlock Text="Manage your medicines, stock levels and pricing." FontSize="15" Foreground="#A0AEC0"/>
             </StackPanel>
@@ -49,53 +50,58 @@
                 </Border>
 
                 <!-- Search and Add Header -->
-                <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="16" Margin="24,16,24,16">
+                <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="24,16" Margin="40,16,40,16">
                     <Grid>
-                        <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Orientation="Horizontal" Spacing="20">
                             <AutoSuggestBox PlaceholderText="Search inventory..." 
                                             Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                             TextMemberPath="Name"
-                                            QueryIcon="Find" Width="400" Height="36" VerticalAlignment="Center"/>
+                                            QueryIcon="Find" Width="500" Height="40" VerticalAlignment="Center"/>
                             
                             <Button Command="{x:Bind ViewModel.RefreshCommand}" 
-                                    Style="{StaticResource TextBlockButtonStyle}" Padding="8" VerticalAlignment="Center">
+                                    Style="{StaticResource TextBlockButtonStyle}" Padding="12,8" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE72C;" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="Refresh" FontSize="13" VerticalAlignment="Center" FontWeight="Medium"/>
+                                    <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Refresh" FontSize="14" VerticalAlignment="Center" FontWeight="Medium"/>
                                 </StackPanel>
                             </Button>
 
                             <Button Command="{x:Bind ViewModel.ExportCommand}" 
-                                    Style="{StaticResource TextBlockButtonStyle}" Padding="8" VerticalAlignment="Center">
+                                    Style="{StaticResource TextBlockButtonStyle}" Padding="12,8" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE896;" FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="Export Inventory" FontSize="13" VerticalAlignment="Center" FontWeight="Medium"/>
+                                    <FontIcon Glyph="&#xE896;" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Export CSV" FontSize="14" VerticalAlignment="Center" FontWeight="Medium"/>
                                 </StackPanel>
                             </Button>
                         </StackPanel>
 
-                        <Button Command="{x:Bind ViewModel.DeleteSelectedCommand}"
+                        <Button Grid.Column="1" Command="{x:Bind ViewModel.DeleteSelectedCommand}"
                                 Background="#E53E3E" Foreground="White" BorderBrush="Transparent"
                                 HorizontalAlignment="Right" VerticalAlignment="Center"
-                                CornerRadius="8" Padding="16,8"
+                                CornerRadius="8" Padding="20,10"
                                 Visibility="{x:Bind ViewModel.IsAdmin, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE74D;" FontSize="14"/>
-                                <TextBlock Text="Delete Selected" FontWeight="Medium" VerticalAlignment="Center"/>
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE74D;" FontSize="16"/>
+                                <TextBlock Text="Delete Selected" FontWeight="SemiBold" VerticalAlignment="Center"/>
                             </StackPanel>
                         </Button>
                     </Grid>
                 </Border>
 
                 <!-- Inventory Table -->
-                <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="24,0,24,24">
+                <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="40,0,40,40">
                     <controls:DataGrid AutoGenerateColumns="False"
                                        ItemsSource="{x:Bind ViewModel.Medicines, Mode=OneWay}"
                                        IsReadOnly="True"
                                        GridLinesVisibility="Horizontal"
                                        HeadersVisibility="Column"
                                        Background="Transparent"
-                                       FontSize="13">
+                                                   RowHeight="64">
                         <controls:DataGrid.Resources>
                             <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="Transparent"/>
                             <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="Transparent"/>
@@ -107,21 +113,30 @@
                             <SolidColorBrush x:Key="DataGridColumnHeaderPressedBackgroundBrush" Color="#F9FAFB"/>
                         </controls:DataGrid.Resources>
                         <controls:DataGrid.Columns>
-                            <controls:DataGridTemplateColumn Width="50">
+                            <controls:DataGridTemplateColumn Width="60">
+                                <controls:DataGridTemplateColumn.HeaderStyle>
+                                    <Style TargetType="primitives:DataGridColumnHeader">
+                                        <Setter Property="ContentTemplate">
+                                            <Setter.Value>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding ViewModel.IsAllSelected, ElementName=PageRoot, Mode=TwoWay}" 
+                                                              HorizontalAlignment="Center" Margin="0" MinWidth="0"/>
+                                                </DataTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </controls:DataGridTemplateColumn.HeaderStyle>
                                 <controls:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate x:DataType="models:Medicine">
                                         <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" Margin="0" MinWidth="0"/>
                                     </DataTemplate>
                                 </controls:DataGridTemplateColumn.CellTemplate>
                             </controls:DataGridTemplateColumn>
-                            <controls:DataGridTextColumn Header="Medicine" Binding="{Binding Name}" Width="180"/>
-                            <controls:DataGridTextColumn Header="Batch" Binding="{Binding BatchNo}" Width="100"/>
-                            <controls:DataGridTextColumn Header="Manufacturer" Binding="{Binding ManufacturerName}" Width="120"/>
-                            <controls:DataGridTextColumn Header="Dosage" Binding="{Binding FormattedDosage}" Width="90"/>
+                            <controls:DataGridTextColumn Header="Medicine Name" Binding="{Binding Name}" Width="3*"/>
+                            <controls:DataGridTextColumn Header="Batch No" Binding="{Binding BatchNo}" Width="1.5*"/>
                             <controls:DataGridTextColumn Header="Selling Price" Binding="{Binding SellingPrice, Converter={StaticResource CurrencyConverter}}" Width="150"/>
-                            <controls:DataGridTextColumn Header="GST %" Binding="{Binding FormattedGst}" Width="80"/>
-                            <controls:DataGridTextColumn Header="Quantity" Binding="{Binding StockQty}" Width="90"/>
-                            <controls:DataGridTemplateColumn Header="Expiry" Width="120">
+                            <controls:DataGridTextColumn Header="Quantity" Binding="{Binding StockQty}" Width="120"/>
+                            <controls:DataGridTemplateColumn Header="Expiry Date" Width="150">
                                 <controls:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate x:DataType="models:Medicine">
                                         <StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0">
@@ -130,30 +145,30 @@
                                                       VerticalAlignment="Center"/>
                                             <TextBlock Text="{Binding ExpiryDate, Converter={StaticResource DateFormatConverter}, ConverterParameter='MMM yyyy'}"
                                                        Foreground="{Binding ExpiryDate, Converter={StaticResource ExpiryToColorConverter}}"
-                                                       VerticalAlignment="Center"/>
+                                                       VerticalAlignment="Center" FontSize="14"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </controls:DataGridTemplateColumn.CellTemplate>
                             </controls:DataGridTemplateColumn>
                             
-                            <controls:DataGridTemplateColumn Header="Actions" Width="100">
+                            <controls:DataGridTemplateColumn Header="Actions" Width="120">
                                 <controls:DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate x:DataType="models:Medicine">
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="12">
                                             <Button x:Name="EditMedicineButton" Click="OnEditMedicineClick"
-                                                    Style="{StaticResource TextBlockButtonStyle}" Padding="6">
+                                                    Style="{StaticResource TextBlockButtonStyle}" Padding="8">
                                                 <ToolTipService.ToolTip>
                                                     <ToolTip Content="Edit Medicine"/>
                                                 </ToolTipService.ToolTip>
-                                                <FontIcon Glyph="&#xE70F;" FontSize="14" Foreground="{StaticResource AccentAccent}"/>
+                                                <FontIcon Glyph="&#xE70F;" FontSize="18" Foreground="{StaticResource AccentAccent}"/>
                                             </Button>
                                             
                                             <Button x:Name="DeleteMedicineButton" Click="OnDeleteMedicineClick"
-                                                    Style="{StaticResource TextBlockButtonStyle}" Padding="6">
+                                                    Style="{StaticResource TextBlockButtonStyle}" Padding="8">
                                                 <ToolTipService.ToolTip>
                                                     <ToolTip Content="Delete Medicine"/>
                                                 </ToolTipService.ToolTip>
-                                                <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="#E53E3E"/>
+                                                <FontIcon Glyph="&#xE74D;" FontSize="18" Foreground="#E53E3E"/>
                                             </Button>
                                         </StackPanel>
                                     </DataTemplate>

@@ -270,7 +270,7 @@ namespace DChemist.ViewModels
         private bool _isBusy;
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
 
-        private bool _isAutoAddEnabled = false; 
+        private bool _isAutoAddEnabled = true; 
         public bool IsAutoAddEnabled { get => _isAutoAddEnabled; set => SetProperty(ref _isAutoAddEnabled, value); }
 
         public ObservableCollection<ReceivingItem> ReceivingItems { get; }
@@ -441,7 +441,7 @@ namespace DChemist.ViewModels
                             GenericName = string.Empty,
                             Strength = EntryDosage,
                             DosageForm = EntryDosage,
-                            Barcode = string.IsNullOrWhiteSpace(BarcodeText) ? null : BarcodeText.Trim(),
+                            Barcode = string.IsNullOrWhiteSpace(BarcodeText) ? string.Empty : BarcodeText.Trim(),
                             CategoryName = "General",
                             ManufacturerName = "GSK",
                             GstPercent = EntryGst

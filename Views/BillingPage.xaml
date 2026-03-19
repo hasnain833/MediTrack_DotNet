@@ -16,10 +16,10 @@
 
         <!-- Page Banner -->
         <Border Background="{StaticResource PremiumBackgroundBrush}"
-                CornerRadius="0,0,24,24" Padding="40,28" Margin="0,0,0,24">
-            <StackPanel Spacing="6">
-                <TextBlock Text="Billing" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
-                <TextBlock Text="Create sales, scan items and generate receipts." FontSize="15" Foreground="#A0AEC0"/>
+                CornerRadius="0,0,24,24" Padding="60,40" Margin="0,0,0,32">
+            <StackPanel Spacing="10">
+                <TextBlock Text="Billing" FontSize="36" FontWeight="SemiBold" Foreground="White"/>
+                <TextBlock Text="Create sales, scan items and generate receipts." FontSize="16" Foreground="#A0AEC0"/>
             </StackPanel>
         </Border>
 
@@ -27,11 +27,11 @@
         <Grid Grid.Row="1" Background="{ThemeResource AppBackgroundBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="320"/>
+                <ColumnDefinition Width="400"/>
             </Grid.ColumnDefinitions>
 
         <!-- Left: Bill Generation -->
-        <Grid Padding="40,0,16,0">
+        <Grid Padding="60,0,24,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -257,7 +257,7 @@
                             Style="{StaticResource PremiumButtonStyle}" Height="54"
                             HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
 
-                    <Button Content="SAVE INTERNALLY" 
+                    <Button Content="SAVE" 
                             Command="{x:Bind ViewModel.CompleteSaleInternalCommand}"
                             Style="{StaticResource PremiumButtonStyle}" Height="54"
                             Background="#4A5568"

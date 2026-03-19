@@ -20,7 +20,7 @@
 
         <!-- Page Banner -->
         <Border Background="{StaticResource PremiumBackgroundBrush}"
-                Padding="40,20">
+                Padding="60,32">
             <StackPanel Spacing="4">
                 <TextBlock Text="Invoice Management" FontSize="24" FontWeight="SemiBold" Foreground="White"/>
                 <TextBlock Text="Search invoices and process item returns." FontSize="14" Foreground="#A0AEC0"/>
@@ -28,7 +28,7 @@
         </Border>
 
         <!-- TOP SECTION: Search Controls -->
-        <Border Grid.Row="1" Margin="32,20,32,0" Style="{StaticResource PremiumCardStyle}" Padding="20,16">
+        <Border Grid.Row="1" Margin="60,24,60,0" Style="{StaticResource PremiumCardStyle}" Padding="32,24">
             <Grid ColumnSpacing="20">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="200"/>
@@ -74,7 +74,7 @@
         </Border>
 
         <!-- MIDDLE SECTION: Invoice List -->
-        <Border Grid.Row="2" Margin="32,20,32,10" Style="{StaticResource PremiumCardStyle}" Padding="0">
+        <Border Grid.Row="2" Margin="60,24,60,16" Style="{StaticResource PremiumCardStyle}" Padding="0">
             <controls:DataGrid AutoGenerateColumns="False"
                                ItemsSource="{x:Bind ViewModel.SalesHistory}"
                                SelectedItem="{x:Bind ViewModel.SelectedSale, Mode=TwoWay}"
@@ -94,7 +94,7 @@
         <Rectangle Grid.Row="3" Height="1" HorizontalAlignment="Stretch" Fill="#E2E8F0" Margin="32,0"/>
 
         <!-- BOTTOM SECTION: Invoice Details -->
-        <Border Grid.Row="4" Margin="32,10,32,32" Style="{StaticResource PremiumCardStyle}" Padding="0">
+        <Border Grid.Row="4" Margin="60,16,60,40" Style="{StaticResource PremiumCardStyle}" Padding="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>

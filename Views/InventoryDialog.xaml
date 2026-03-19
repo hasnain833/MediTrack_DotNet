@@ -77,7 +77,7 @@
             </StackPanel>
 
             <StackPanel Grid.Column="1" Spacing="6">
-                <TextBlock Text="Stock Quantity" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                <TextBlock Text="Quantity" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
                 <NumberBox x:Name="StockInput" Value="0" SmallChange="1" LargeChange="10" SpinButtonPlacementMode="Compact"/>
             </StackPanel>
 

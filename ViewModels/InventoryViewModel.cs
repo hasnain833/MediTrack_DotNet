@@ -23,6 +23,7 @@ namespace DChemist.ViewModels
         private string _searchText = string.Empty;
         private string _errorMessage = string.Empty;
         private bool _isBusy;
+        private bool _isAllSelected;
 
         public InventoryViewModel(MedicineRepository medicineRepository, AuthorizationService auth, InventoryEventBus eventBus, IReportingService reportingService, IDialogService dialogService)
         {
@@ -65,6 +66,21 @@ namespace DChemist.ViewModels
         public ICommand DeleteSelectedCommand { get; }
         public ICommand TogglePurchasePriceCommand { get; }
         public ICommand ExportCommand { get; }
+
+        public bool IsAllSelected
+        {
+            get => _isAllSelected;
+            set
+            {
+                if (SetProperty(ref _isAllSelected, value))
+                {
+                    foreach (var m in Medicines)
+                    {
+                        m.IsSelected = value;
+                    }
+                }
+            }
+        }
 
         private void OnInventoryChanged(object? sender, InventoryChangedEventArgs e)
         {
@@ -264,6 +280,14 @@ namespace DChemist.ViewModels
             if (e.PropertyName == nameof(Medicine.IsSelected))
             {
                 (DeleteSelectedCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+                
+                // Update IsAllSelected without triggering the loop
+                var allSelected = Medicines.Count > 0 && Medicines.All(m => m.IsSelected);
+                if (_isAllSelected != allSelected)
+                {
+                    _isAllSelected = allSelected;
+                    OnPropertyChanged(nameof(IsAllSelected));
+                }
             }
         }
 

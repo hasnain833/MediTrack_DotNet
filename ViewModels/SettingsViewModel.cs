@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DChemist.Services;
 using DChemist.Utils;
+using DChemist.Repositories;
 
 namespace DChemist.ViewModels
 {
@@ -14,6 +15,7 @@ namespace DChemist.ViewModels
         private readonly AuthorizationService _auth;
         private readonly SettingsService    _settings;
         private readonly UpdateService      _updateService;
+        private readonly SaleRepository      _saleRepo;
 
         private string _printerName         = "";
         private bool   _isSilentPrintEnabled;
@@ -31,13 +33,15 @@ namespace DChemist.ViewModels
             IDialogService dialogService,
             AuthorizationService auth,
             SettingsService settings,
-            UpdateService updateService)
+            UpdateService updateService,
+            SaleRepository saleRepo)
         {
             _backupService  = backupService;
             _dialogService  = dialogService;
             _auth           = auth;
             _settings       = settings;
             _updateService  = updateService;
+            _saleRepo       = saleRepo;
 
             BackupCommand              = new AsyncRelayCommand(async _ => await _backupService.RunBackupAsync());
             RestoreCommand             = new AsyncRelayCommand(async _ => await _backupService.RestoreDatabaseAsync());
@@ -45,6 +49,7 @@ namespace DChemist.ViewModels
             SavePharmacyDetailsCommand = new AsyncRelayCommand(ExecuteSavePharmacyDetailsAsync);
             SavePrintingSettingsCommand = new AsyncRelayCommand(ExecuteSavePrintingSettingsAsync);
             CheckForUpdatesCommand     = new AsyncRelayCommand(async _ => await ExecuteCheckForUpdatesAsync());
+            ResetSalesDataCommand      = new AsyncRelayCommand(ExecuteResetSalesDataAsync);
 
             _ = InitializeAsync();
         }
@@ -81,6 +86,7 @@ namespace DChemist.ViewModels
         public ICommand RestoreCommand              { get; }
         public ICommand ShowFiscalSettingsCommand   { get; }
         public ICommand CheckForUpdatesCommand      { get; }
+        public ICommand ResetSalesDataCommand       { get; }
         public bool IsAdmin => _auth.IsAdmin;
 
         // ── Init ─────────────────────────────────────────────────────────────
@@ -150,6 +156,30 @@ namespace DChemist.ViewModels
             await _settings.SaveSettingAsync("printer_name",          PrinterName);
             await _settings.SaveSettingAsync("silent_print_enabled",  IsSilentPrintEnabled.ToString().ToLower());
             await _dialogService.ShowMessageAsync("Success", "Printing configuration updated successfully.");
+        }
+
+        private async Task ExecuteResetSalesDataAsync(object? _)
+        {
+            if (!IsAdmin) return;
+
+            bool confirm = await _dialogService.ShowConfirmationAsync(
+                "Reset Sales Data", 
+                "Are you sure you want to permanently delete ALL sales data? This cannot be undone and will unblock medicine deletions.",
+                "Reset All Data",
+                "Cancel");
+
+            if (!confirm) return;
+
+            try
+            {
+                await _saleRepo.PurgeSalesDataAsync();
+                await _dialogService.ShowMessageAsync("Success", "All sales data has been cleared.");
+            }
+            catch (System.Exception ex)
+            {
+                AppLogger.LogError("SettingsViewModel.ExecuteResetSalesData", ex);
+                await _dialogService.ShowMessageAsync("Error", "Failed to clear sales data: " + ex.Message);
+            }
         }
     }
 }

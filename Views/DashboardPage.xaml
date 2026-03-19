@@ -23,7 +23,7 @@
                 </Border>
 
                 <!-- Main Content Area -->
-                <StackPanel Padding="40,0,40,0" Spacing="32">
+                <StackPanel Padding="60,0,60,0" Spacing="40">
                     
                     <!-- Metrics Section -->
                     <StackPanel Spacing="16">
@@ -36,8 +36,8 @@
                             </GridView.ItemsPanel>
                             <GridView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:MetricItem">
-                                    <Grid Width="280" Height="150" Margin="0,0,24,24">
-                                        <Border Style="{StaticResource PremiumCardStyle}" Padding="24">
+                                    <Grid Width="340" Height="170" Margin="0,0,32,32">
+                                        <Border Style="{StaticResource PremiumCardStyle}" Padding="32">
                                             <Grid>
                                                 <StackPanel Spacing="8" VerticalAlignment="Top">
                                                     <TextBlock Text="{x:Bind Title}" Foreground="{StaticResource TextSecondaryBrush}" FontSize="14" FontWeight="Medium"/>
@@ -58,9 +58,9 @@
                         </GridView>
                     </StackPanel>
 
-                    <Grid ColumnSpacing="32">
+                    <Grid ColumnSpacing="40">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="2*"/>
+                            <ColumnDefinition Width="3*"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 

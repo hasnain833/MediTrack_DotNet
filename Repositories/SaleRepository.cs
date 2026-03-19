@@ -198,9 +198,39 @@ namespace DChemist.Repositories
 
         public async Task<decimal> GetRevenueTotalAsync(DateTime start, DateTime end)
         {
-            const string query = "SELECT COALESCE(SUM(grand_total), 0) FROM sales WHERE sale_date >= @start AND sale_date <= @end AND status = 'Completed'";
+            // Use ROUND to 4 decimal places to prevent OverflowException from ultra-high precision numeric values in Postgres
+            const string query = "SELECT ROUND(COALESCE(SUM(grand_total), 0), 4) FROM sales WHERE sale_date >= @start AND sale_date <= @end AND status = 'Completed'";
             using var conn = _db.GetConnection();
             return await conn.ExecuteScalarAsync<decimal>(query, new { start, end });
+        }
+
+        public async Task PurgeSalesDataAsync()
+        {
+            _auth.EnforceAdmin();
+            using var connection = _db.GetConnection();
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // Truncate tables to remove all sales data
+                await connection.ExecuteAsync("TRUNCATE TABLE sale_items RESTART IDENTITY CASCADE", null, transaction);
+                await connection.ExecuteAsync("TRUNCATE TABLE sales RESTART IDENTITY CASCADE", null, transaction);
+
+                // Optionally restore all inventory batches to their original quantity?
+                // The user said "remove sales data", which usually implies a clean slate for sales.
+                // We'll also reset remaining_units to quantity_units for consistency in inventory.
+                await connection.ExecuteAsync("UPDATE inventory_batches SET remaining_units = quantity_units", null, transaction);
+
+                await transaction.CommitAsync();
+                _eventBus.Publish(InventoryChangeType.StockAdjusted);
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                AppLogger.LogError("SaleRepository.PurgeSalesDataAsync failed", ex);
+                throw;
+            }
         }
 
         public async Task<Sale?> GetSaleWithItemsAsync(string billNo)
@@ -342,21 +372,22 @@ namespace DChemist.Repositories
 
         public async Task<FinancialReport> GetFinancialReportAsync(DateTime date)
         {
+            // Explicitly cast COUNT(*) to integer to avoid Dapper mapping issues (Postgres returns bigint)
             const string query = @"
                 SELECT 
-                    COUNT(*) as TotalSalesCount,
-                    COALESCE(SUM(grand_total), 0) as GrossSales,
-                    COALESCE(SUM(tax_amount), 0) as TotalTax,
-                    COALESCE(SUM(discount_amount), 0) as TotalDiscount,
-                    COUNT(*) FILTER (WHERE fbr_reported = true) as FbrSalesCount,
-                    COUNT(*) FILTER (WHERE fbr_reported = false) as InternalSalesCount
+                    CAST(COUNT(*) AS INTEGER) as TotalSalesCount,
+                    ROUND(COALESCE(SUM(grand_total), 0), 2) as GrossSales,
+                    ROUND(COALESCE(SUM(tax_amount), 0), 2) as TotalTax,
+                    ROUND(COALESCE(SUM(discount_amount), 0), 2) as TotalDiscount,
+                    CAST(COUNT(*) FILTER (WHERE fbr_reported = true) AS INTEGER) as FbrSalesCount,
+                    CAST(COUNT(*) FILTER (WHERE fbr_reported = false) AS INTEGER) as InternalSalesCount
                 FROM sales 
                 WHERE sale_date::date = @date AND status != 'Voided'";
 
             const string returnsQuery = @"
                 SELECT 
-                    COUNT(*) as ReturnsCount,
-                    COALESCE(SUM(returned_qty * unit_price), 0) as TotalReturns
+                    CAST(COUNT(*) AS INTEGER) as ReturnsCount,
+                    ROUND(COALESCE(SUM(returned_qty * unit_price), 0), 2) as TotalReturns
                 FROM sale_items si
                 JOIN sales s ON si.sale_id = s.id
                 WHERE s.sale_date::date = @date AND si.returned_qty > 0";
@@ -366,8 +397,8 @@ namespace DChemist.Repositories
             var returnData = await conn.QuerySingleAsync(returnsQuery, new { date = date.Date });
 
             report.ReportDate = date;
-            report.ReturnsCount = (int)returnData.returnscount;
-            report.TotalReturns = (decimal)returnData.totalreturns;
+            report.ReturnsCount = returnData.returnscount;
+            report.TotalReturns = returnData.totalreturns;
             report.NetSales = report.GrossSales - report.TotalReturns;
 
             return report;

@@ -17,7 +17,7 @@
 
         <!-- ═══════════════ Banner Header ═══════════════ -->
         <Border Background="{StaticResource PremiumBackgroundBrush}"
-                CornerRadius="0,0,24,24" Padding="32,20" Margin="0,0,0,20">
+                CornerRadius="0,0,24,24" Padding="60,40" Margin="0,0,0,32">
             <Grid>
                 <StackPanel Spacing="2">
                     <TextBlock Text="Inventory Stock In" FontSize="28" FontWeight="SemiBold" Foreground="White"/>
@@ -25,38 +25,32 @@
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="20">
-                    <ToggleSwitch Header="Quick Scan (Auto-Add)" 
-                                  IsOn="{x:Bind ViewModel.IsAutoAddEnabled, Mode=TwoWay}"
-                                  FontSize="12" Foreground="White"
-                                  OnContent="Auto-Add ON" OffContent="Auto-Add OFF"/>
                     <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
-                               FontSize="13" FontWeight="SemiBold" Foreground="#A0AEC0"
-                               MaxWidth="350" TextWrapping="Wrap" VerticalAlignment="Bottom"
+                               FontSize="14" FontWeight="SemiBold" Foreground="#A0AEC0"
+                               MaxWidth="500" TextWrapping="Wrap" VerticalAlignment="Center"
                                TextAlignment="Right"/>
                 </StackPanel>
             </Grid>
         </Border>
 
         <!-- ═══════════════ Main Content ═══════════════ -->
-        <Grid Grid.Row="1" Margin="24,0,24,24" ColumnSpacing="24">
+        <Grid Grid.Row="1" Margin="48,0,48,48" ColumnSpacing="32">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="380"/>
+                <ColumnDefinition Width="400"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
 
             <!-- LEFT COLUMN: Unified Medicine Entry Form -->
             <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <Border Style="{StaticResource PremiumCardStyle}" Padding="20">
-                    <StackPanel Spacing="16">
-                        <TextBlock Text="Medicine Entry Form" FontSize="18" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
+                <Border Style="{StaticResource PremiumCardStyle}" Padding="32" Margin="0,0,0,24">
+                    <StackPanel Spacing="24">
+                        <TextBlock Text="Medicine Information" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
                         
                         <!-- Core Medicine Details -->
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Basic Information" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            
-                            <TextBox x:Name="BarcodeReceiver" Header="Barcode (Optional)" HeaderTemplate="{StaticResource SmallHeader}"
+                        <StackPanel Spacing="16">
+                            <TextBox x:Name="BarcodeReceiver" Header="Barcode Scan" 
                                      Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     KeyDown="OnBarcodeKeyDown" PlaceholderText="Lookup barcode or leave empty…"/>
+                                     KeyDown="OnBarcodeKeyDown" PlaceholderText="Ready for scanning..."/>
 
                             <AutoSuggestBox x:Name="MedicineNameBox"
                                             Header="Medicine Name" 
@@ -245,24 +239,29 @@
                 </Border>
 
                 <!-- Footer Summary & Save -->
-                <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="20,12" BorderThickness="1" BorderBrush="#E2E8F0">
+                <Border Grid.Row="2" Background="White" CornerRadius="16" Padding="32,20" BorderThickness="1" BorderBrush="#E2E8F0" Margin="0,16,0,0">
                     <Grid>
-                        <StackPanel Orientation="Horizontal" Spacing="24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        
+                        <StackPanel Orientation="Horizontal" Spacing="40" VerticalAlignment="Center">
                             <StackPanel>
-                                <TextBlock Text="Total Items" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <TextBlock Text="{x:Bind ViewModel.ReceivingItems.Count, Mode=OneWay}" FontSize="18" FontWeight="Bold"/>
+                                <TextBlock Text="Total Items" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.ReceivingItems.Count, Mode=OneWay}" FontSize="24" FontWeight="Bold"/>
                             </StackPanel>
                             <StackPanel>
-                                <TextBlock Text="Session Total Cost" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                <TextBlock Text="{x:Bind ViewModel.GrandTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="18" FontWeight="Bold"/>
+                                <TextBlock Text="Session Total Cost" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBlock Text="{x:Bind ViewModel.GrandTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="24" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
                             </StackPanel>
                         </StackPanel>
                         
-                        <Button HorizontalAlignment="Right" Command="{x:Bind ViewModel.SaveAllCommand}"
-                                Style="{StaticResource PremiumButtonStyle}" Padding="40,10" CornerRadius="10">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <FontIcon Glyph="&#xE74E;" FontSize="16"/>
-                                <TextBlock Text="Complete Stock In" FontSize="15" FontWeight="Bold"/>
+                        <Button Grid.Column="1" Command="{x:Bind ViewModel.SaveAllCommand}"
+                                Style="{StaticResource PremiumButtonStyle}" Padding="60,16" CornerRadius="12">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <FontIcon Glyph="&#xE74E;" FontSize="18"/>
+                                <TextBlock Text="Complete Stock In" FontSize="16" FontWeight="Bold"/>
                             </StackPanel>
                         </Button>
                     </Grid>
