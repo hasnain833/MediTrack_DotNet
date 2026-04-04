@@ -114,7 +114,7 @@ namespace DChemistUpdater
                 if (Directory.Exists(backupPath))
                     Directory.Delete(backupPath, true);
 
-                CopyDirectory(appPath, backupPath, skipExcluded: false);
+                CopyDirectory(appPath, backupPath, skipExcluded: true);
                 Console.WriteLine("[OK] Backup created.");
 
                 // ── Step 4: Apply update (selective extract) ─────────────────
@@ -130,7 +130,7 @@ namespace DChemistUpdater
                     Console.WriteLine("[ROLLBACK] Restoring previous version...");
                     try
                     {
-                        CopyDirectory(backupPath, appPath, skipExcluded: false);
+                        CopyDirectory(backupPath, appPath, skipExcluded: true);
                         Console.WriteLine("[OK] Rollback complete.");
                     }
                     catch (Exception rbEx)
@@ -199,7 +199,11 @@ namespace DChemistUpdater
                 if (inExcludedFolder) continue;
 
                 // Check if the file itself is excluded
-                if (ExcludedFiles.Contains(entry.Name)) continue;
+                if (ExcludedFiles.Contains(entry.Name)) 
+                {
+                    Console.WriteLine($"[INFO] Skipping excluded file: {entry.Name}");
+                    continue;
+                }
 
                 var destPath = Path.Combine(destinationDir, entry.FullName.Replace('/', Path.DirectorySeparatorChar));
                 var destDir  = Path.GetDirectoryName(destPath)!;
