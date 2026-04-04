@@ -189,7 +189,7 @@ namespace DChemist.Services
                     return;
                 }
 
-                var appPath    = AppDomain.CurrentDomain.BaseDirectory;
+                var appPath    = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
                 var updaterPath = Path.Combine(appPath, "updater.exe");
 
                 if (!File.Exists(updaterPath))
