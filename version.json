@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.1.0.0",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.1.0/DChemist-v1.1.0.zip",
-  "ReleaseNotes": "v1.1.0 - GST support, auto-update system, multi-batch inventory, continuous scanning"
+  "LatestVersion": "1.2.0.0",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.2.0/DChemist-v1.2.0.zip",
+  "ReleaseNotes": "v1.2.0 - Added Bill Preview feature"
 }

@@ -43,6 +43,39 @@ namespace DChemist.Views
             ContinuousScanToggle.Content = "Enable Continuous Scanning";
         }
 
+        private async void PreviewBill_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            try
+            {
+                var receiptControl = await ViewModel.CreateReceiptPreviewAsync();
+                
+                ContentDialog dialog = new ContentDialog
+                {
+                    Title = "Bill Preview",
+                    Content = new ScrollViewer { 
+                        Content = receiptControl, 
+                        HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                        VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+                    },
+                    CloseButtonText = "Close",
+                    XamlRoot = this.XamlRoot
+                };
+
+                await dialog.ShowAsync();
+            }
+            catch (Exception ex)
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = "Preview Error",
+                    Content = "Could not generate preview: " + ex.Message,
+                    CloseButtonText = "OK",
+                    XamlRoot = this.XamlRoot
+                };
+                await dialog.ShowAsync();
+            }
+        }
+
         private void PageRoot_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
         {
         }

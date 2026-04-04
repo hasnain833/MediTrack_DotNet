@@ -257,6 +257,13 @@
                             Style="{StaticResource PremiumButtonStyle}" Height="54"
                             HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
 
+                    <Button Content="Preview Bill" 
+                            Click="PreviewBill_Click"
+                            Command="{x:Bind ViewModel.PreviewBillCommand}"
+                            Style="{StaticResource PremiumButtonStyle}" Height="54"
+                            Background="#718096"
+                            HorizontalAlignment="Stretch" FontSize="14" FontWeight="Bold"/>
+
                     <Button Content="SAVE" 
                             Command="{x:Bind ViewModel.CompleteSaleInternalCommand}"
                             Style="{StaticResource PremiumButtonStyle}" Height="54"
