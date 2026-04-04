@@ -73,7 +73,6 @@ namespace DChemist.ViewModels
             CompleteSaleReportedCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(true), _ => CartItems.Any());
             CompleteSaleInternalCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(false), _ => CartItems.Any());
             PrintBillCommand = new AsyncRelayCommand(async _ => await ExecutePrintBillAsync());
-            PreviewBillCommand = new AsyncRelayCommand(async _ => await ExecutePreviewBillAsync(), _ => CartItems.Any());
             ClearCartCommand = new RelayCommand(_ => ExecuteClearCart(), _ => CartItems.Any());
             System.Diagnostics.Debug.WriteLine("[BillingViewModel] Constructor: Finished.");
         }
@@ -139,7 +138,6 @@ namespace DChemist.ViewModels
         public ICommand CompleteSaleReportedCommand { get; }
         public ICommand CompleteSaleInternalCommand { get; }
         public ICommand PrintBillCommand { get; }
-        public ICommand PreviewBillCommand { get; }
         public ICommand ClearCartCommand { get; }
 
         private async Task SearchMedicinesAsync()
@@ -212,7 +210,6 @@ namespace DChemist.ViewModels
             UpdateTotals();
             ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
             ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
-            ((AsyncRelayCommand)PreviewBillCommand).RaiseCanExecuteChanged();
         }
 
         private static string Capitalize(string s) =>
@@ -226,7 +223,6 @@ namespace DChemist.ViewModels
             UpdateTotals();
             ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
             ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
-            ((AsyncRelayCommand)PreviewBillCommand).RaiseCanExecuteChanged();
         }
 
         private void ExecuteClearCart()
@@ -237,7 +233,6 @@ namespace DChemist.ViewModels
             CustomerPhone = string.Empty;
             ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
             ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
-            ((AsyncRelayCommand)PreviewBillCommand).RaiseCanExecuteChanged();
             ((RelayCommand)ClearCartCommand).RaiseCanExecuteChanged();
         }
 
@@ -260,14 +255,6 @@ namespace DChemist.ViewModels
         private async Task ExecutePrintBillAsync()
         {
             await PrintCurrentReceiptAsync("BILL-" + DateTime.Now.Ticks.ToString().Substring(10), null);
-        }
-
-        private async Task ExecutePreviewBillAsync()
-        {
-            // This is primarily handled in the View code-behind to show a dialog,
-            // but we can trigger it here if we use a messaging system or event.
-            // For now, we'll keep the command so it can be bound to UI state (CanExecute).
-            await Task.CompletedTask;
         }
 
         private async Task<ReceiptViewModel> CreateReceiptViewModelAsync(string billNo, string? fbrInvNo)
@@ -342,38 +329,6 @@ namespace DChemist.ViewModels
             await Task.CompletedTask;
         }
     
-        public async Task<Views.ReceiptTemplate> CreateReceiptPreviewAsync()
-        {
-            string billNo = "BILL-PREVIEW";
-            var receiptVM = new ReceiptViewModel
-            {
-                BillNo = billNo,
-                FbrInvoiceNo = null,
-                CustomerName = CustomerName,
-                CustomerPhone = CustomerPhone,
-                TotalAmount = TotalAmount,
-                TaxAmount = TaxAmount,
-                TaxRateText = TaxRateText + ":",
-                DiscountAmount = DiscountAmount,
-                GrandTotal = GrandTotal
-            };
-
-            foreach (var item in CartItems)
-            {
-                receiptVM.Items.Add(new ReceiptItemViewModel
-                {
-                    Name = item.MedicineName,
-                    Quantity = item.Quantity,
-                    Price = item.UnitPrice
-                });
-            }
-
-            await receiptVM.LoadStoreDetailsAsync(_settingsService);
-            await receiptVM.InitializeQrCode(_fiscalService);
-
-            return new Views.ReceiptTemplate(receiptVM);
-        }
-
         private async Task ExecuteCompleteSaleAsync(bool reportToFbr)
         {
             if (_authService.CurrentUser == null) return;
@@ -455,7 +410,6 @@ namespace DChemist.ViewModels
                 
                 ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
-                ((AsyncRelayCommand)PreviewBillCommand).RaiseCanExecuteChanged();
             }
             catch (InvalidOperationException ex)
             {
