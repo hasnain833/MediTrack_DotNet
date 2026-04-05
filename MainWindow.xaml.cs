@@ -9,7 +9,7 @@ namespace DChemist
             this.InitializeComponent();
             
             // Set window custom title bar or icon if needed in future
-            this.Title = "D. Chemist";
+            this.Title = "D. Chemist - Premium Medical Store";
         }
     }
 }
