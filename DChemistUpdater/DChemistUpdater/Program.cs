@@ -199,13 +199,22 @@ namespace DChemistUpdater
                 if (inExcludedFolder) continue;
 
                 // Check if the file itself is excluded
+                var destPath = Path.Combine(destinationDir, entry.FullName.Replace('/', Path.DirectorySeparatorChar));
+                
+                // CRITICAL FIX: Explicitly check if the destination path is the current running updater
+                if (string.Equals(Path.GetFullPath(destPath), Path.GetFullPath(Process.GetCurrentProcess().MainModule?.FileName ?? ""), StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.WriteLine($"[INFO] Skipping self-overwrite: {entry.Name}");
+                    continue;
+                }
+
+                // Extra safety: skip based on name list
                 if (ExcludedFiles.Contains(entry.Name)) 
                 {
                     Console.WriteLine($"[INFO] Skipping excluded file: {entry.Name}");
                     continue;
                 }
 
-                var destPath = Path.Combine(destinationDir, entry.FullName.Replace('/', Path.DirectorySeparatorChar));
                 var destDir  = Path.GetDirectoryName(destPath)!;
                 Directory.CreateDirectory(destDir);
 
