@@ -52,7 +52,7 @@ namespace DChemist.Repositories
 
         public async Task<decimal> GetTodaysRevenueAsync()
         {
-            const string query = "SELECT COALESCE(SUM(grand_total), 0) FROM sales WHERE sale_date::date = CURRENT_DATE";
+            const string query = "SELECT CAST(COALESCE(SUM(grand_total), 0) AS numeric(20,2)) FROM sales WHERE sale_date::date = CURRENT_DATE";
             
             using var conn = _db.GetConnection();
             return await conn.ExecuteScalarAsync<decimal>(query);

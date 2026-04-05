@@ -66,7 +66,7 @@ namespace DChemist.ViewModels
             _ = _backupService.CheckAndRunScheduledBackupAsync();
         }
 
-        private bool _isSidebarCollapsed;
+        private bool _isSidebarCollapsed = true;
         public bool IsSidebarCollapsed
         {
             get => _isSidebarCollapsed;

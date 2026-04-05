@@ -59,16 +59,8 @@
                                             SuggestionChosen="OnSuggestionChosen"
                                             DisplayMemberPath="Name" PlaceholderText="Type name…"/>
 
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Header="Dosage/Strength" HeaderTemplate="{StaticResource SmallHeader}"
-                                         Text="{x:Bind ViewModel.EntryDosage, Mode=TwoWay}" PlaceholderText="500mg…"/>
-                                <TextBox Grid.Column="1" Header="GST %" HeaderTemplate="{StaticResource SmallHeader}"
-                                         Text="{x:Bind ViewModel.EntryGstText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="18…"/>
-                            </Grid>
+                            <TextBox Header="GST %" HeaderTemplate="{StaticResource SmallHeader}"
+                                     Text="{x:Bind ViewModel.EntryGstText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="18…"/>
                         </StackPanel>
 
                         <Border BorderThickness="0,1,0,0" BorderBrush="#E2E8F0" Margin="0,4"/>

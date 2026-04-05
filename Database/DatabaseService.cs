@@ -358,11 +358,24 @@ namespace DChemist.Database
                         await insertDataCmd.ExecuteNonQueryAsync();
                     }
                 }
+                // Database initialized successfully.
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("Database initialization failed", ex);
             }
+        }
+
+        public async Task HardResetAsync(NpgsqlConnection connection)
+        {
+            const string truncateSql = @"
+                TRUNCATE TABLE sale_items, sales, inventory_batches, medicines, 
+                               manufacturers, categories, suppliers, customers, 
+                               audit_logs, error_logs RESTART IDENTITY CASCADE;";
+            
+            using var cmd = new NpgsqlCommand(truncateSql, connection);
+            await cmd.ExecuteNonQueryAsync();
+            AppLogger.LogInfo("Database Hard Reset completed successfully.");
         }
 
         public NpgsqlConnection GetConnection()

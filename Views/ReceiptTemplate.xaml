@@ -37,10 +37,10 @@
             <TextBlock Grid.Column="1" Text="{x:Bind ViewModel.Date}" FontSize="10" HorizontalAlignment="Right"/>
         </Grid>
         
-        <StackPanel Visibility="{x:Bind ViewModel.CustomerName, Converter={StaticResource StringToVisibilityConverter}, Mode=OneWay}">
-             <TextBlock Text="Customer:" FontSize="10" FontWeight="SemiBold" Margin="0,2,0,0"/>
-             <TextBlock Text="{x:Bind ViewModel.CustomerName}" FontSize="10"/>
-             <TextBlock Text="{x:Bind ViewModel.CustomerPhone}" FontSize="10"/>
+        <StackPanel Visibility="{x:Bind ViewModel.CustomerName, Converter={StaticResource StringToVisibilityConverter}, Mode=OneWay}" HorizontalAlignment="Center">
+             <TextBlock Text="Customer:" FontSize="10" FontWeight="SemiBold" Margin="0,2,0,0" HorizontalAlignment="Center"/>
+             <TextBlock Text="{x:Bind ViewModel.CustomerName}" FontSize="10" HorizontalAlignment="Center"/>
+             <TextBlock Text="{x:Bind ViewModel.CustomerPhone}" FontSize="10" HorizontalAlignment="Center"/>
         </StackPanel>
 
         <Rectangle Height="1" Fill="Black" Margin="0,5"/>
@@ -99,10 +99,9 @@
         <Rectangle Height="1" Fill="Black" Margin="0,5"/>
 
         <!-- Fiscal Section -->
-        <TextBlock Text="FBR SIMULATOR MODE" FontSize="9" FontWeight="Bold" HorizontalAlignment="Center"/>
         <TextBlock Text="{x:Bind ViewModel.FbrInvoiceNo}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
         <Image Source="{x:Bind ViewModel.QrCodeImage, Mode=OneWay}" Width="100" Height="100" HorizontalAlignment="Center" Margin="5"/>
-        <TextBlock Text="Scan to verify invoice" FontSize="8" HorizontalAlignment="Center"/>
+        <!-- <TextBlock Text="Scan to verify invoice" FontSize="8" HorizontalAlignment="Center"/> -->
 
         <TextBlock Text="Thank you for your visit!" FontSize="10" FontStyle="Italic" HorizontalAlignment="Center" Margin="0,10,0,0"/>
     </StackPanel>

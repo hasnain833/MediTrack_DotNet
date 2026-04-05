@@ -142,15 +142,34 @@ namespace DChemist.ViewModels
 
         private async Task SearchMedicinesAsync()
         {
-            if (string.IsNullOrWhiteSpace(SearchMedicineText)) { MedicineResults.Clear(); return; }
+            if (string.IsNullOrWhiteSpace(SearchMedicineText)) 
+            { 
+                _dispatcher.TryEnqueue(() => MedicineResults.Clear()); 
+                return; 
+            }
+
             IsSearching = true;
             try
             {
                 var results = await _medicineRepository.SearchAsync(SearchMedicineText);
-                MedicineResults.Clear();
-                foreach (var r in results) MedicineResults.Add(r);
+                
+                _dispatcher.TryEnqueue(() =>
+                {
+                    MedicineResults.Clear();
+                    foreach (var r in results) 
+                    {
+                        MedicineResults.Add(r);
+                    }
+                });
             }
-            finally { IsSearching = false; }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("SearchMedicinesAsync failed", ex);
+            }
+            finally 
+            { 
+                _dispatcher.TryEnqueue(() => IsSearching = false);
+            }
         }
 
         public async Task ProcessBarcodeAsync(string barcode)

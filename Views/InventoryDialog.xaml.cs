@@ -35,15 +35,13 @@ namespace DChemist.Views
                 Title = "Edit Medicine";
                 NameInput.Text          = Result.Name;
 
-                DosageFormInput.Text    = Result.DosageForm ?? "";
-                StrengthInput.Text      = Result.Strength ?? "";
                 BarcodeInput.Text       = Result.Barcode;
-                SellingPriceInput.Value = (double)Result.SellingPrice;
-                PurchasePriceInput.Value= (double)Result.PurchasePrice;
-                StockInput.Value        = Result.StockQty;
+                SellingPriceInput.Text  = Result.SellingPrice.ToString("G");
+                PurchasePriceInput.Text = Result.PurchasePrice.ToString("G");
+                StockInput.Text         = Result.StockQty.ToString();
                 ExpiryInput.Date        = Result.ExpiryDate;
                 SupplierInput.Text      = Result.SupplierName ?? "";
-                GstInput.Value          = (double)Result.GstPercent;
+                GstInput.Text           = Result.GstPercent.ToString("G");
             }
             else
             {
@@ -66,14 +64,14 @@ namespace DChemist.Views
                 Result.GenericName    = "";
                 Result.CategoryName   = "General";
                 Result.ManufacturerName = "GSK";
-                Result.DosageForm     = DosageFormInput.Text ?? "";
-                Result.Strength       = StrengthInput.Text ?? "";
-                Result.Barcode        = BarcodeInput.Text ?? "";
-                Result.SellingPrice   = (decimal)SellingPriceInput.Value;
-                Result.PurchasePrice  = (decimal)PurchasePriceInput.Value;
-                Result.StockQty       = (int)StockInput.Value;
+                Result.DosageForm     = "";
+                Result.Strength       = "";
+                Result.Barcode        = string.IsNullOrWhiteSpace(BarcodeInput.Text) ? null : BarcodeInput.Text.Trim();
+                Result.SellingPrice   = decimal.TryParse(SellingPriceInput.Text, out var sp) ? sp : 0;
+                Result.PurchasePrice  = decimal.TryParse(PurchasePriceInput.Text, out var pp) ? pp : 0;
+                Result.StockQty       = int.TryParse(StockInput.Text, out var sq) ? sq : 0;
                 Result.SupplierName   = SupplierInput.Text;
-                Result.GstPercent     = (decimal)GstInput.Value;
+                Result.GstPercent     = decimal.TryParse(GstInput.Text, out var gst) ? gst : 0;
                 Result.ExpiryDate     = ExpiryInput.Date?.DateTime;
             };
         }

@@ -30,23 +30,7 @@
             <TextBox x:Name="NameInput" PlaceholderText="e.g. Panadol 500mg"/>
         </StackPanel>
 
-        <Grid ColumnSpacing="16">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            
-            <StackPanel Spacing="6">
-                <TextBlock Text="Dosage Form" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <TextBox x:Name="DosageFormInput" PlaceholderText="e.g. Tablet"/>
-            </StackPanel>
-
-            <StackPanel Grid.Column="1" Spacing="6">
-                <TextBlock Text="Strength" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <TextBox x:Name="StrengthInput" PlaceholderText="e.g. 500mg"/>
-            </StackPanel>
-        </Grid>
-
+        <!-- Selling and Purchase Prices -->
         <Grid ColumnSpacing="16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -55,12 +39,12 @@
 
             <StackPanel Spacing="6">
                 <TextBlock Text="Selling Price" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <NumberBox x:Name="SellingPriceInput" Value="0" SmallChange="1" LargeChange="10" SpinButtonPlacementMode="Compact"/>
+                <TextBox x:Name="SellingPriceInput" PlaceholderText="0.00"/>
             </StackPanel>
 
             <StackPanel Grid.Column="1" Spacing="6">
                 <TextBlock Text="Purchase Price" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <NumberBox x:Name="PurchasePriceInput" Value="0" SmallChange="1" LargeChange="10" SpinButtonPlacementMode="Compact"/>
+                <TextBox x:Name="PurchasePriceInput" PlaceholderText="0.00"/>
             </StackPanel>
         </Grid>
 
@@ -78,12 +62,12 @@
 
             <StackPanel Grid.Column="1" Spacing="6">
                 <TextBlock Text="Quantity" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <NumberBox x:Name="StockInput" Value="0" SmallChange="1" LargeChange="10" SpinButtonPlacementMode="Compact"/>
+                <TextBox x:Name="StockInput" PlaceholderText="0"/>
             </StackPanel>
 
             <StackPanel Grid.Column="2" Spacing="6">
                 <TextBlock Text="GST %" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <NumberBox x:Name="GstInput" Value="0" SmallChange="1" LargeChange="10" SpinButtonPlacementMode="Compact"/>
+                <TextBox x:Name="GstInput" PlaceholderText="18"/>
             </StackPanel>
         </Grid>
 

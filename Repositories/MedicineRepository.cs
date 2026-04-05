@@ -59,8 +59,9 @@ namespace DChemist.Repositories
 
         public async Task<List<Medicine>> SearchAsync(string text)
         {
+            // Update: Group by medicine and get the best batch info (soonest expiry)
             const string query = @"
-                SELECT 
+                SELECT DISTINCT ON (m.id)
                     m.*, 
                     c.name as CategoryName, 
                     COALESCE(man.name, 'GSK') as ManufacturerName,
@@ -80,7 +81,7 @@ namespace DChemist.Repositories
                    OR m.generic_name ILIKE @text 
                    OR m.barcode = @exact
                    OR man.name ILIKE @text)
-                ORDER BY m.name ASC, b.expiry_date ASC
+                ORDER BY m.id, b.expiry_date ASC
                 LIMIT 50";
             
             try
@@ -148,7 +149,18 @@ namespace DChemist.Repositories
                 int? supplierId = null;
                 if (!string.IsNullOrWhiteSpace(medicine.SupplierName))
                     supplierId = await GetOrCreateSupplierAsync(medicine.SupplierName, connection, transaction);
-
+ 
+                // Check for barcode uniqueness before adding
+                if (!string.IsNullOrWhiteSpace(medicine.Barcode))
+                {
+                    const string checkBarcodeQuery = "SELECT id FROM medicines WHERE barcode = @Barcode LIMIT 1";
+                    var existingId = await connection.ExecuteScalarAsync<int?>(checkBarcodeQuery, new { medicine.Barcode }, transaction);
+                    if (existingId.HasValue)
+                    {
+                        throw new DataAccessException($"A medicine with barcode '{medicine.Barcode}' already exists.");
+                    }
+                }
+ 
                 // 2. Insert Medicine
                 const string medQuery = @"
                     INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode, gst_percent)
@@ -278,14 +290,14 @@ namespace DChemist.Repositories
 
                 // Get all batches for this medicine to balance stock
                 const string batchInfoQuery = @"
-                    SELECT id, remaining_units as RemainingUnits 
+                    SELECT id as Id, remaining_units as RemainingUnits 
                     FROM inventory_batches 
                     WHERE medicine_id = @Id 
                     ORDER BY id DESC";
                 
-                var existingBatches = (await connection.QueryAsync(batchInfoQuery, new { Id = medicine.Id }, transaction)).ToList();
+                var existingBatches = (await connection.QueryAsync<dynamic>(batchInfoQuery, new { Id = medicine.Id }, transaction)).ToList();
                 AppLogger.LogInfo($"[UpdateAsync] Found {existingBatches.Count} existing batches.");
-
+ 
                 if (!existingBatches.Any())
                 {
                     // No batches exist yet, but user wants to set stock
@@ -295,7 +307,7 @@ namespace DChemist.Repositories
                         const string insertBatchQuery = @"
                             INSERT INTO inventory_batches (medicine_id, supplier_id, batch_no, quantity_units, purchase_total_price, unit_cost, selling_price, remaining_units, expiry_date)
                             VALUES (@medId, @supId, @batchNo, @qty, @pTotal, @uCost, @sPrice, @qty, @expiry)";
-
+ 
                         await connection.ExecuteAsync(insertBatchQuery, new 
                         { 
                             medId = medicine.Id, 
@@ -308,39 +320,42 @@ namespace DChemist.Repositories
                             expiry = medicine.ExpiryDate ?? DateTime.Now.AddYears(1)
                         }, transaction);
                     }
-                    else
-                    {
-                        AppLogger.LogInfo("[UpdateAsync] No batches found and StockQty is 0. Doing nothing for batches.");
-                    }
                 }
                 else
                 {
                     // Batches exist. We adjust the LATEST batch so the SUM matches the requested StockQty.
                     var latestBatch = existingBatches.First();
-                    // Using property names from the SELECT alias
-                    int otherBatchesTotal = existingBatches.Skip(1).Sum(b => (int)(b.RemainingUnits ?? 0));
-                    int newLatestQty = Math.Max(0, medicine.StockQty - otherBatchesTotal);
                     
-                    AppLogger.LogInfo($"[UpdateAsync] Adjusting latest batch (ID: {latestBatch.id}). Other batches total: {otherBatchesTotal}. New latest qty: {newLatestQty}.");
-
+                    // Safter calculation using a loop to avoid dynamic summing issues
+                    long otherBatchesTotal = 0;
+                    for (int i = 1; i < existingBatches.Count; i++)
+                    {
+                        otherBatchesTotal += Convert.ToInt64(existingBatches[i].RemainingUnits ?? 0);
+                    }
+ 
+                    int newLatestQty = (int)Math.Max(0, (long)medicine.StockQty - otherBatchesTotal);
+                    long batchId = Convert.ToInt64(latestBatch.id);
+                    
+                    AppLogger.LogInfo($"[UpdateAsync] Adjusting latest batch (ID: {batchId}). Other batches total: {otherBatchesTotal}. New latest qty: {newLatestQty}.");
+ 
                     const string updateLatestBatchQuery = @"
                         UPDATE inventory_batches 
                         SET unit_cost = @PurchasePrice, 
                             purchase_total_price = @PurchasePrice * quantity_units,
                             remaining_units = @NewQty,
                             expiry_date = @ExpiryDate,
-                            supplier_id = @supId
+                            supplier_id = COALESCE(@supId, supplier_id)
                         WHERE id = @batchId";
-
+ 
                     await connection.ExecuteAsync(updateLatestBatchQuery, new 
                     { 
-                        batchId = (int)latestBatch.id,
+                        batchId,
                         medicine.PurchasePrice,
                         NewQty = newLatestQty,
                         ExpiryDate = medicine.ExpiryDate ?? DateTime.Now.AddYears(1),
                         supId = supplierId
                     }, transaction);
-                    AppLogger.LogInfo($"[UpdateAsync] Successfully updated latest batch ID {latestBatch.id}.");
+                    AppLogger.LogInfo($"[UpdateAsync] Successfully updated latest batch ID {batchId}.");
                 }
 
                 await transaction.CommitAsync();

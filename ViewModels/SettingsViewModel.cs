@@ -1,6 +1,6 @@
 using System.Windows.Input;
-using System.Collections.Generic;
 using System.Linq;
+using System.Collections.ObjectModel;
 using System.Threading.Tasks;
 using DChemist.Services;
 using DChemist.Utils;
@@ -19,7 +19,7 @@ namespace DChemist.ViewModels
 
         private string _printerName         = "";
         private bool   _isSilentPrintEnabled;
-        private List<string> _availablePrinters = new();
+        private ObservableCollection<string> _availablePrinters = new();
         private string _pharmacyName        = "";
         private string _pharmacyAddress     = "";
         private string _pharmacyPhone       = "";
@@ -77,7 +77,7 @@ namespace DChemist.ViewModels
 
         public string PrinterName         { get => _printerName;          set => SetProperty(ref _printerName, value);          }
         public bool   IsSilentPrintEnabled { get => _isSilentPrintEnabled; set => SetProperty(ref _isSilentPrintEnabled, value); }
-        public List<string> AvailablePrinters { get => _availablePrinters; set => SetProperty(ref _availablePrinters, value); }
+        public ObservableCollection<string> AvailablePrinters { get => _availablePrinters; set => SetProperty(ref _availablePrinters, value); }
 
         // ── Commands ─────────────────────────────────────────────────────────
         public ICommand SavePharmacyDetailsCommand  { get; }
@@ -103,10 +103,13 @@ namespace DChemist.ViewModels
 
             try
             {
-                AvailablePrinters = System.Drawing.Printing.PrinterSettings
-                    .InstalledPrinters.Cast<string>().ToList();
+                var printers = System.Drawing.Printing.PrinterSettings.InstalledPrinters.Cast<string>().ToList();
+                AvailablePrinters = new ObservableCollection<string>(printers);
             }
-            catch { /* Ignore if printer fetching fails */ }
+            catch (System.Exception ex)
+            {
+                AppLogger.LogError("SettingsViewModel.InitializeAsync: Failed to fetch printers", ex);
+            }
         }
 
         // ── Update check ─────────────────────────────────────────────────────

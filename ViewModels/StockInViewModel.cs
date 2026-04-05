@@ -114,9 +114,6 @@ namespace DChemist.ViewModels
         private string _entryName = string.Empty;
         public string EntryName { get => _entryName; set => SetProperty(ref _entryName, value); }
 
-        private string _entryDosage = string.Empty; 
-        public string EntryDosage { get => _entryDosage; set => SetProperty(ref _entryDosage, value); }
-        
         private decimal _entryGst = 0;
         public decimal EntryGst { get => _entryGst; set => SetProperty(ref _entryGst, value); }
 
@@ -138,7 +135,6 @@ namespace DChemist.ViewModels
                     if (value != null)
                     {
                         EntryName = value.Name;
-                        EntryDosage = value.Strength ?? string.Empty;
                         EntryGst = value.GstPercent;
                         OnPropertyChanged(nameof(EntryGstText));
                     }
@@ -429,8 +425,7 @@ namespace DChemist.ViewModels
                     AppLogger.LogInfo("StockIn.AddToList: FoundMedicine is null. Checking by name...");
                     var existing = await _medicineRepo.SearchAsync(EntryName);
                     med = existing.FirstOrDefault(m => 
-                        m.Name.Equals(EntryName, StringComparison.OrdinalIgnoreCase) && 
-                        (m.Strength ?? "").Equals(EntryDosage ?? "", StringComparison.OrdinalIgnoreCase));
+                        m.Name.Equals(EntryName, StringComparison.OrdinalIgnoreCase));
 
                     if (med == null)
                     {
@@ -439,9 +434,9 @@ namespace DChemist.ViewModels
                         {
                             Name = EntryName,
                             GenericName = string.Empty,
-                            Strength = EntryDosage,
-                            DosageForm = EntryDosage,
-                            Barcode = string.IsNullOrWhiteSpace(BarcodeText) ? string.Empty : BarcodeText.Trim(),
+                            Strength = string.Empty,
+                            DosageForm = string.Empty,
+                            Barcode = string.IsNullOrWhiteSpace(BarcodeText) ? null : BarcodeText.Trim(),
                             CategoryName = "General",
                             ManufacturerName = "GSK",
                             GstPercent = EntryGst
@@ -560,8 +555,6 @@ namespace DChemist.ViewModels
         {
             FoundMedicine = null;
             EntryName = string.Empty;
-            EntryDosage = string.Empty;
-
 
             BatchNumber = string.Empty;
             ExpiryDate = null;

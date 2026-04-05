@@ -12,7 +12,7 @@ namespace DChemist.Models
         public int? ManufacturerId { get; set; }
         public string? DosageForm { get; set; }
         public string? Strength { get; set; }
-        public string Barcode { get; set; } = string.Empty;
+        public string? Barcode { get; set; }
         public decimal GstPercent { get; set; } = 0;
         public string FormattedGst => GstPercent > 0 ? $"{GstPercent:G29}%" : "0%";
         public DateTime CreatedAt { get; set; } = DateTime.Now;

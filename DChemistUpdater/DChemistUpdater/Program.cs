@@ -9,7 +9,6 @@ namespace DChemistUpdater
 {
     class Program
     {
-        // ── Files/folders that must NEVER be overwritten on update ───────────
         private static readonly HashSet<string> ExcludedFiles = new(StringComparer.OrdinalIgnoreCase)
         {
             "appsettings.json",
@@ -27,6 +26,14 @@ namespace DChemistUpdater
 
         static void Main(string[] args)
         {
+            using var mutex = new Mutex(true, "DChemistUpdater_Global_Mutex", out bool isNew);
+            if (!isNew)
+            {
+                Console.WriteLine("[ERROR] Another update process is already running. Please wait for it to finish.");
+                Thread.Sleep(3000);
+                return;
+            }
+
             Console.WriteLine("================================================");
             Console.WriteLine("  D. Chemist — Automatic Update System v2       ");
             Console.WriteLine("================================================");
@@ -52,7 +59,6 @@ namespace DChemistUpdater
 
             try
             {
-                // ── Step 1: Wait for the main app to exit ────────────────────
                 Console.WriteLine($"[1/5] Waiting for D. Chemist (PID {processId}) to exit...");
                 try
                 {
