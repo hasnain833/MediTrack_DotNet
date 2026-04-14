@@ -177,7 +177,9 @@ namespace DChemist.Services
         }
 
         /// <summary>
-        /// Launches updater.exe, passing the app path, zip path, and current process ID.
+        /// Copies updater.exe to a safe location outside the app folder, then launches
+        /// it from there so it is never locked when the update tries to replace files
+        /// inside the app directory (including updater.exe itself).
         /// </summary>
         public void LaunchUpdater(string zipPath)
         {
@@ -189,7 +191,7 @@ namespace DChemist.Services
                     return;
                 }
 
-                var appPath    = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
+                var appPath     = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
                 var updaterPath = Path.Combine(appPath, "updater.exe");
 
                 if (!File.Exists(updaterPath))
@@ -198,19 +200,40 @@ namespace DChemist.Services
                     return;
                 }
 
+                // ── KEY FIX: Copy updater to %LocalAppData%\D. Chemist\ ───────────────
+                // Running the updater from inside the app folder causes Windows to lock
+                // updater.exe, which then fails when the update tries to replace it.
+                // By running from LocalAppData the app folder is never held open by us.
+                var safeDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "D. Chemist");
+                Directory.CreateDirectory(safeDir);
+
+                var safeUpdaterPath = Path.Combine(safeDir, "updater.exe");
+
+                // Always refresh the copy so it matches the shipped version
+                File.Copy(updaterPath, safeUpdaterPath, overwrite: true);
+
                 var processId = System.Diagnostics.Process.GetCurrentProcess().Id;
 
-                AppLogger.LogInfo($"UpdateService: Launching updater (PID: {processId}) → {updaterPath}");
+                AppLogger.LogInfo(
+                    $"UpdateService: Launching updater from safe location (PID: {processId}) → {safeUpdaterPath}");
 
                 var startInfo = new System.Diagnostics.ProcessStartInfo
                 {
-                    FileName        = updaterPath,
-                    Arguments       = $"\"{appPath}\" \"{zipPath}\" {processId}",
-                    UseShellExecute = true,
-                    Verb            = "runas"
+                    FileName         = safeUpdaterPath,
+                    Arguments        = $"\"{appPath}\" \"{zipPath}\" {processId}",
+                    UseShellExecute  = true,
+                    Verb             = "runas"   // Request admin elevation via UAC
                 };
 
                 System.Diagnostics.Process.Start(startInfo);
+            }
+            catch (System.ComponentModel.Win32Exception win32ex)
+                when (win32ex.NativeErrorCode == 1223) // ERROR_CANCELLED — user clicked "No" on UAC
+            {
+                AppLogger.LogWarning("UpdateService: UAC elevation was cancelled by the user.");
+                throw; // Let the caller display a friendly message
             }
             catch (Exception ex)
             {
