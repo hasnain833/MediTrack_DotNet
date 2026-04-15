@@ -90,5 +90,9 @@ namespace DChemist.Models
             set => TotalSellingPrice = value * QuantityUnits;
         }
 
+        public string EntryMode { get; set; } = "Tablet";
+        public int UnitsPerPack { get; set; } = 1;
+        public int PackQuantity { get; set; } = 0;
+
     }
 }

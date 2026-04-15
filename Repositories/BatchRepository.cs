@@ -110,13 +110,13 @@ namespace DChemist.Repositories
                         medicine_id, supplier_id, batch_no, quantity_units, 
                         purchase_total_price, unit_cost, selling_price, 
                         remaining_units, manufacture_date, expiry_date, 
-                        invoice_no, invoice_date
+                        invoice_no, invoice_date, entry_mode, units_per_pack, pack_quantity
                     )
                     VALUES (
                         @MedicineId, @SupplierId, @BatchNo, @QuantityUnits, 
                         @PurchaseTotalPrice, @UnitCost, @SellingPrice, 
                         @RemainingUnits, @ManufactureDate, @ExpiryDate, 
-                        @InvoiceNo, @InvoiceDate
+                        @InvoiceNo, @InvoiceDate, @EntryMode, @UnitsPerPack, @PackQuantity
                     )";
                 
                 using var conn = _db.GetConnection();
@@ -142,12 +142,14 @@ namespace DChemist.Repositories
                     INSERT INTO inventory_batches (
                         medicine_id, supplier_id, batch_no, quantity_units, 
                         purchase_total_price, unit_cost, selling_price, 
-                        remaining_units, expiry_date, invoice_no, invoice_date
+                        remaining_units, expiry_date, invoice_no, invoice_date,
+                        entry_mode, units_per_pack, pack_quantity
                     )
                     VALUES (
                         @MedicineId, @SupplierId, @BatchNo, @QuantityUnits, 
                         @PurchaseTotalPrice, @UnitCost, @SellingPrice, 
-                        @RemainingUnits, @ExpiryDate, @InvoiceNo, @InvoiceDate
+                        @RemainingUnits, @ExpiryDate, @InvoiceNo, @InvoiceDate,
+                        @EntryMode, @UnitsPerPack, @PackQuantity
                     )";
 
                 await connection.ExecuteAsync(query, batches, transaction);

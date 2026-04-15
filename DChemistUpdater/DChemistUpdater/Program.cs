@@ -237,34 +237,38 @@ namespace DChemistUpdater
         {
             try
             {
-                var process = Process.GetProcessById(processId);
-
-                // Security: only kill recognised D.Chemist processes
-                string procName = process.ProcessName.ToLowerInvariant();
-                if (!procName.Contains("dchemist") && !procName.Contains("meditrack"))
+                // First, wait for the caller process to exit normally
+                try
                 {
-                    Log($"[SECURITY] PID {processId} ({procName}) is not a recognised D.Chemist process. Aborting.");
-                    Thread.Sleep(4000);
-                    Environment.Exit(1);
+                    var process = Process.GetProcessById(processId);
+                    if (!process.WaitForExit(8000))
+                    {
+                        Log("[WARN] App taking too long to close — terminating caller...");
+                        process.Kill();
+                        Thread.Sleep(1000);
+                    }
                 }
+                catch (ArgumentException) { /* Already exited */ }
 
-                if (!process.WaitForExit(12000))
+                // SECOND: CRITICAL FIX. 
+                // There might be other zombie processes or secondary instances.
+                // We must ensure NO DChemist.exe is running.
+                Log("[INFO] Checking for any other running instances of DChemist.exe...");
+                var others = Process.GetProcessesByName("DChemist");
+                foreach (var other in others)
                 {
-                    Log("[WARN] App taking too long to close — terminating...");
-                    try { process.Kill(); }
-                    catch (Exception ex) { Log($"[WARN] Could not kill process: {ex.Message}"); }
-
-                    // Wait a bit more after kill
-                    Thread.Sleep(2000);
+                    try
+                    {
+                        Log($"[WARN] Terminating secondary instance: {other.Id}");
+                        other.Kill();
+                        other.WaitForExit(3000);
+                    }
+                    catch { /* Permission or already dead */ }
                 }
-            }
-            catch (ArgumentException)
-            {
-                Log("[INFO] Process already exited.");
             }
             catch (Exception ex)
             {
-                Log($"[WARN] Error waiting for process: {ex.Message}");
+                Log($"[WARN] Error ensuring processes are closed: {ex.Message}");
             }
         }
 

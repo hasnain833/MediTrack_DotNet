@@ -11,8 +11,10 @@ using Microsoft.UI.Dispatching;
 
 namespace DChemist.ViewModels
 {
+
     public class StockInViewModel : ViewModelBase
     {
+        public enum QuantityInputMode { Box, Packet, Tablet }
         public event EventHandler<string>? RequestFocus;
         private readonly MedicineRepository     _medicineRepo;
         private readonly BatchRepository        _batchRepo;
@@ -184,7 +186,134 @@ namespace DChemist.ViewModels
         public string BatchNumber { get => _batchNumber; set => SetProperty(ref _batchNumber, value); }
 
         private DateTimeOffset? _expiryDate;
-        public DateTimeOffset? ExpiryDate { get => _expiryDate; set => SetProperty(ref _expiryDate, value); }
+        public DateTimeOffset? ExpiryDate
+        {
+            get => _expiryDate;
+            set
+            {
+                if (SetProperty(ref _expiryDate, value))
+                {
+                    OnPropertyChanged(nameof(ExpiryDateText));
+                }
+            }
+        }
+
+        private string _expiryDateText = string.Empty;
+        public string ExpiryDateText
+        {
+            get => _expiryDateText;
+            set
+            {
+                if (SetProperty(ref _expiryDateText, value))
+                {
+                    // Basic parsing on each change or wait for explicit trigger? 
+                    // User wants "when we press enter", but having it update on property change 
+                    // is safer for binding. We'll add an explicit FormatDate method too.
+                }
+            }
+        }
+
+        public void FormatExpiryDate()
+        {
+            if (string.IsNullOrWhiteSpace(ExpiryDateText)) return;
+
+            string input = new string(ExpiryDateText.Where(char.IsDigit).ToArray());
+            DateTimeOffset? result = null;
+
+            try
+            {
+                if (input.Length == 4) // MMYY
+                {
+                    int month = int.Parse(input.Substring(0, 2));
+                    int year = int.Parse("20" + input.Substring(2, 2));
+                    result = new DateTimeOffset(new DateTime(year, month, DateTime.DaysInMonth(year, month)));
+                }
+                else if (input.Length == 6) // MMYYYY
+                {
+                    int month = int.Parse(input.Substring(0, 2));
+                    int year = int.Parse(input.Substring(2, 4));
+                    result = new DateTimeOffset(new DateTime(year, month, DateTime.DaysInMonth(year, month)));
+                }
+                else if (input.Length == 8) // DDMMYYYY
+                {
+                    int day = int.Parse(input.Substring(0, 2));
+                    int month = int.Parse(input.Substring(2, 2));
+                    int year = int.Parse(input.Substring(4, 4));
+                    result = new DateTimeOffset(new DateTime(year, month, day));
+                }
+
+                if (result.HasValue)
+                {
+                    ExpiryDate = result;
+                    // If user provided a day (8 digits), show full date, otherwise show pharma-standard MM/yyyy
+                    _expiryDateText = input.Length == 8 ? result.Value.ToString("dd/MM/yyyy") : result.Value.ToString("MM/yyyy");
+                    OnPropertyChanged(nameof(ExpiryDateText));
+                }
+            }
+            catch
+            {
+                // Silently fail or notify
+            }
+        }
+
+        private QuantityInputMode _selectedQuantityMode = QuantityInputMode.Tablet;
+        public QuantityInputMode SelectedQuantityMode
+        {
+            get => _selectedQuantityMode;
+            set
+            {
+                if (SetProperty(ref _selectedQuantityMode, value))
+                {
+                    OnPropertyChanged(nameof(IsBoxMode));
+                    OnPropertyChanged(nameof(IsPacketMode));
+                    OnPropertyChanged(nameof(IsTabletMode));
+                    RecalculateTotalUnits();
+                }
+            }
+        }
+
+        public bool IsBoxMode    => SelectedQuantityMode == QuantityInputMode.Box;
+        public bool IsPacketMode => SelectedQuantityMode == QuantityInputMode.Packet;
+        public bool IsTabletMode => SelectedQuantityMode == QuantityInputMode.Tablet;
+
+        private int _unitsPerPack = 1;
+        public int UnitsPerPack
+        {
+            get => _unitsPerPack;
+            set { if (SetProperty(ref _unitsPerPack, value)) RecalculateTotalUnits(); }
+        }
+
+        private int _packQuantity = 1;
+        public int PackQuantity
+        {
+            get => _packQuantity;
+            set { if (SetProperty(ref _packQuantity, value)) RecalculateTotalUnits(); }
+        }
+
+        public string UnitsPerPackText
+        {
+            get => _unitsPerPack.ToString();
+            set { if (int.TryParse(value, out int res)) UnitsPerPack = res; OnPropertyChanged(nameof(UnitsPerPackText)); }
+        }
+
+        public string PackQuantityText
+        {
+            get => _packQuantity.ToString();
+            set { if (int.TryParse(value, out int res)) PackQuantity = res; OnPropertyChanged(nameof(PackQuantityText)); }
+        }
+
+        private void RecalculateTotalUnits()
+        {
+            if (SelectedQuantityMode == QuantityInputMode.Tablet)
+            {
+                // In tablet mode, we don't change QuantityUnits directly from here
+                // as it's bound to the main quantity box.
+            }
+            else
+            {
+                QuantityUnits = Math.Max(1, UnitsPerPack * PackQuantity);
+            }
+        }
 
         private int _quantityUnits = 1;
         public int QuantityUnits
@@ -194,11 +323,23 @@ namespace DChemist.ViewModels
             {
                 if (SetProperty(ref _quantityUnits, value))
                 {
+                    OnPropertyChanged(nameof(QuantityUnitsText));
                     OnPropertyChanged(nameof(PurchasePricePerUnit));
                     OnPropertyChanged(nameof(SellingPricePerUnit));
                     OnPropertyChanged(nameof(UnitProfitText));
                     OnPropertyChanged(nameof(ProfitMarginText));
+                    OnPropertyChanged(nameof(TotalUnitsPreviewText));
                 }
+            }
+        }
+
+        public string TotalUnitsPreviewText
+        {
+            get
+            {
+                if (IsTabletMode) return string.Empty;
+                string unitLabel = IsBoxMode ? "boxes" : "packets";
+                return $"({PackQuantity} {unitLabel} × {UnitsPerPack} = {QuantityUnits} units)";
             }
         }
 
@@ -373,6 +514,7 @@ namespace DChemist.ViewModels
 
         private async Task ExecuteAddToListAsync()
         {
+            FormatExpiryDate();
             AppLogger.LogInfo($"StockIn.AddToList: Starting for '{EntryName}'...");
             
             if (string.IsNullOrWhiteSpace(EntryName)) 
@@ -465,7 +607,10 @@ namespace DChemist.ViewModels
                     QuantityUnits      = QuantityUnits,
                     PurchaseTotalPrice = PurchaseTotalPrice,
                     TotalSellingPrice  = TotalSellingPrice,
-                    ExpiryDate         = ExpiryDate.Value.DateTime
+                    ExpiryDate         = ExpiryDate.Value.DateTime,
+                    EntryMode          = SelectedQuantityMode.ToString(),
+                    UnitsPerPack       = UnitsPerPack,
+                    PackQuantity       = PackQuantity
                 };
 
                 ReceivingItems.Add(item);
@@ -521,7 +666,10 @@ namespace DChemist.ViewModels
                     UnitCost           = r.UnitCost,
                     SellingPrice       = r.SellingPrice,
                     RemainingUnits     = r.QuantityUnits,
-                    ExpiryDate         = r.ExpiryDate!.Value
+                    ExpiryDate         = r.ExpiryDate!.Value,
+                    EntryMode          = r.EntryMode,
+                    UnitsPerPack       = r.UnitsPerPack,
+                    PackQuantity       = r.PackQuantity
                 }).ToList();
 
                 await _batchRepo.AddBulkAsync(batches);
@@ -558,7 +706,11 @@ namespace DChemist.ViewModels
 
             BatchNumber = string.Empty;
             ExpiryDate = null;
+            ExpiryDateText = string.Empty;
             QuantityUnitsText = "1";
+            PackQuantity = 1;
+            UnitsPerPack = 1;
+            SelectedQuantityMode = QuantityInputMode.Box; // Default to box for convenience
             PurchaseTotalPriceText = "0";
             TotalSellingPriceText = "0";
             EntryGst = 0;

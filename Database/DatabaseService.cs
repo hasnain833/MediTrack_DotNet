@@ -274,6 +274,17 @@ namespace DChemist.Database
                         IF NOT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_batches_expiry_date') THEN
                             CREATE INDEX idx_batches_expiry_date ON inventory_batches(expiry_date);
                         END IF;
+
+                        -- New Quantity Tracking Columns
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='entry_mode') THEN
+                            ALTER TABLE inventory_batches ADD COLUMN entry_mode TEXT NOT NULL DEFAULT 'Tablet';
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='units_per_pack') THEN
+                            ALTER TABLE inventory_batches ADD COLUMN units_per_pack INTEGER NOT NULL DEFAULT 1;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='inventory_batches' AND column_name='pack_quantity') THEN
+                            ALTER TABLE inventory_batches ADD COLUMN pack_quantity INTEGER NOT NULL DEFAULT 0;
+                        END IF;
                     END $$;";
                 
                 using (var migCmd = new NpgsqlCommand(migrationQuery, connection))

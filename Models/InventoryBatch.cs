@@ -17,6 +17,9 @@ namespace DChemist.Models
         public DateTime ExpiryDate { get; set; }
         public string InvoiceNo { get; set; } = string.Empty;
         public DateTime? InvoiceDate { get; set; }
+        public string EntryMode { get; set; } = "Tablet";
+        public int UnitsPerPack { get; set; } = 1;
+        public int PackQuantity { get; set; } = 0;
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }
