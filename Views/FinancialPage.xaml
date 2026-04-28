@@ -7,7 +7,8 @@
     xmlns:vm="using:DChemist.ViewModels"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    RequestedTheme="Light">
 
     <Grid Background="{ThemeResource AppBackgroundBrush}">
         <Grid.RowDefinitions>
@@ -85,7 +86,6 @@
                     <controls:DataGridTextColumn Header="Date" Binding="{Binding Date}" Width="180"/>
                     <controls:DataGridTextColumn Header="Customer" Binding="{Binding Customer}" Width="*"/>
                     <controls:DataGridTextColumn Header="Total" Binding="{Binding Amount, Converter={StaticResource CurrencyConverter}}" Width="120"/>
-                    <controls:DataGridTextColumn Header="FBR" Binding="{Binding FbrStatus}" Width="100"/>
                     <controls:DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
                 </controls:DataGrid.Columns>
             </controls:DataGrid>

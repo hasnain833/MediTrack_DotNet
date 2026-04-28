@@ -3,8 +3,8 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
-using Microsoft.Extensions.DependencyInjection;
 using DChemist.Models;
+using DChemist.Models.UseCases;
 using DChemist.Repositories;
 using DChemist.Services;
 using DChemist.Utils;
@@ -15,14 +15,9 @@ namespace DChemist.ViewModels
     {
         private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcher;
         private readonly MedicineRepository _medicineRepository;
-        private readonly SaleRepository _saleRepository;
-        private readonly CustomerRepository _customerRepository;
         private readonly BatchRepository _batchRepository;
-        private readonly AuthService _authService;
-        private readonly IPrintService _printService;
-        private readonly IFiscalService _fiscalService;
-        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
         private readonly SettingsService _settingsService;
+        private readonly ISalesWorkflowService _salesWorkflow;
 
         private decimal _taxRate;
         private string _searchMedicineText = string.Empty;
@@ -39,27 +34,21 @@ namespace DChemist.ViewModels
         private bool _isBusy;
         private string _statusMessage = string.Empty;
         private bool _isStatusSuccess;
-        private bool _isContinuousScanMode;
+        private bool _isContinuousScanMode = true;
         private bool _isSearching;
 
         public bool IsSearching { get => _isSearching; set => SetProperty(ref _isSearching, value); }
 
-        public BillingViewModel(MedicineRepository medicineRepository, SaleRepository saleRepository, 
-                                 CustomerRepository customerRepository, BatchRepository batchRepository, 
-                                 AuthService authService, IPrintService printService, IFiscalService fiscalService,
-                                 Microsoft.Extensions.Configuration.IConfiguration configuration,
-                                 SettingsService settingsService)
+        public BillingViewModel(
+            MedicineRepository medicineRepository,
+            BatchRepository batchRepository,
+            SettingsService settingsService,
+            ISalesWorkflowService salesWorkflow)
         {
-            System.Diagnostics.Debug.WriteLine("[BillingViewModel] Constructor: Start.");
             _medicineRepository = medicineRepository;
-            _saleRepository = saleRepository;
-            _customerRepository = customerRepository;
             _batchRepository = batchRepository;
-            _authService = authService;
-            _printService = printService;
-            _fiscalService = fiscalService;
-            _configuration = configuration;
             _settingsService = settingsService;
+            _salesWorkflow = salesWorkflow;
             _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
             _taxRate = 0.0m;
@@ -74,7 +63,6 @@ namespace DChemist.ViewModels
             CompleteSaleInternalCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(false), _ => CartItems.Any());
             PrintBillCommand = new AsyncRelayCommand(async _ => await ExecutePrintBillAsync());
             ClearCartCommand = new RelayCommand(_ => ExecuteClearCart(), _ => CartItems.Any());
-            System.Diagnostics.Debug.WriteLine("[BillingViewModel] Constructor: Finished.");
         }
 
         public async Task InitializeAsync()
@@ -118,7 +106,7 @@ namespace DChemist.ViewModels
                         _discountPercentage = d;
                     else if (string.IsNullOrWhiteSpace(value))
                         _discountPercentage = 0;
-                    
+
                     UpdateTotals();
                 }
             }
@@ -142,73 +130,79 @@ namespace DChemist.ViewModels
 
         private async Task SearchMedicinesAsync()
         {
-            if (string.IsNullOrWhiteSpace(SearchMedicineText)) 
-            { 
-                _dispatcher.TryEnqueue(() => MedicineResults.Clear()); 
-                return; 
+            if (string.IsNullOrWhiteSpace(SearchMedicineText))
+            {
+                _dispatcher.TryEnqueue(() => MedicineResults.Clear());
+                return;
             }
 
             IsSearching = true;
             try
             {
                 var results = await _medicineRepository.SearchAsync(SearchMedicineText);
-                
+
                 _dispatcher.TryEnqueue(() =>
                 {
                     MedicineResults.Clear();
-                    foreach (var r in results) 
-                    {
+                    foreach (var r in results)
                         MedicineResults.Add(r);
-                    }
                 });
             }
             catch (Exception ex)
             {
                 AppLogger.LogError("SearchMedicinesAsync failed", ex);
             }
-            finally 
-            { 
+            finally
+            {
                 _dispatcher.TryEnqueue(() => IsSearching = false);
             }
         }
 
-        public async Task ProcessBarcodeAsync(string barcode)
+        public async Task<bool> ProcessBarcodeAsync(string barcode, bool silentFail = false)
         {
-            if (string.IsNullOrWhiteSpace(barcode)) return;
-            
+            if (string.IsNullOrWhiteSpace(barcode)) return false;
+            barcode = barcode.Trim();
+            barcode = new string(barcode.Where(c => !char.IsControl(c)).ToArray());
+            if (string.IsNullOrWhiteSpace(barcode)) return false;
+
             var medicine = await _medicineRepository.GetByBarcodeAsync(barcode);
-            if (medicine != null)
+            if (medicine == null)
             {
-                await ExecuteAddToCartAsync(medicine);
-                SearchMedicineText = string.Empty;
-                BarcodeText = string.Empty;
+                if (!silentFail)
+                {
+                    IsStatusSuccess = false;
+                    StatusMessage = $"No medicine found with barcode '{barcode}'.";
+                }
+                return false;
             }
-            else
-            {
-                IsStatusSuccess = false;
-                StatusMessage = $"⚠ No medicine found with barcode '{barcode}'.";
-            }
+
+            await ExecuteAddToCartAsync(medicine);
+            SearchMedicineText = string.Empty;
+            BarcodeText = string.Empty;
+            return true;
         }
 
         public async Task ExecuteAddToCartAsync(Medicine? medicine = null)
         {
             var med = medicine ?? SelectedMedicine;
             if (med == null) return;
- 
+
             var batches = await _batchRepository.GetByMedicineIdAsync(med.Id);
-            var activeBatches = batches.Where(b => b.RemainingUnits > 0 && b.ExpiryDate > DateTime.Today).OrderBy(b => b.ExpiryDate).ToList();
+            var activeBatches = batches
+                .Where(b => b.RemainingUnits > 0 && b.ExpiryDate > DateTime.Today)
+                .OrderBy(b => b.ExpiryDate)
+                .ToList();
 
             if (!activeBatches.Any())
             {
                 IsStatusSuccess = false;
                 bool hasStockButExpired = batches.Any(b => b.RemainingUnits > 0 && b.ExpiryDate <= DateTime.Today);
-                StatusMessage = hasStockButExpired ? $"⚠ '{med.Name}' is expired and cannot be sold." : $"⚠ '{med.Name}' is out of stock.";
+                StatusMessage = hasStockButExpired ? $"'{med.Name}' is expired and cannot be sold." : $"'{med.Name}' is out of stock.";
                 return;
             }
-            
+
             var bestBatch = activeBatches.First();
- 
-            var existing = CartItems.FirstOrDefault(i => i.MedicineId == med.Id);
+            var existing = CartItems.FirstOrDefault(i => i.MedicineId == med.Id && i.BatchId == bestBatch.Id);
             if (existing != null)
             {
                 existing.Quantity++;
@@ -217,22 +211,22 @@ namespace DChemist.ViewModels
             {
                 var newItem = new SaleItemViewModel
                 {
-                    MedicineId    = med.Id,
-                    BatchId       = bestBatch.Id,
-                    MedicineName  = med.Name,
-                    UnitPrice     = bestBatch.SellingPrice,
-                    Quantity      = 1
+                    MedicineId = med.Id,
+                    BatchId = bestBatch.Id,
+                    MedicineName = med.Name,
+                    BaseUnitPrice = bestBatch.SellingPrice,
+                    UnitsPerPack = bestBatch.UnitsPerPack > 0 ? bestBatch.UnitsPerPack : 1,
+                    SelectedUnit = "Tablet",
+                    Quantity = 1
                 };
                 newItem.PropertyChanged += OnItemPropertyChanged;
                 CartItems.Add(newItem);
             }
+
             UpdateTotals();
             ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
             ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
         }
-
-        private static string Capitalize(string s) =>
-            string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
 
         private void ExecuteRemoveFromCart(SaleItemViewModel? item)
         {
@@ -258,9 +252,7 @@ namespace DChemist.ViewModels
         private void OnItemPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(SaleItemViewModel.Quantity) || e.PropertyName == nameof(SaleItemViewModel.Subtotal))
-            {
                 UpdateTotals();
-            }
         }
 
         private void UpdateTotals()
@@ -273,84 +265,43 @@ namespace DChemist.ViewModels
 
         private async Task ExecutePrintBillAsync()
         {
-            await PrintCurrentReceiptAsync("BILL-" + DateTime.Now.Ticks.ToString().Substring(10), null);
+            var req = CreatePrintReceiptRequest("BILL-" + DateTime.Now.Ticks.ToString().Substring(10), null);
+            var result = await _salesWorkflow.PrintReceiptAsync(req);
+            if (!result.Success)
+            {
+                IsStatusSuccess = false;
+                StatusMessage = "Sale finished, but receipt printing failed: " + result.Message;
+            }
         }
 
-        private async Task<ReceiptViewModel> CreateReceiptViewModelAsync(string billNo, string? fbrInvNo)
+        private PrintReceiptRequest CreatePrintReceiptRequest(string billNo, string? fbrInvoiceNo)
         {
-            var receiptVM = new ReceiptViewModel
+            return new PrintReceiptRequest
             {
                 BillNo = billNo,
-                FbrInvoiceNo = fbrInvNo,
-                CustomerName = string.IsNullOrWhiteSpace(CustomerName) ? "Walk-in Customer" : CustomerName,
+                FbrInvoiceNo = fbrInvoiceNo,
+                CustomerName = CustomerName,
                 CustomerPhone = CustomerPhone,
                 TotalAmount = TotalAmount,
                 TaxAmount = TaxAmount,
-                TaxRateText = TaxRateText + ":",
                 DiscountAmount = DiscountAmount,
-                GrandTotal = GrandTotal
+                GrandTotal = GrandTotal,
+                TaxRate = _taxRate,
+                Items = CartItems.Select(i => new SaleLineItemDto
+                {
+                    MedicineId = i.MedicineId,
+                    BatchId = i.BatchId,
+                    MedicineName = i.MedicineName,
+                    QuantityForReceipt = i.Quantity,
+                    QuantityUnitsForStock = i.TotalTablets,
+                    UnitPrice = i.UnitPrice,
+                    Subtotal = i.Subtotal
+                }).ToList()
             };
-
-            foreach (var item in CartItems)
-            {
-                receiptVM.Items.Add(new ReceiptItemViewModel
-                {
-                    Name = item.MedicineName,
-                    Quantity = item.Quantity,
-                    Price = item.UnitPrice
-                });
-            }
-
-            await receiptVM.LoadStoreDetailsAsync(_settingsService);
-            await receiptVM.InitializeQrCode(_fiscalService);
-            return receiptVM;
         }
 
-        private async Task PrintCurrentReceiptAsync(string billNo, string? fbrInvNo)
-        {
-            // IMPORTANT: Create the ViewModel HERE, immediately, while the cart still has items.
-            // If we do it inside the dispatcher, the cart might already be cleared by the UI thread.
-            var receiptVM = await CreateReceiptViewModelAsync(billNo, fbrInvNo);
-
-            _dispatcher.TryEnqueue(async () =>
-            {
-                try
-                {
-                    bool isSilent = await _settingsService.IsSilentPrintEnabledAsync();
-                    string printerName = await _settingsService.GetPrinterNameAsync();
-
-                    if (isSilent)
-                    {
-                        if (string.IsNullOrWhiteSpace(printerName))
-                        {
-                            throw new InvalidOperationException("Silent printing is enabled, but no printer is selected. Please go to Settings and select a printer.");
-                        }
-
-                        bool success = await _printService.PrintReceiptSilentAsync(receiptVM, printerName);
-                        if (!success)
-                        {
-                            throw new InvalidOperationException($"Silent print failed for printer '{printerName}'. Please check if the printer is connected and the name is correct in Settings.");
-                        }
-                    }
-                    else
-                    {
-                        var receiptControl = new Views.ReceiptTemplate(receiptVM);
-                        await _printService.PrintReceiptAsync(receiptControl, "Sale Receipt " + billNo);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    AppLogger.LogError($"Printing failed for {billNo}", ex);
-                    IsStatusSuccess = false;
-                    StatusMessage = "⚠ Sale finished, but receipt printing failed: " + ex.Message;
-                }
-            });
-            await Task.CompletedTask;
-        }
-    
         private async Task ExecuteCompleteSaleAsync(bool reportToFbr)
         {
-            if (_authService.CurrentUser == null) return;
             if (!CartItems.Any()) return;
 
             IsBusy = true;
@@ -358,90 +309,71 @@ namespace DChemist.ViewModels
             IsStatusSuccess = false;
             try
             {
-                // Stock validation check across all items first
-                foreach (var item in CartItems)
+                StatusMessage = "Saving transaction...";
+
+                var request = new CompleteSaleRequest
                 {
-                    var totalStock = await _batchRepository.GetTotalStockAsync(item.MedicineId);
-                    if (totalStock < item.Quantity)
+                    CustomerName = CustomerName,
+                    CustomerPhone = CustomerPhone,
+                    TotalAmount = TotalAmount,
+                    TaxAmount = TaxAmount,
+                    DiscountAmount = DiscountAmount,
+                    GrandTotal = GrandTotal,
+                    ReportToFbr = reportToFbr,
+                    Items = CartItems.Select(i => new SaleLineItemDto
+                    {
+                        MedicineId = i.MedicineId,
+                        BatchId = i.BatchId,
+                        MedicineName = i.MedicineName,
+                        QuantityForReceipt = i.Quantity,
+                        QuantityUnitsForStock = i.TotalTablets,
+                        UnitPrice = i.UnitPrice,
+                        Subtotal = i.Subtotal
+                    }).ToList()
+                };
+
+                var saleResult = await _salesWorkflow.CompleteSaleAsync(request);
+                if (!saleResult.Success)
+                {
+                    IsStatusSuccess = false;
+                    StatusMessage = saleResult.Message;
+                    return;
+                }
+
+                if (saleResult.BillNo != null)
+                {
+                    var printReq = CreatePrintReceiptRequest(saleResult.BillNo, saleResult.FbrInvoiceNo);
+                    var printResult = await _salesWorkflow.PrintReceiptAsync(printReq);
+                    if (!printResult.Success)
                     {
                         IsStatusSuccess = false;
-                        StatusMessage = $"⚠ Insufficient total stock for '{item.MedicineName}'. Available: {totalStock}";
-                        IsBusy = false;
-                        return;
+                        StatusMessage = "Sale finished, but receipt printing failed: " + printResult.Message;
                     }
                 }
 
-                int? customerId = null;
-                if (!string.IsNullOrWhiteSpace(CustomerName))
-                {
-                    var customer = await _customerRepository.FindOrCreateAsync(CustomerName, CustomerPhone);
-                    customerId = customer?.Id;
-                }
-
-                string billNo = "INV-" + DateTime.Now.Ticks.ToString().Substring(10);
-                var items = CartItems.Select(i => new SaleItem { 
-                    MedicineId      = i.MedicineId, 
-                    BatchId         = i.BatchId,
-                    MedicineName    = i.MedicineName,
-                    Quantity        = i.Quantity, 
-                    UnitPrice       = i.UnitPrice, 
-                    Subtotal        = i.Subtotal
-                }).ToList();
-
-                StatusMessage = "Saving transaction...";
-                var saleId = await _saleRepository.CreateTransactionAsync(billNo, _authService.CurrentUser.Id, customerId, items, 
-                    TotalAmount, TaxAmount, DiscountAmount, GrandTotal, false, null, null);
-
-                string? fbrInvNo = null;
-                string? fbrResponseRaw = null;
-
-                if (reportToFbr)
-                {
-                    StatusMessage = "Reporting to FBR...";
-                    var fbrResponse = await _fiscalService.ReportSaleAsync(billNo, GrandTotal, TaxAmount, items);
-                    fbrInvNo = fbrResponse.Success ? fbrResponse.InvoiceNumber : null;
-                    fbrResponseRaw = fbrResponse.ResponseRaw;
-                    
-                    if (fbrResponse.Success)
-                    {
-                        // Update the local record with FBR info
-                        await _saleRepository.UpdateFbrStatusAsync(saleId, fbrInvNo, fbrResponseRaw);
-                    }
-                    else
-                    {
-                        // Don't abort the sale since it's already saved locally, but warn the user
-                        IsStatusSuccess = true; // Still true because stock is deducted and saved
-                        StatusMessage = $"✅ Sale saved locally, but ⚠ FBR Reporting Failed: {fbrResponse.ErrorMessage}";
-                        await PrintCurrentReceiptAsync(billNo, null);
-                        goto Cleanup;
-                    }
-                }
-
-                await PrintCurrentReceiptAsync(billNo, fbrInvNo);
-
-            Cleanup:
                 CartItems.Clear();
                 UpdateTotals();
-                CustomerName = "";
-                CustomerPhone = "";
+                CustomerName = string.Empty;
+                CustomerPhone = string.Empty;
+
                 IsStatusSuccess = true;
-                StatusMessage = reportToFbr ? "✅ Sale completed & reported to FBR." : "✅ Sale saved internally only.";
-                
+                StatusMessage = saleResult.FbrFailedButSavedLocally
+                    ? $"Sale saved locally, but FBR reporting failed: {saleResult.Message}"
+                    : saleResult.Message;
+
                 ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
-            }
-            catch (InvalidOperationException ex)
-            {
-                IsStatusSuccess = false;
-                StatusMessage = "⚠ " + ex.Message;
             }
             catch (Exception ex)
             {
                 IsStatusSuccess = false;
-                StatusMessage = "⚠ Sale failed: " + ex.Message;
-                System.Diagnostics.Debug.WriteLine($"[Billing] Sale error: {ex}");
+                StatusMessage = "Sale failed: " + ex.Message;
+                AppLogger.LogError("BillingViewModel.ExecuteCompleteSaleAsync failed", ex);
             }
-            finally { IsBusy = false; }
+            finally
+            {
+                IsBusy = false;
+            }
         }
     }
 
@@ -450,12 +382,33 @@ namespace DChemist.ViewModels
         public int MedicineId { get; set; }
         public int BatchId { get; set; }
         public string MedicineName { get; set; } = string.Empty;
+        public int UnitsPerPack { get; set; } = 1;
+        public decimal BaseUnitPrice { get; set; }
 
-        private decimal _unitPrice;
+        private string _selectedUnit = "Tablet";
+        public string SelectedUnit
+        {
+            get => _selectedUnit;
+            set
+            {
+                if (SetProperty(ref _selectedUnit, value))
+                {
+                    OnPropertyChanged(nameof(UnitPrice));
+                    OnPropertyChanged(nameof(Subtotal));
+                }
+            }
+        }
+
+        public ObservableCollection<string> AvailableUnits { get; } = new() { "Tablet", "Packet", "Box" };
+
         public decimal UnitPrice
         {
-            get => _unitPrice;
-            set { if (SetProperty(ref _unitPrice, value)) OnPropertyChanged(nameof(Subtotal)); }
+            get
+            {
+                if (SelectedUnit == "Tablet") return BaseUnitPrice;
+                return BaseUnitPrice * UnitsPerPack;
+            }
+            set { }
         }
 
         private int _quantity = 1;
@@ -466,5 +419,6 @@ namespace DChemist.ViewModels
         }
 
         public decimal Subtotal => UnitPrice * Quantity;
+        public int TotalTablets => SelectedUnit == "Tablet" ? Quantity : Quantity * UnitsPerPack;
     }
 }

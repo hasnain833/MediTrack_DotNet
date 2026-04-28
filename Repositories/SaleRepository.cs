@@ -235,6 +235,12 @@ namespace DChemist.Repositories
 
         public async Task<Sale?> GetSaleWithItemsAsync(string billNo)
         {
+            using var conn = _db.GetConnection();
+            return await GetSaleWithItemsAsync(conn, null, billNo);
+        }
+
+        private async Task<Sale?> GetSaleWithItemsAsync(NpgsqlConnection conn, NpgsqlTransaction? transaction, string billNo)
+        {
             const string saleQuery = @"
                 SELECT 
                     id, bill_no as BillNo, user_id as UserId, customer_id as CustomerId, 
@@ -242,9 +248,8 @@ namespace DChemist.Repositories
                     discount_amount as DiscountAmount, grand_total as GrandTotal, 
                     sale_date as SaleDate, status as Status
                 FROM sales WHERE bill_no = @billNo";
-            
-            using var conn = _db.GetConnection();
-            var sale = await conn.QuerySingleOrDefaultAsync<Sale>(saleQuery, new { billNo });
+
+            var sale = await conn.QuerySingleOrDefaultAsync<Sale>(saleQuery, new { billNo }, transaction);
 
             if (sale != null)
             {
@@ -258,7 +263,7 @@ namespace DChemist.Repositories
                     LEFT JOIN medicines m ON si.medicine_id = m.id 
                     WHERE si.sale_id = @saleId";
                 
-                var items = await conn.QueryAsync<SaleItem>(itemsQuery, new { saleId = sale.Id });
+                var items = await conn.QueryAsync<SaleItem>(itemsQuery, new { saleId = sale.Id }, transaction);
                 sale.Items = items.ToList();
             }
 
@@ -275,7 +280,7 @@ namespace DChemist.Repositories
 
             try
             {
-                var sale = await GetSaleWithItemsAsync(billNo);
+                var sale = await GetSaleWithItemsAsync(connection, transaction, billNo);
                 if (sale == null) throw new InvalidOperationException("Sale not found.");
                 if (sale.Status == "Voided") throw new InvalidOperationException("Sale is already voided.");
 

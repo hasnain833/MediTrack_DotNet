@@ -1,12 +1,11 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
+using System.Windows.Input;
 using DChemist.Models;
 using DChemist.Repositories;
 using DChemist.Services;
 using DChemist.Utils;
-using System.Windows.Input;
 
 namespace DChemist.ViewModels
 {
@@ -15,11 +14,8 @@ namespace DChemist.ViewModels
         private readonly SaleRepository _saleRepo;
         private readonly IReportingService _reportingService;
         private readonly AuthService _authService;
-        private readonly IPrintService _printService;
         private readonly IDialogService _dialogService;
-        private readonly IConfiguration _configuration;
-        private readonly SettingsService _settingsService;
-        private readonly IFiscalService _fiscalService;
+        private readonly IFinancialActionsService _financialActionsService;
         private SaleSummary? _selectedSale;
         private string _searchInvoiceTerm = string.Empty;
         private DateTimeOffset? _searchDate;
@@ -27,30 +23,28 @@ namespace DChemist.ViewModels
         private Sale? _selectedSaleDetails;
         private bool _isDetailsLoading;
 
-        public FinancialViewModel(SaleRepository saleRepo, IReportingService reportingService, 
-            AuthService authService, IPrintService printService, IDialogService dialogService, 
-            IConfiguration configuration, SettingsService settingsService, IFiscalService fiscalService)
+        public FinancialViewModel(
+            SaleRepository saleRepo,
+            IReportingService reportingService,
+            AuthService authService,
+            IDialogService dialogService,
+            IFinancialActionsService financialActionsService)
         {
             _saleRepo = saleRepo;
             _reportingService = reportingService;
             _authService = authService;
-            _printService = printService;
             _dialogService = dialogService;
-            _configuration = configuration;
-            _settingsService = settingsService;
-            _fiscalService = fiscalService;
-            
+            _financialActionsService = financialActionsService;
+
             SalesHistory = new ObservableCollection<SaleSummary>();
             RevenueStats = new ObservableCollection<RevenueStat>();
             SelectedInvoiceItems = new ObservableCollection<InvoiceItemViewModel>();
-            
+
             ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportSalesToCsvAsync(SalesHistory));
             VoidSaleCommand = new AsyncRelayCommand(ExecuteVoidSaleAsync, CanExecuteSaleAction);
             ReprintReceiptCommand = new AsyncRelayCommand(ExecuteReprintReceiptAsync, CanExecuteSaleAction);
             SearchCommand = new AsyncRelayCommand(async _ => await LoadDataAsync());
             ExecuteReturnCommand = new AsyncRelayCommand(item => ExecuteReturnAsync(item as InvoiceItemViewModel));
-            
-            _ = LoadDataAsync();
         }
 
         public ICommand ExecuteReturnCommand { get; }
@@ -100,32 +94,48 @@ namespace DChemist.ViewModels
         }
 
         public ObservableCollection<InvoiceItemViewModel> SelectedInvoiceItems { get; }
-
         public ObservableCollection<SaleSummary> SalesHistory { get; }
         public ObservableCollection<RevenueStat> RevenueStats { get; }
-        public System.Windows.Input.ICommand ExportCommand { get; }
-        public System.Windows.Input.ICommand VoidSaleCommand { get; }
-        public System.Windows.Input.ICommand ReprintReceiptCommand { get; }
-        public System.Windows.Input.ICommand SearchCommand { get; }
+        public ICommand ExportCommand { get; }
+        public ICommand VoidSaleCommand { get; }
+        public ICommand ReprintReceiptCommand { get; }
+        public ICommand SearchCommand { get; }
 
-        private bool CanExecuteSaleAction(object? parameter) => SelectedSale != null && SelectedSale.Status != "Voided";
+        public async Task InitializeAsync()
+        {
+            // DB initialization runs in background at app startup.
+            // Retry a few times so the first open of Financial page is resilient.
+            const int attempts = 3;
+            for (int i = 0; i < attempts; i++)
+            {
+                try
+                {
+                    await LoadDataAsync();
+                    return;
+                }
+                catch
+                {
+                    if (i == attempts - 1) throw;
+                    await Task.Delay(700);
+                }
+            }
+        }
+
+        private bool CanExecuteSaleAction(object? _) => SelectedSale != null && SelectedSale.Status != "Voided";
 
         private async Task LoadDataAsync()
         {
             try
             {
-                // 1. Load Sales History with filters
                 var history = await _saleRepo.SearchInvoicesAsync(
-                    SearchInvoiceTerm, 
-                    SearchDate?.DateTime, 
+                    SearchInvoiceTerm,
+                    SearchDate?.DateTime,
                     SearchCustomerTerm);
-                
+
                 SalesHistory.Clear();
                 foreach (var item in history) SalesHistory.Add(item);
 
-                // 2. Load Revenue Stats
                 RevenueStats.Clear();
-                
                 var todayStart = DateTime.Today;
                 var todayEnd = DateTime.Today.AddDays(1).AddSeconds(-1);
                 var dailyRev = await _saleRepo.GetRevenueTotalAsync(todayStart, todayEnd);
@@ -145,81 +155,32 @@ namespace DChemist.ViewModels
             }
         }
 
-        private async Task ExecuteVoidSaleAsync(object? parameter)
+        private async Task ExecuteVoidSaleAsync(object? _)
         {
             if (SelectedSale == null) return;
-            
+
             bool confirm = await _dialogService.ShowConfirmationAsync(
-                "Void Sale", 
+                "Void Sale",
                 $"Are you sure you want to void Bill # {SelectedSale.BillNo}? This will restore the stock and mark the sale as Voided.",
-                "Void", "Cancel");
-            
+                "Void",
+                "Cancel");
+
             if (!confirm) return;
 
-            try
-            {
-                await _saleRepo.VoidSaleAsync(SelectedSale.BillNo, _authService.CurrentUser?.Id ?? 0);
-                await _dialogService.ShowMessageAsync("Success", "Sale has been voided successfully.");
-                await LoadDataAsync();
-            }
-            catch (Exception ex)
-            {
-                await _dialogService.ShowMessageAsync("Void Failed", ex.Message);
-            }
+            int userId = _authService.CurrentUser?.Id ?? 0;
+            var result = await _financialActionsService.VoidSaleAsync(SelectedSale.BillNo, userId);
+            await _dialogService.ShowMessageAsync(result.Success ? "Success" : "Void Failed", result.Message);
+            if (result.Success) await LoadDataAsync();
         }
 
-        private async Task ExecuteReprintReceiptAsync(object? parameter)
+        private async Task ExecuteReprintReceiptAsync(object? _)
         {
             if (SelectedSale == null) return;
 
-            try
-            {
-                var fullSale = await _saleRepo.GetSaleWithItemsAsync(SelectedSale.BillNo);
-                if (fullSale == null) throw new Exception("Could not retrieve full sale details.");
-
-                var printerName = _configuration["Printing:ThermalPrinterName"];
-                
-                var receiptVM = new ReceiptViewModel
-                {
-                    BillNo = fullSale.BillNo,
-                    CustomerName = SelectedSale.Customer,
-                    TotalAmount = fullSale.TotalAmount,
-                    TaxAmount = fullSale.TaxAmount,
-                    DiscountAmount = fullSale.DiscountAmount,
-                    GrandTotal = fullSale.GrandTotal,
-                    FbrInvoiceNo = fullSale.Status == "Voided" ? "VOIDED - DO NOT USE" : "SIM-FBR-" + fullSale.BillNo
-                };
-
-                var taxRate = Convert.ToDecimal(_configuration["TaxRate"] ?? "0.18");
-                receiptVM.TaxRateText = $"Tax ({taxRate * 100:0.##}%):";
-
-                foreach (var item in fullSale.Items)
-                {
-                    receiptVM.Items.Add(new ReceiptItemViewModel
-                    {
-                        Name = item.MedicineName,
-                        Quantity = item.Quantity,
-                        Price = item.UnitPrice
-                    });
-                }
-
-                if (!string.IsNullOrEmpty(printerName))
-                {
-                    await receiptVM.LoadStoreDetailsAsync(_settingsService);
-                    await receiptVM.InitializeQrCode(_fiscalService);
-                    await _printService.PrintReceiptSilentAsync(receiptVM, printerName);
-                    await _dialogService.ShowMessageAsync("Printed", "Receipt sent to printer.");
-                }
-                else
-                {
-                    await _dialogService.ShowMessageAsync("Info", "Printer name not configured. Please add Printing:ThermalPrinterName to appsettings.json for silent printing.");
-                }
-            }
-            catch (Exception ex)
-            {
-                await _dialogService.ShowMessageAsync("Reprint Failed", ex.Message);
-            }
+            var result = await _financialActionsService.ReprintReceiptAsync(SelectedSale.BillNo, SelectedSale.Customer);
+            await _dialogService.ShowMessageAsync(result.Success ? "Printed" : "Reprint Failed", result.Message);
         }
+
         private async Task LoadSelectedSaleDetailsAsync()
         {
             if (SelectedSale == null)
@@ -234,7 +195,7 @@ namespace DChemist.ViewModels
             {
                 var fullSale = await _saleRepo.GetSaleWithItemsAsync(SelectedSale.BillNo);
                 SelectedSaleDetails = fullSale;
-                
+
                 SelectedInvoiceItems.Clear();
                 if (fullSale != null)
                 {
@@ -248,7 +209,7 @@ namespace DChemist.ViewModels
                             ReturnedQuantity = item.ReturnedQuantity,
                             UnitPrice = item.UnitPrice,
                             Subtotal = item.Subtotal,
-                            ReturnInputQty = 1 // default return qty
+                            ReturnInputQty = 1
                         });
                     }
                 }
@@ -276,24 +237,19 @@ namespace DChemist.ViewModels
             bool confirm = await _dialogService.ShowConfirmationAsync(
                 "Confirm Return",
                 $"Are you sure you want to return {item.ReturnInputQty} units of {item.MedicineName}?",
-                "Return", "Cancel");
+                "Return",
+                "Cancel");
 
             if (!confirm) return;
 
-            try
+            int userId = _authService.CurrentUser?.Id ?? 0;
+            var result = await _financialActionsService.ReturnItemAsync(item.Id, item.ReturnInputQty, userId);
+            await _dialogService.ShowMessageAsync(result.Success ? "Success" : "Return Failed", result.Message);
+
+            if (result.Success)
             {
-                int userId = _authService.CurrentUser?.Id ?? 0;
-                await _saleRepo.ProcessReturnAsync(item.Id, item.ReturnInputQty, userId);
-                
-                await _dialogService.ShowMessageAsync("Success", "Item returned and stock restored.");
-                
-                // Refresh data
                 await LoadDataAsync();
                 await LoadSelectedSaleDetailsAsync();
-            }
-            catch (Exception ex)
-            {
-                await _dialogService.ShowMessageAsync("Return Failed", ex.Message);
             }
         }
     }
@@ -306,7 +262,7 @@ namespace DChemist.ViewModels
         public int ReturnedQuantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal Subtotal { get; set; }
-        
+
         private int _returnInputQty;
         public int ReturnInputQty
         {

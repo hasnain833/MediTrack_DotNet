@@ -424,13 +424,19 @@
                 <Setter Property="MinHeight" Value="40"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="BorderBrush" Value="#D1D5DB"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="12,8"/>
             </Style>
 
             <Style TargetType="PasswordBox">
                 <Setter Property="Background" Value="White"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+                <Setter Property="BorderBrush" Value="#D1D5DB"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="Padding" Value="12,8"/>
                 <Setter Property="PasswordRevealMode" Value="Hidden"/>
             </Style>
 
@@ -438,6 +444,36 @@
                 <Setter Property="CornerRadius" Value="8"/>
                 <Setter Property="MinHeight" Value="40"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="BorderBrush" Value="#D1D5DB"/>
+                <Setter Property="BorderThickness" Value="1"/>
+            </Style>
+
+            <Style TargetType="ComboBox">
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="BorderBrush" Value="#D1D5DB"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="10,6"/>
+            </Style>
+
+            <Style TargetType="NumberBox">
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="MinHeight" Value="36"/>
+                <Setter Property="Background" Value="White"/>
+                <Setter Property="BorderBrush" Value="#D1D5DB"/>
+                <Setter Property="BorderThickness" Value="1"/>
+            </Style>
+
+            <Style TargetType="CalendarDatePicker">
+                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            </Style>
+
+            <Style TargetType="DatePicker">
+                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="HorizontalAlignment" Value="Stretch"/>
             </Style>
 
             <!-- 5. Specialized Templates -->

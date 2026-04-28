@@ -45,13 +45,20 @@ namespace DChemist.Views
                         UpdateProgressBar.Value = progress;
                         ProgressText.Text = $"{(int)progress}%";
                     });
-                });
+                }, _updateInfo.PackageSha256);
 
                 if (zipPath != null)
                 {
                     // Success! Launch updater and exit
-                    _updateService.LaunchUpdater(zipPath);
-                    App.Current.Exit();
+                    bool launched = _updateService.LaunchUpdater(zipPath);
+                    if (launched)
+                    {
+                        App.Current.Exit();
+                    }
+                    else
+                    {
+                        ShowError("Update downloaded, but updater could not be launched. Please run as Administrator and try again.");
+                    }
                 }
                 else
                 {

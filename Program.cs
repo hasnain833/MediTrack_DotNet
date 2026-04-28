@@ -3,7 +3,6 @@ using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using System.Runtime.InteropServices;
-using System.Diagnostics;
 
 namespace DChemist
 {
@@ -19,21 +18,9 @@ namespace DChemist
 
             if (!isNew)
             {
-                var currentProcess = Process.GetCurrentProcess();
-                var otherProcesses = Process.GetProcessesByName(currentProcess.ProcessName);
-
-                foreach (var other in otherProcesses)
-                {
-                    if (other.Id != currentProcess.Id)
-                    {
-                        try 
-                        { 
-                            other.Kill(); 
-                            other.WaitForExit(3000); 
-                        } 
-                        catch { /* Already exiting or access denied */ }
-                    }
-                }
+                // Safe single-instance behavior:
+                // do not kill running process; just exit this new instance.
+                return;
             }
 
             XamlCheckProcessRequirements();

@@ -80,22 +80,19 @@
                     </TransitionCollection>
                 </StackPanel.ChildrenTransitions>
 
-                <!-- Logo / Icon Area -->
-                <Border Width="64" Height="64" CornerRadius="18"
+                <!-- Store Logo -->
+                <Border Width="90" Height="90" CornerRadius="20"
                         HorizontalAlignment="Center"
-                        Margin="0,0,0,24">
-                    <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                            <GradientStop Color="#00D2FF" Offset="0.0" />
-                            <GradientStop Color="#3a7bd5" Offset="1.0" />
-                        </LinearGradientBrush>
-                    </Border.Background>
-                    <TextBlock Text="&#xE10F;"
-                               FontFamily="Segoe MDL2 Assets"
-                               FontSize="28"
-                               Foreground="White"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"/>
+                        Margin="0,0,0,24"
+                        Background="#10FFFFFF"
+                        BorderBrush="#30FFFFFF"
+                        BorderThickness="1">
+                    <Image Source="ms-appx:///Assets/store-logo.png"
+                           Width="76"
+                           Height="76"
+                           Stretch="Uniform"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
                 </Border>
 
                 <!-- Branding -->

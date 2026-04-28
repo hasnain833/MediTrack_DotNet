@@ -31,7 +31,7 @@
                         <StackPanel Spacing="16">
                             <TextBlock Text="Manage your database backups and restoration." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
                             
-                            <StackPanel Orientation="Horizontal" Spacing="12">
+                            <StackPanel Orientation="Vertical" Spacing="10">
                                 <Button Style="{StaticResource SecondaryButtonStyle}" Command="{x:Bind ViewModel.BackupCommand}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <FontIcon Glyph="&#xE896;" FontSize="14"/>
@@ -78,27 +78,27 @@
 
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="Pharmacy Name" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBox Text="{x:Bind ViewModel.PharmacyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. D. Chemist"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. D. Chemist" MinHeight="40"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Column="1" Spacing="6">
                                     <TextBlock Text="NTN Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBox Text="{x:Bind ViewModel.PharmacyNtn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. I736466-5"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyNtn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. I736466-5" MinHeight="40"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="1" Spacing="6" Grid.ColumnSpan="2">
                                     <TextBlock Text="Address" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBox Text="{x:Bind ViewModel.PharmacyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Enter full address..."/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Enter full address..." MinHeight="40"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="2" Spacing="6">
                                     <TextBlock Text="Phone Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBox Text="{x:Bind ViewModel.PharmacyPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. +92-332-8787833"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. +92-332-8787833" MinHeight="40"/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="2" Grid.Column="1" Spacing="6">
                                     <TextBlock Text="License Number" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBox Text="{x:Bind ViewModel.PharmacyLicense, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. 01-372-0011-134212M"/>
+                                    <TextBox Text="{x:Bind ViewModel.PharmacyLicense, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. 01-372-0011-134212M" MinHeight="40"/>
                                 </StackPanel>
                             </Grid>
 
@@ -112,17 +112,10 @@
 
                 <!-- Integrations Section -->
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Integrations &amp; API" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock Text="Integrations" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
                     <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
                         <StackPanel Spacing="16">
-                            <TextBlock Text="Configure real-time reporting to the FBR IMS system." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13"/>
-                            
-                            <Button Style="{StaticResource SecondaryButtonStyle}" Command="{x:Bind ViewModel.ShowFiscalSettingsCommand}" HorizontalAlignment="Left">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE713;" FontSize="14"/>
-                                    <TextBlock Text="Configure Fiscal Settings"/>
-                                </StackPanel>
-                            </Button>
+                            <TextBlock Text="External fiscal reporting is currently disabled for this deployment." Foreground="{StaticResource TextSecondaryBrush}" FontSize="13" TextWrapping="Wrap"/>
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -147,11 +140,13 @@
                                               SelectedItem="{x:Bind ViewModel.PrinterName, Mode=TwoWay}"
                                               PlaceholderText="Select Thermal Printer..."
                                               HorizontalAlignment="Stretch"
+                                              MinHeight="40"
                                               CornerRadius="8"/>
                                     <TextBlock Text="If your printer is not in the list, type its name exactly as seen in Windows Settings." FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" FontStyle="Italic"/>
                                     <TextBox Text="{x:Bind ViewModel.PrinterName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" 
                                              PlaceholderText="Or type printer name manually..."
                                              Margin="0,4,0,0"
+                                             MinHeight="40"
                                              CornerRadius="8"/>
                                 </StackPanel>
                             </StackPanel>
@@ -163,15 +158,11 @@
                         </StackPanel>
                     </Border>
                 </StackPanel>
-                <!-- ═══ About & Updates Section ═══ -->
+                <!-- About & Updates Section -->
                 <StackPanel Spacing="16">
                     <TextBlock Text="About &amp; Updates" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
                     <Border Style="{StaticResource PremiumCardStyle}" Margin="0">
-                        <Grid ColumnSpacing="24">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="16">
 
                             <StackPanel Spacing="8" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
@@ -189,7 +180,7 @@
                                            TextWrapping="Wrap" MaxWidth="400"/>
                             </StackPanel>
 
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
+                            <StackPanel VerticalAlignment="Center" Spacing="8" HorizontalAlignment="Left">
                                 <Button Command="{x:Bind ViewModel.CheckForUpdatesCommand}"
                                         Style="{StaticResource PremiumButtonStyle}" Padding="20,8">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -200,7 +191,7 @@
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
-                        </Grid>
+                        </StackPanel>
                     </Border>
                 </StackPanel>
             </StackPanel>

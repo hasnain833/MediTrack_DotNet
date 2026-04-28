@@ -1,0 +1,108 @@
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using DChemist.Models.UseCases;
+using DChemist.Repositories;
+
+namespace DChemist.Services
+{
+    public interface IFinancialActionsService
+    {
+        Task<FinancialActionResult> VoidSaleAsync(string billNo, int currentUserId);
+        Task<FinancialActionResult> ReturnItemAsync(int saleItemId, int returnQty, int currentUserId);
+        Task<FinancialActionResult> ReprintReceiptAsync(string billNo, string customerName);
+    }
+
+    public class FinancialActionsService : IFinancialActionsService
+    {
+        private readonly SaleRepository _saleRepo;
+        private readonly ISalesWorkflowService _salesWorkflow;
+        private readonly SettingsService _settingsService;
+
+        public FinancialActionsService(
+            SaleRepository saleRepo,
+            ISalesWorkflowService salesWorkflow,
+            SettingsService settingsService)
+        {
+            _saleRepo = saleRepo;
+            _salesWorkflow = salesWorkflow;
+            _settingsService = settingsService;
+        }
+
+        public async Task<FinancialActionResult> VoidSaleAsync(string billNo, int currentUserId)
+        {
+            try
+            {
+                await _saleRepo.VoidSaleAsync(billNo, currentUserId);
+                return new FinancialActionResult { Success = true, Message = "Sale has been voided successfully." };
+            }
+            catch (Exception ex)
+            {
+                return new FinancialActionResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        public async Task<FinancialActionResult> ReturnItemAsync(int saleItemId, int returnQty, int currentUserId)
+        {
+            try
+            {
+                await _saleRepo.ProcessReturnAsync(saleItemId, returnQty, currentUserId);
+                return new FinancialActionResult { Success = true, Message = "Item returned and stock restored." };
+            }
+            catch (Exception ex)
+            {
+                return new FinancialActionResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        public async Task<FinancialActionResult> ReprintReceiptAsync(string billNo, string customerName)
+        {
+            try
+            {
+                var fullSale = await _saleRepo.GetSaleWithItemsAsync(billNo);
+                if (fullSale == null)
+                {
+                    return new FinancialActionResult { Success = false, Message = "Could not retrieve full sale details." };
+                }
+
+                var taxRate = await _settingsService.GetTaxRateAsync();
+                var printResult = await _salesWorkflow.PrintReceiptAsync(new CompleteToPrintRequestBuilder().Build(fullSale, customerName, taxRate));
+                return printResult.Success
+                    ? new FinancialActionResult { Success = true, Message = "Receipt sent to printer." }
+                    : printResult;
+            }
+            catch (Exception ex)
+            {
+                return new FinancialActionResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        private sealed class CompleteToPrintRequestBuilder
+        {
+            public PrintReceiptRequest Build(DChemist.Models.Sale sale, string customerName, decimal taxRate)
+            {
+                return new PrintReceiptRequest
+                {
+                    BillNo = sale.BillNo,
+                    CustomerName = customerName,
+                    TotalAmount = sale.TotalAmount,
+                    TaxAmount = sale.TaxAmount,
+                    DiscountAmount = sale.DiscountAmount,
+                    GrandTotal = sale.GrandTotal,
+                    FbrInvoiceNo = sale.Status == "Voided" ? "VOIDED - DO NOT USE" : "SIM-FBR-" + sale.BillNo,
+                    TaxRate = taxRate,
+                    Items = sale.Items.Select(item => new SaleLineItemDto
+                    {
+                        MedicineId = item.MedicineId ?? 0,
+                        BatchId = item.BatchId ?? 0,
+                        MedicineName = item.MedicineName,
+                        QuantityForReceipt = item.Quantity,
+                        QuantityUnitsForStock = item.Quantity,
+                        UnitPrice = item.UnitPrice,
+                        Subtotal = item.Subtotal
+                    }).ToList()
+                };
+            }
+        }
+    }
+}

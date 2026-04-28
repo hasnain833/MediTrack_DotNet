@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -14,6 +15,7 @@ namespace DChemist.Services
         public string LatestVersion { get; set; } = string.Empty;
         public string DownloadUrl   { get; set; } = string.Empty;
         public string ReleaseNotes  { get; set; } = string.Empty;
+        public string? PackageSha256 { get; set; }
     }
 
     public class UpdateService
@@ -130,7 +132,7 @@ namespace DChemist.Services
         /// Downloads the update zip to a local temp folder with progress reporting.
         /// Returns the local zip path on success, or null on failure.
         /// </summary>
-        public async Task<string?> DownloadUpdateAsync(string downloadUrl, Action<double> progressCallback)
+        public async Task<string?> DownloadUpdateAsync(string downloadUrl, Action<double> progressCallback, string? expectedSha256 = null)
         {
             try
             {
@@ -166,6 +168,16 @@ namespace DChemist.Services
                         progressCallback((double)totalRead / totalBytes * 100);
                 }
 
+                if (!string.IsNullOrWhiteSpace(expectedSha256))
+                {
+                    var actualSha256 = ComputeFileSha256(filePath);
+                    if (!actualSha256.Equals(expectedSha256.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        try { File.Delete(filePath); } catch { /* best effort cleanup */ }
+                        throw new InvalidDataException("Update package integrity verification failed (SHA-256 mismatch).");
+                    }
+                }
+
                 AppLogger.LogInfo($"UpdateService: Download complete → {filePath}");
                 return filePath;
             }
@@ -181,14 +193,14 @@ namespace DChemist.Services
         /// it from there so it is never locked when the update tries to replace files
         /// inside the app directory (including updater.exe itself).
         /// </summary>
-        public void LaunchUpdater(string zipPath)
+        public bool LaunchUpdater(string zipPath)
         {
             try
             {
                 if (string.IsNullOrWhiteSpace(zipPath) || !File.Exists(zipPath))
                 {
                     AppLogger.LogError($"UpdateService: Update file not found: {zipPath}");
-                    return;
+                    return false;
                 }
 
                 var appPath     = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
@@ -197,7 +209,7 @@ namespace DChemist.Services
                 if (!File.Exists(updaterPath))
                 {
                     AppLogger.LogError("UpdateService: updater.exe not found — cannot apply update.");
-                    return;
+                    return false;
                 }
 
                 // ── KEY FIX: Copy updater to %LocalAppData%\D. Chemist\ ───────────────
@@ -227,7 +239,13 @@ namespace DChemist.Services
                     Verb             = "runas"   // Request admin elevation via UAC
                 };
 
-                System.Diagnostics.Process.Start(startInfo);
+                var started = System.Diagnostics.Process.Start(startInfo);
+                if (started == null)
+                {
+                    AppLogger.LogError("UpdateService: Process.Start returned null; updater did not launch.");
+                    return false;
+                }
+                return true;
             }
             catch (System.ComponentModel.Win32Exception win32ex)
                 when (win32ex.NativeErrorCode == 1223) // ERROR_CANCELLED — user clicked "No" on UAC
@@ -238,7 +256,16 @@ namespace DChemist.Services
             catch (Exception ex)
             {
                 AppLogger.LogError("UpdateService: Failed to launch updater", ex);
+                return false;
             }
+        }
+
+        private static string ComputeFileSha256(string filePath)
+        {
+            using var stream = File.OpenRead(filePath);
+            using var sha = SHA256.Create();
+            var hashBytes = sha.ComputeHash(stream);
+            return Convert.ToHexString(hashBytes);
         }
     }
 }

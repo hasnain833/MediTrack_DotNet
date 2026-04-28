@@ -23,5 +23,15 @@ namespace DChemist.Views
             }
             Debug.WriteLine("[MainPage] Constructor finished."); // Added log
         }
+
+        private void Sidebar_PointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            ViewModel.IsSidebarCollapsed = false;
+        }
+
+        private void Sidebar_PointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
+        {
+            ViewModel.IsSidebarCollapsed = true;
+        }
     }
 }

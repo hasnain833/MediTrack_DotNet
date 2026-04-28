@@ -98,15 +98,15 @@
                             
                             <ToggleButton Content="Box" x:Name="BoxModeBtn"
                                           IsChecked="{x:Bind ViewModel.IsBoxMode, Mode=OneWay}"
-                                          Click="OnModeChanged" KeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                          Click="OnModeChanged" PreviewKeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                           Style="{StaticResource SegmentedButtonStyle}"/>
                             <ToggleButton Grid.Column="1" Content="Packet" x:Name="PacketModeBtn"
                                           IsChecked="{x:Bind ViewModel.IsPacketMode, Mode=OneWay}"
-                                          Click="OnModeChanged" KeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                          Click="OnModeChanged" PreviewKeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                           Style="{StaticResource SegmentedButtonStyle}"/>
                             <ToggleButton Grid.Column="2" Content="Tablet" x:Name="TabletModeBtn"
                                           IsChecked="{x:Bind ViewModel.IsTabletMode, Mode=OneWay}"
-                                          Click="OnModeChanged" KeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                          Click="OnModeChanged" PreviewKeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                           Style="{StaticResource SegmentedButtonStyle}"/>
                         </Grid>
 
@@ -231,7 +231,7 @@
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <Border Background="#1A1A2E" CornerRadius="16,16,0,0" Padding="20,12">
+                        <Border Background="#F9FAFB" CornerRadius="16,16,0,0" Padding="20,12" BorderBrush="#E5E7EB" BorderThickness="0,0,0,1">
                             <Grid ColumnSpacing="12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -242,12 +242,12 @@
                                     <ColumnDefinition Width="100"/>
                                     <ColumnDefinition Width="40"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="Medicine" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
-                                <TextBlock Grid.Column="1" Text="Batch" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
-                                <TextBlock Grid.Column="2" Text="Qty" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
-                                <TextBlock Grid.Column="3" Text="Buy Total" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
-                                <TextBlock Grid.Column="4" Text="Buy Unit" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
-                                <TextBlock Grid.Column="5" Text="Sell Unit" Foreground="White" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Text="Medicine" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="1" Text="Batch" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="2" Text="Qty" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="3" Text="Buy Total" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="4" Text="Buy Unit" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="SemiBold"/>
+                                <TextBlock Grid.Column="5" Text="Sell Unit" Foreground="{StaticResource TextSecondaryBrush}" FontSize="11" FontWeight="SemiBold"/>
                                 <TextBlock Grid.Column="6" Text="" />
                             </Grid>
                         </Border>

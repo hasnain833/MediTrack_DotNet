@@ -11,6 +11,12 @@
 
     <StackPanel Padding="10" Spacing="4">
         <!-- Header -->
+        <Image Source="ms-appx:///Assets/store-logo.png"
+               Width="56"
+               Height="56"
+               Stretch="Uniform"
+               HorizontalAlignment="Center"
+               Margin="0,0,0,4"/>
         <TextBlock Text="{x:Bind ViewModel.PharmacyName}" FontSize="16" FontWeight="Bold" HorizontalAlignment="Center"/>
         <TextBlock Text="{x:Bind ViewModel.PharmacyAddress}" FontSize="10" HorizontalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center"/>
         <TextBlock Text="{x:Bind ViewModel.PharmacyPhone}" FontSize="10" HorizontalAlignment="Center"/>
@@ -98,10 +104,11 @@
 
         <Rectangle Height="1" Fill="Black" Margin="0,5"/>
 
-        <!-- Fiscal Section -->
-        <TextBlock Text="{x:Bind ViewModel.FbrInvoiceNo}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
-        <Image Source="{x:Bind ViewModel.QrCodeImage, Mode=OneWay}" Width="100" Height="100" HorizontalAlignment="Center" Margin="5"/>
-        <!-- <TextBlock Text="Scan to verify invoice" FontSize="8" HorizontalAlignment="Center"/> -->
+        <!-- Fiscal Section (disabled when FBR data is unavailable) -->
+        <StackPanel Visibility="{x:Bind ViewModel.FbrInvoiceNo, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverse, Mode=OneWay}">
+            <TextBlock Text="{x:Bind ViewModel.FbrInvoiceNo}" FontSize="10" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+            <Image Source="{x:Bind ViewModel.QrCodeImage, Mode=OneWay}" Width="100" Height="100" HorizontalAlignment="Center" Margin="5"/>
+        </StackPanel>
 
         <TextBlock Text="Thank you for your visit!" FontSize="10" FontStyle="Italic" HorizontalAlignment="Center" Margin="0,10,0,0"/>
     </StackPanel>

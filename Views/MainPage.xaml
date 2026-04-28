@@ -22,7 +22,11 @@
         </Grid.ColumnDefinitions>
 
         <!-- Sidebar -->
-        <Border Grid.Column="0" Background="{StaticResource PremiumBackgroundBrush}" Padding="0,20">
+        <Border Grid.Column="0"
+                Background="{StaticResource PremiumBackgroundBrush}"
+                Padding="0,20"
+                PointerEntered="Sidebar_PointerEntered"
+                PointerExited="Sidebar_PointerExited">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
@@ -31,13 +35,37 @@
                 </Grid.RowDefinitions>
 
                 <StackPanel Spacing="8" Margin="0,20,0,40">
-                    <Button Command="{x:Bind ViewModel.ToggleSidebarCommand}"
-                            Style="{StaticResource TextBlockButtonStyle}"
-                            HorizontalAlignment="Stretch" Padding="0" Height="44">
-                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE700;" Foreground="White" FontSize="20" HorizontalAlignment="Center"/>
-                    </Button>
+                    <Border Width="54" Height="54" CornerRadius="14"
+                            HorizontalAlignment="Center"
+                            Margin="0,2,0,0"
+                            Background="#10FFFFFF"
+                            BorderBrush="#20FFFFFF"
+                            BorderThickness="1"
+                            Visibility="{x:Bind ViewModel.IsSidebarExpanded, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Image Source="ms-appx:///Assets/store-logo.png"
+                               Width="44"
+                               Height="44"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                    </Border>
+
+                    <Border Width="34" Height="34" CornerRadius="10"
+                            HorizontalAlignment="Center"
+                            Margin="0,4,0,0"
+                            Background="#16FFFFFF"
+                            BorderBrush="#24FFFFFF"
+                            BorderThickness="1"
+                            Visibility="{x:Bind ViewModel.IsSidebarCollapsed, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Image Source="ms-appx:///Assets/store-logo.png"
+                               Width="26"
+                               Height="26"
+                               Stretch="Uniform"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                    </Border>
                     
-                    <StackPanel Spacing="2" Margin="24,10,24,0"
+                    <StackPanel Spacing="2" Margin="24,8,24,0"
                                 Visibility="{x:Bind ViewModel.IsSidebarExpanded, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="D. Chemist" FontSize="22" FontWeight="Bold" Foreground="White" TextWrapping="NoWrap"/>
                         <TextBlock Text="Management" FontSize="11" Foreground="#88FFFFFF"/>
