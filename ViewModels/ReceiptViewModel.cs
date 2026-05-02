@@ -32,7 +32,11 @@ namespace DChemist.ViewModels
                 string logoPath = Path.Combine(AppContext.BaseDirectory, "Assets", "store-logo.png");
                 if (File.Exists(logoPath))
                 {
-                    var bitmap = new BitmapImage(new Uri(logoPath));
+                    var bitmap = new BitmapImage();
+                    using (var stream = File.OpenRead(logoPath).AsRandomAccessStream())
+                    {
+                        await bitmap.SetSourceAsync(stream);
+                    }
                     StoreLogo = bitmap;
                     OnPropertyChanged(nameof(StoreLogo));
                 }

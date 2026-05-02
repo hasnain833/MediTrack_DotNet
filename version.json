@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.8.0.0",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.0/DChemist_v1.8.0_Release.zip",
-  "ReleaseNotes": "v1.8.0 - Keyboard navigation fixes, Bill terminology update, and layout improvements."
+  "LatestVersion": "1.8.0.1",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.1/DChemist_v1.8.1_Release.zip",
+  "ReleaseNotes": "v1.8.1 - Fixes for Inventory Page loading and Logo display in release builds."
 }
