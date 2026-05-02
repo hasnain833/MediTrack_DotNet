@@ -37,10 +37,8 @@ namespace DChemist.ViewModels
                 new NavigationItem { Title = "Inventory", Icon = "\uE950", PageType = "DChemist.Views.InventoryPage", RequiresAdmin = false },
                 new NavigationItem { Title = "Stock In",  Icon = "\uE896", PageType = "DChemist.Views.StockInPage",   RequiresAdmin = true  },
                 new NavigationItem { Title = "Billing",   Icon = "\uE8A1", PageType = "DChemist.Views.BillingPage",   RequiresAdmin = false },
-                new NavigationItem { Title = "Invoices",  Icon = "\uE990", PageType = "DChemist.Views.FinancialPage", RequiresAdmin = false },
+                new NavigationItem { Title = "Sales History",  Icon = "\uE990", PageType = "DChemist.Views.FinancialPage", RequiresAdmin = false },
                 new NavigationItem { Title = "Daily Report", Icon = "\uE9D9", PageType = "DChemist.Views.FinancialReportPage", RequiresAdmin = true },
-                new NavigationItem { Title = "Stock Adjustment", Icon = "\uE7BE", PageType = "DChemist.Views.InventoryAdjustmentPage", RequiresAdmin = true },
-                new NavigationItem { Title = "Audit Logs", Icon = "\uE81C", PageType = "DChemist.Views.AuditLogsPage", RequiresAdmin = true },
                 new NavigationItem { Title = "Settings", Icon = "\uE713", PageType = "DChemist.Views.SettingsPage", RequiresAdmin = true }
             };
 
@@ -55,6 +53,7 @@ namespace DChemist.ViewModels
 
             LogoutCommand = new RelayCommand(_ => ExecuteLogout());
             ToggleSidebarCommand = new RelayCommand(_ => IsSidebarCollapsed = !IsSidebarCollapsed);
+            OpenInNewWindowCommand = new RelayCommand(item => ExecuteOpenInNewWindow(item as NavigationItem));
             
             // Check for updates on background thread
             _ = CheckForUpdatesAsync();
@@ -134,6 +133,15 @@ namespace DChemist.ViewModels
         public ObservableCollection<NavigationItem> NavigationItems { get; }
         public ICommand LogoutCommand { get; }
         public ICommand ToggleSidebarCommand { get; }
+        public ICommand OpenInNewWindowCommand { get; }
+
+        private void ExecuteOpenInNewWindow(NavigationItem? item)
+        {
+            if (item != null)
+            {
+                _navigationService.OpenNewWindow(item.PageType);
+            }
+        }
 
         private async void ExecuteLogout()
         {

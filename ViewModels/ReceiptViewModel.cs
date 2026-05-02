@@ -17,6 +17,7 @@ namespace DChemist.ViewModels
         public string PharmacyPhone { get; set; } = "+92-332-8787833";
         public string PharmacyLicense { get; set; } = "01-372-0011-134212M";
         public string PharmacyNtn { get; set; } = "I736466-5";
+        public BitmapImage? StoreLogo { get; set; }
 
         public async Task LoadStoreDetailsAsync(SettingsService settings)
         {
@@ -25,6 +26,18 @@ namespace DChemist.ViewModels
             PharmacyPhone = await settings.GetPharmacyPhoneAsync();
             PharmacyLicense = await settings.GetPharmacyLicenseAsync();
             PharmacyNtn = await settings.GetPharmacyNtnAsync();
+
+            try
+            {
+                string logoPath = Path.Combine(AppContext.BaseDirectory, "Assets", "store-logo.png");
+                if (File.Exists(logoPath))
+                {
+                    var bitmap = new BitmapImage(new Uri(logoPath));
+                    StoreLogo = bitmap;
+                    OnPropertyChanged(nameof(StoreLogo));
+                }
+            }
+            catch { }
         }
         
         public string BillNo { get; set; } = string.Empty;

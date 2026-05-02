@@ -50,7 +50,7 @@
                             <TextBlock Text="Total Gross Sales" FontSize="13" Foreground="{StaticResource TextSecondaryBrush}" FontWeight="SemiBold"/>
                             <TextBlock Text="{x:Bind ViewModel.Report.GrossSales, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" 
                                        FontSize="28" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                            <TextBlock Text="{x:Bind ViewModel.Report.TotalSalesCount, Mode=OneWay, ConverterParameter='{}Total Invoices: {0}', Converter={StaticResource StringFormatConverter}}" 
+                            <TextBlock Text="{x:Bind ViewModel.Report.TotalSalesCount, Mode=OneWay, ConverterParameter='{}Total Bills: {0}', Converter={StaticResource StringFormatConverter}}" 
                                        FontSize="12" Foreground="#48BB78" FontWeight="Medium"/>
                         </StackPanel>
                     </Border>

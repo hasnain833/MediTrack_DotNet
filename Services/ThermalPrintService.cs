@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Printing;
 using Windows.Graphics.Printing;
 using WinRT.Interop;
+using DChemist.Utils;
 
 namespace DChemist.Services
 {
@@ -103,12 +104,21 @@ namespace DChemist.Services
 
         public Task<bool> PrintReceiptSilentAsync(ViewModels.ReceiptViewModel receipt, string printerName)
         {
-            return Task.Run(() =>
+            return Task.Run(async () =>
             {
                 try
                 {
+                    byte[] initBytes = { 27, 64 }; // ESC @
+                    byte[] logoBytes = await EscPosImageHelper.GetLogoEscPosBytesAsync();
                     string receiptContent = ReceiptBuilder.BuildReceiptString(receipt);
-                    return RawPrinterHelper.SendStringToPrinter(printerName, receiptContent);
+                    byte[] textBytes = System.Text.Encoding.ASCII.GetBytes(receiptContent);
+                    
+                    byte[] combined = new byte[initBytes.Length + logoBytes.Length + textBytes.Length];
+                    Buffer.BlockCopy(initBytes, 0, combined, 0, initBytes.Length);
+                    Buffer.BlockCopy(logoBytes, 0, combined, initBytes.Length, logoBytes.Length);
+                    Buffer.BlockCopy(textBytes, 0, combined, initBytes.Length + logoBytes.Length, textBytes.Length);
+
+                    return RawPrinterHelper.SendBytesToPrinter(printerName, combined);
                 }
                 catch (Exception ex)
                 {

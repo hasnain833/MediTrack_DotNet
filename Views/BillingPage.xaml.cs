@@ -2,6 +2,8 @@ using Microsoft.UI.Xaml.Controls;
 using DChemist.ViewModels;
 using DChemist.Models;
 using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Linq;
 
 namespace DChemist.Views
 {
@@ -14,6 +16,7 @@ namespace DChemist.Views
             this.InitializeComponent();
             ViewModel = App.Current.Services.GetRequiredService<BillingViewModel>();
         }
+
         protected override async void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
         {
             base.OnNavigatedTo(e);
@@ -22,12 +25,14 @@ namespace DChemist.Views
             ContinuousScanToggle.Content = ViewModel.IsContinuousScanMode ? "Stop Scanning" : "Enable Continuous Scanning";
             DispatcherQueue.TryEnqueue(() => SetScannerFocus(ViewModel.IsContinuousScanMode));
         }
+
         private async void MedicineSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
         {
             if (args.ChosenSuggestion is DChemist.Models.Medicine medicine)
             {
                 await ViewModel.ExecuteAddToCartAsync(medicine);
                 sender.Text = string.Empty;
+                FocusLastItemQuantityInput();
             }
             else if (!string.IsNullOrWhiteSpace(args.QueryText))
             {
@@ -42,12 +47,14 @@ namespace DChemist.Views
                 {
                     await ViewModel.ExecuteAddToCartAsync(exactMatch);
                     sender.Text = string.Empty;
+                    FocusLastItemQuantityInput();
                 }
                 // 2. If no exact match but there's only one search result, assume that's the one
                 else if (ViewModel.MedicineResults.Count == 1)
                 {
                     await ViewModel.ExecuteAddToCartAsync(ViewModel.MedicineResults[0]);
                     sender.Text = string.Empty;
+                    FocusLastItemQuantityInput();
                 }
                 else
                 {
@@ -56,6 +63,7 @@ namespace DChemist.Views
                     if (found)
                     {
                         sender.Text = string.Empty;
+                        FocusLastItemQuantityInput();
                     }
                     else
                     {
@@ -84,10 +92,6 @@ namespace DChemist.Views
         {
             ContinuousScanToggle.Content = "Enable Continuous Scanning";
             SetScannerFocus(false);
-        }
-
-        private void PageRoot_PointerPressed(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-        {
         }
 
         private System.Text.StringBuilder _scannerBuffer = new System.Text.StringBuilder();
@@ -135,6 +139,7 @@ namespace DChemist.Views
                 char c = GetCharFromKey(e.Key);
                 if (c != '\0') _scannerBuffer.Append(c);
             }
+
             if (e.Key == Windows.System.VirtualKey.F2)
             {
                 MedicineSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
@@ -212,5 +217,78 @@ namespace DChemist.Views
             }
         }
 
+        private void OnUnitKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Right)
+            {
+                var container = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(sender as ComboBox) as Grid;
+                if (container != null)
+                {
+                    var qtyBox = FindVisualChild<NumberBox>(container, "QuantityInput");
+                    qtyBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                var container = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(sender as ComboBox) as Grid;
+                if (container != null)
+                {
+                    var qtyBox = FindVisualChild<NumberBox>(container, "QuantityInput");
+                    qtyBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                    e.Handled = true;
+                }
+            }
+        }
+        
+        private void OnQuantityKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.Left)
+            {
+                var container = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(sender as NumberBox) as Grid;
+                if (container != null)
+                {
+                    var unitBox = FindVisualChild<ComboBox>(container, "UnitSelector");
+                    unitBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                    e.Handled = true;
+                }
+            }
+            else if (e.Key == Windows.System.VirtualKey.Enter)
+            {
+                MedicineSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                e.Handled = true;
+            }
+        }
+
+        private void FocusLastItemQuantityInput()
+        {
+            DispatcherQueue.TryEnqueue(async () =>
+            {
+                await System.Threading.Tasks.Task.Delay(150);
+                if (ViewModel.CartItems.Count > 0)
+                {
+                    var lastItem = ViewModel.CartItems[ViewModel.CartItems.Count - 1];
+                    var container = CartListView.ContainerFromItem(lastItem) as ListViewItem;
+                    if (container != null)
+                    {
+                        var numberBox = FindVisualChild<NumberBox>(container, "QuantityInput");
+                        numberBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                    }
+                }
+            });
+        }
+
+        private T? FindVisualChild<T>(Microsoft.UI.Xaml.DependencyObject obj, string name) where T : Microsoft.UI.Xaml.DependencyObject
+        {
+            for (int i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(obj); i++)
+            {
+                var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(obj, i);
+                if (child is T t && (string.IsNullOrEmpty(name) || (child is Microsoft.UI.Xaml.FrameworkElement fe && fe.Name == name)))
+                    return t;
+                var childOfChild = FindVisualChild<T>(child, name);
+                if (childOfChild != null) return childOfChild;
+            }
+            return null;
+        }
     }
 }

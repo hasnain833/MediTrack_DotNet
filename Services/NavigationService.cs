@@ -1,6 +1,9 @@
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Extensions.DependencyInjection;
 using DChemist.ViewModels;
+using DChemist.Views;
+using System;
+using System.Collections.Generic;
 
 namespace DChemist.Services
 {
@@ -102,6 +105,22 @@ namespace DChemist.Services
             {
                 _frame.GoBack();
             }
+        }
+
+        private readonly List<SecondaryWindow> _secondaryWindows = new();
+
+        public void OpenNewWindow(string pageTypeFullName, object? parameter = null)
+        {
+            var type = ResolveType(pageTypeFullName);
+            if (type == null) return;
+
+            var window = new SecondaryWindow();
+            window.Title = $"D.Chemist - {type.Name.Replace("Page", "")}";
+            window.Frame.Navigate(type, parameter);
+            window.Activate();
+            
+            _secondaryWindows.Add(window);
+            window.Closed += (s, e) => _secondaryWindows.Remove(window);
         }
     }
 }

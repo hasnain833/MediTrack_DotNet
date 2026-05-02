@@ -70,6 +70,7 @@
             <utils:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
             <utils:StringToHeaderConverter x:Key="StringToHeaderConverter"/>
             <utils:NearExpiryToVisibilityConverter x:Key="NearExpiryToVisibilityConverter"/>
+            <utils:StockLevelColorConverter x:Key="StockLevelColorConverter"/>
 
             <!-- 3. Brushes (Dependent on Tokens) -->
             <SolidColorBrush x:Key="AccentAccent" Color="#00D2FF"/>
@@ -484,3 +485,6 @@
         </ResourceDictionary>
     </Application.Resources>
 </Application>
+
+
+

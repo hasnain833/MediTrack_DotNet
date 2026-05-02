@@ -71,7 +71,7 @@ namespace DChemist.Services
                 customerId = customer?.Id;
             }
 
-            string billNo = "INV-" + DateTime.Now.Ticks.ToString().Substring(10);
+            string billNo = "BILL-" + DateTime.Now.Ticks.ToString().Substring(10);
             var items = request.Items.Select(i => new SaleItem
             {
                 MedicineId = i.MedicineId,

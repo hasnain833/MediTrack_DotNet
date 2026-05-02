@@ -22,6 +22,14 @@ namespace DChemist.ViewModels
         private string _searchCustomerTerm = string.Empty;
         private Sale? _selectedSaleDetails;
         private bool _isDetailsLoading;
+        private string _statusMessage = "Loading bills...";
+        private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcher = App.MainRoot?.DispatcherQueue ?? Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
+
+        public string StatusMessage
+        {
+            get => _statusMessage;
+            set => SetProperty(ref _statusMessage, value);
+        }
 
         public FinancialViewModel(
             SaleRepository saleRepo,
@@ -35,6 +43,7 @@ namespace DChemist.ViewModels
             _authService = authService;
             _dialogService = dialogService;
             _financialActionsService = financialActionsService;
+            _dispatcher = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
             SalesHistory = new ObservableCollection<SaleSummary>();
             RevenueStats = new ObservableCollection<RevenueStat>();
@@ -132,25 +141,34 @@ namespace DChemist.ViewModels
                     SearchDate?.DateTime,
                     SearchCustomerTerm);
 
-                SalesHistory.Clear();
-                foreach (var item in history) SalesHistory.Add(item);
+                _dispatcher.TryEnqueue(() =>
+                {
+                    SalesHistory.Clear();
+                    foreach (var item in history) SalesHistory.Add(item);
+                    StatusMessage = history.Count == 0 ? "No bills found matching your search." : $"{history.Count} bills found.";
+                });
 
-                RevenueStats.Clear();
                 var todayStart = DateTime.Today;
                 var todayEnd = DateTime.Today.AddDays(1).AddSeconds(-1);
                 var dailyRev = await _saleRepo.GetRevenueTotalAsync(todayStart, todayEnd);
-                RevenueStats.Add(new RevenueStat { Label = "Daily", Value = $"PKR {dailyRev:N2}", Change = "Real-time" });
 
                 var weekStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek);
                 var weeklyRev = await _saleRepo.GetRevenueTotalAsync(weekStart, todayEnd);
-                RevenueStats.Add(new RevenueStat { Label = "Weekly", Value = $"PKR {weeklyRev:N2}", Change = "This Week" });
 
                 var monthStart = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
                 var monthlyRev = await _saleRepo.GetRevenueTotalAsync(monthStart, todayEnd);
-                RevenueStats.Add(new RevenueStat { Label = "Monthly", Value = $"PKR {monthlyRev:N2}", Change = "This Month" });
+
+                _dispatcher.TryEnqueue(() =>
+                {
+                    RevenueStats.Clear();
+                    RevenueStats.Add(new RevenueStat { Label = "Daily", Value = $"PKR {dailyRev:N2}", Change = "Real-time" });
+                    RevenueStats.Add(new RevenueStat { Label = "Weekly", Value = $"PKR {weeklyRev:N2}", Change = "This Week" });
+                    RevenueStats.Add(new RevenueStat { Label = "Monthly", Value = $"PKR {monthlyRev:N2}", Change = "This Month" });
+                });
             }
             catch (Exception ex)
             {
+                StatusMessage = "✘ Error loading bills. Please check connection.";
                 AppLogger.LogError("FinancialViewModel.LoadDataAsync failed", ex);
             }
         }
@@ -196,23 +214,26 @@ namespace DChemist.ViewModels
                 var fullSale = await _saleRepo.GetSaleWithItemsAsync(SelectedSale.BillNo);
                 SelectedSaleDetails = fullSale;
 
-                SelectedInvoiceItems.Clear();
-                if (fullSale != null)
+                _dispatcher.TryEnqueue(() =>
                 {
-                    foreach (var item in fullSale.Items)
+                    SelectedInvoiceItems.Clear();
+                    if (fullSale != null)
                     {
-                        SelectedInvoiceItems.Add(new InvoiceItemViewModel
+                        foreach (var item in fullSale.Items)
                         {
-                            Id = item.Id,
-                            MedicineName = item.MedicineName,
-                            Quantity = item.Quantity,
-                            ReturnedQuantity = item.ReturnedQuantity,
-                            UnitPrice = item.UnitPrice,
-                            Subtotal = item.Subtotal,
-                            ReturnInputQty = 1
-                        });
+                            SelectedInvoiceItems.Add(new InvoiceItemViewModel
+                            {
+                                Id = item.Id,
+                                MedicineName = item.MedicineName,
+                                Quantity = item.Quantity,
+                                ReturnedQuantity = item.ReturnedQuantity,
+                                UnitPrice = item.UnitPrice,
+                                Subtotal = item.Subtotal,
+                                ReturnInputQty = 1
+                            });
+                        }
                     }
-                }
+                });
             }
             catch (Exception ex)
             {

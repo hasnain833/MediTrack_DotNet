@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.6.0.0",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.6.0/DChemist-v1.6.0.zip",
-  "ReleaseNotes": "v1.6.0 Stable - Sidebar Collapsed by Default & Safety-Lock (Auto-Restart) Logic"
+  "LatestVersion": "1.8.0.0",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.0/DChemist_v1.8.0_Release.zip",
+  "ReleaseNotes": "v1.8.0 - Keyboard navigation fixes, Bill terminology update, and layout improvements."
 }

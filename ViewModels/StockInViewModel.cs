@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -21,7 +22,6 @@ namespace DChemist.ViewModels
         private readonly SupplierRepository     _supplierRepo;
         private readonly InventoryEventBus      _eventBus;
         private readonly IDialogService          _dialogService;
-        private readonly BarcodeLookupService    _barcodeLookupService;
         private readonly DispatcherQueue         _dispatcher;
 
         public StockInViewModel(
@@ -29,15 +29,13 @@ namespace DChemist.ViewModels
             BatchRepository batchRepo,
             SupplierRepository supplierRepo,
             InventoryEventBus eventBus,
-            IDialogService dialogService,
-            BarcodeLookupService barcodeLookupService)
+            IDialogService dialogService)
         {
             _medicineRepo     = medicineRepo;
             _batchRepo        = batchRepo;
             _supplierRepo     = supplierRepo;
             _eventBus         = eventBus;
             _dialogService    = dialogService;
-            _barcodeLookupService = barcodeLookupService;
             _dispatcher    = DispatcherQueue.GetForCurrentThread();
 
             ReceivingItems = new ObservableCollection<ReceivingItem>();
@@ -121,8 +119,8 @@ namespace DChemist.ViewModels
 
         public string EntryGstText
         {
-            get => _entryGst.ToString("G29");
-            set { if (decimal.TryParse(value, out decimal res)) EntryGst = res; OnPropertyChanged(nameof(EntryGstText)); }
+            get => _entryGst.ToString("G29", CultureInfo.InvariantCulture);
+            set { if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal res)) EntryGst = res; OnPropertyChanged(nameof(EntryGstText)); }
         }
 
         private Medicine? _foundMedicine;
@@ -292,14 +290,14 @@ namespace DChemist.ViewModels
 
         public string UnitsPerPackText
         {
-            get => _unitsPerPack.ToString();
-            set { if (int.TryParse(value, out int res)) UnitsPerPack = res; OnPropertyChanged(nameof(UnitsPerPackText)); }
+            get => _unitsPerPack.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int res)) UnitsPerPack = res; OnPropertyChanged(nameof(UnitsPerPackText)); }
         }
 
         public string PackQuantityText
         {
-            get => _packQuantity.ToString();
-            set { if (int.TryParse(value, out int res)) PackQuantity = res; OnPropertyChanged(nameof(PackQuantityText)); }
+            get => _packQuantity.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int res)) PackQuantity = res; OnPropertyChanged(nameof(PackQuantityText)); }
         }
 
         private void RecalculateTotalUnits()
@@ -378,20 +376,20 @@ namespace DChemist.ViewModels
 
         public string QuantityUnitsText
         {
-            get => _quantityUnits.ToString();
-            set { if (int.TryParse(value, out int res)) QuantityUnits = res; OnPropertyChanged(nameof(QuantityUnitsText)); }
+            get => _quantityUnits.ToString(CultureInfo.InvariantCulture);
+            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int res)) QuantityUnits = res; OnPropertyChanged(nameof(QuantityUnitsText)); }
         }
 
         public string PurchaseTotalPriceText
         {
-            get => _purchaseTotalPrice.ToString("G29");
-            set { if (decimal.TryParse(value, out decimal res)) PurchaseTotalPrice = res; OnPropertyChanged(nameof(PurchaseTotalPriceText)); }
+            get => _purchaseTotalPrice.ToString("G29", CultureInfo.InvariantCulture);
+            set { if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal res)) PurchaseTotalPrice = res; OnPropertyChanged(nameof(PurchaseTotalPriceText)); }
         }
 
         public string TotalSellingPriceText
         {
-            get => _totalSellingPrice.ToString("G29");
-            set { if (decimal.TryParse(value, out decimal res)) TotalSellingPrice = res; OnPropertyChanged(nameof(TotalSellingPriceText)); }
+            get => _totalSellingPrice.ToString("G29", CultureInfo.InvariantCulture);
+            set { if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal res)) TotalSellingPrice = res; OnPropertyChanged(nameof(TotalSellingPriceText)); }
         }
 
         public string PurchasePricePerUnitText => PurchasePricePerUnit.ToString("N2");
@@ -465,44 +463,10 @@ namespace DChemist.ViewModels
                 }
                 else
                 {
-                    AppLogger.LogInfo($"StockIn.Lookup: Barcode '{barcode}' not found locally. Trying external API...");
-                    StatusMessage = $"Fetching details...";
-                    
-                    var externalMed = await _barcodeLookupService.FetchMedicineFromExternalApiAsync(barcode);
-                    if (externalMed != null)
-                    {
-                        AppLogger.LogInfo($"StockIn.Lookup: External API found '{externalMed.Name}'. Saving to local DB...");
-                        
-                        var existing = await _medicineRepo.SearchAsync(externalMed.Name);
-                        var match = existing.FirstOrDefault(m => m.Name.Equals(externalMed.Name, StringComparison.OrdinalIgnoreCase));
-                        
-                        if (match == null)
-                        {
-                            externalMed = await _medicineRepo.AddAsync(externalMed);
-                        }
-                        else
-                        {
-                            match.Barcode = barcode;
-                            await _medicineRepo.UpdateAsync(match);
-                            externalMed = match;
-                        }
-                        
-                        FoundMedicine = externalMed;
-                        StatusMessage = $"✔ Fetched: {externalMed.Name}";
-                        
-                        if (IsAutoAddEnabled) 
-                        {
-                            AppLogger.LogInfo("StockIn.Lookup: External API auto-add triggered.");
-                            await ExecuteAddToListAsync();
-                        }
-                    }
-                    else
-                    {
-                        AppLogger.LogInfo($"StockIn.Lookup: External API failed for '{barcode}'.");
-                        StatusMessage = $"ℹ New Barcode: {barcode}";
-                        ClearEntryInternal(false); 
-                        RequestFocus?.Invoke(this, "MedicineName");
-                    }
+                    AppLogger.LogInfo($"StockIn.Lookup: Barcode '{barcode}' not found locally.");
+                    StatusMessage = $"ℹ New Barcode: {barcode}";
+                    ClearEntryInternal(false); 
+                    RequestFocus?.Invoke(this, "MedicineName");
                 }
             }
             catch (Exception ex)

@@ -86,10 +86,7 @@
                                 <FontIcon Grid.Column="0" FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Icon}" 
                                           FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center"
                                           Foreground="White"/>
-                                <TextBlock Grid.Column="1" Text="{x:Bind Title}" FontSize="14" FontWeight="Medium"
-                                           VerticalAlignment="Center" Margin="0,0,0,0"
-                                           Foreground="White"
-                                           Visibility="{Binding ViewModel.IsSidebarExpanded, ElementName=PageRoot, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                <Grid Grid.Column="1" Visibility="{Binding ViewModel.IsSidebarExpanded, ElementName=PageRoot, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="40"/></Grid.ColumnDefinitions><TextBlock Grid.Column="0" Text="{x:Bind Title}" FontSize="14" FontWeight="Medium" VerticalAlignment="Center" Margin="0,0,0,0" Foreground="White"/><Button Grid.Column="1" Command="{Binding ViewModel.OpenInNewWindowCommand, ElementName=PageRoot}" CommandParameter="{Binding}" Style="{StaticResource TextBlockButtonStyle}" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Center" Background="Transparent"><FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8A7;" FontSize="14" Foreground="#88FFFFFF"/><ToolTipService.ToolTip><ToolTip Content="Open in New Window"/></ToolTipService.ToolTip></Button></Grid>
                                 <ToolTipService.ToolTip>
                                     <ToolTip Content="{x:Bind Title}" 
                                              Visibility="{Binding ViewModel.IsSidebarCollapsed, ElementName=PageRoot, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"/>
@@ -129,3 +126,4 @@
         <Frame x:Name="ContentFrame" Grid.Column="1" Padding="0"/>
     </Grid>
 </Page>
+

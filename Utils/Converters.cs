@@ -317,4 +317,19 @@ namespace DChemist.Utils
         }
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
+
+    public class StockLevelColorConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            if (value is int qty)
+            {
+                if (qty <= 0) return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 38, 38)); // Red
+                if (qty <= 10) return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 217, 119, 6)); // Orange
+                return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 5, 150, 105)); // Green
+            }
+            return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 107, 114, 128)); // Gray
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
 }

@@ -12,9 +12,6 @@ namespace DChemist.Services
             const int width = 48; // 80mm thermal printer = 48 characters
             const string separator = "------------------------------------------------"; // 48 dashes
             
-            // ESC @ (Initialize)
-            sb.Append((char)27).Append((char)64);
-            
             // --- HEADER (Centered) ---
             sb.Append((char)27).Append((char)97).Append((char)1); // Center
             
@@ -39,6 +36,12 @@ namespace DChemist.Services
                 ? receipt.CustomerName
                 : "Walk-in Customer";
             sb.AppendLine(JustifyLine("Customer:", customer, width));
+
+            if (!string.IsNullOrWhiteSpace(receipt.CustomerPhone))
+            {
+                sb.AppendLine(JustifyLine("Phone:", receipt.CustomerPhone, width));
+            }
+
             sb.AppendLine(separator);
             
             // --- ITEMS TABLE (4 Columns for 80mm) ---

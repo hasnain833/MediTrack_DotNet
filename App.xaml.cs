@@ -127,9 +127,7 @@ namespace DChemist
             services.AddTransient<FinancialViewModel>();
             services.AddTransient<SettingsViewModel>();
             services.AddTransient<StockInViewModel>();
-            services.AddTransient<InventoryAdjustmentViewModel>();
             services.AddTransient<FinancialReportViewModel>();
-            services.AddTransient<AuditLogsViewModel>();
 
             return services.BuildServiceProvider();
         }

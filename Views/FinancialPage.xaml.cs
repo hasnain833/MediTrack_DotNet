@@ -12,6 +12,7 @@ namespace DChemist.Views
         {
             this.InitializeComponent();
             ViewModel = App.Current.Services.GetRequiredService<FinancialViewModel>();
+            this.DataContext = ViewModel;
         }
 
         protected override async void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
