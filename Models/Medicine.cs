@@ -15,7 +15,31 @@ namespace DChemist.Models
         public string? Barcode { get; set; }
         public decimal GstPercent { get; set; } = 0;
         public string FormattedGst => GstPercent > 0 ? $"{GstPercent:G29}%" : "0%";
+        public int UnitsPerPack { get; set; } = 1;
+        public int PacketsPerBox { get; set; } = 1;
+        public string DefaultEntryMode { get; set; } = "Tablet";
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        // Batch-specific properties for Inventory Page
+        public int? BatchId { get; set; }
+        public string? BatchEntryMode { get; set; }
+        public int? BatchUnitsPerPack { get; set; }
+        public int? BatchPackQuantity { get; set; }
+
+        public string FormattedQuantity
+        {
+            get
+            {
+                if (BatchEntryMode == "Box" && BatchUnitsPerPack > 0)
+                {
+                    int boxes = StockQty / BatchUnitsPerPack.Value;
+                    int loose = StockQty % BatchUnitsPerPack.Value;
+                    if (loose == 0) return $"{boxes} Box";
+                    return $"{boxes} Box + {loose} Tab";
+                }
+                return $"{StockQty} Units";
+            }
+        }
 
         private bool _isSelected;
         [System.ComponentModel.DataAnnotations.Schema.NotMapped]

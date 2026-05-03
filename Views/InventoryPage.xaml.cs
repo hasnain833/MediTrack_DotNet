@@ -13,6 +13,7 @@ namespace DChemist.Views
         {
             this.InitializeComponent();
             ViewModel = App.Current.Services.GetRequiredService<InventoryViewModel>();
+            this.DataContext = ViewModel;
             // Load data AFTER the page is rendered — avoids blocking the navigation frame
             this.Loaded += async (_, _) => await ViewModel.LoadAsync();
         }

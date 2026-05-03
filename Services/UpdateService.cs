@@ -35,7 +35,7 @@ namespace DChemist.Services
 
             _httpClient = new HttpClient
             {
-                Timeout = TimeSpan.FromSeconds(15)
+                Timeout = TimeSpan.FromMinutes(60)
             };
 
             // Assembly version (set in .csproj → <Version>)

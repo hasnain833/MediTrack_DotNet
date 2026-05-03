@@ -217,46 +217,26 @@ namespace DChemist.Views
             }
         }
 
-        private void OnUnitKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        private void OnRowInputKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
-            if (e.Key == Windows.System.VirtualKey.Right)
+            if (e.Key == Windows.System.VirtualKey.Enter)
             {
-                var container = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(sender as ComboBox) as Grid;
-                if (container != null)
+                var textBox = sender as TextBox;
+                var container = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(textBox) as Grid;
+                
+                if (container != null && textBox?.PlaceholderText == "Box")
                 {
-                    var qtyBox = FindVisualChild<NumberBox>(container, "QuantityInput");
-                    qtyBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                    // Move from Box to Tablet
+                    var tabBox = FindVisualChild<TextBox>(container, "TabletInput");
+                    tabBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
                     e.Handled = true;
                 }
-            }
-            else if (e.Key == Windows.System.VirtualKey.Enter)
-            {
-                var container = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(sender as ComboBox) as Grid;
-                if (container != null)
+                else
                 {
-                    var qtyBox = FindVisualChild<NumberBox>(container, "QuantityInput");
-                    qtyBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                    // Back to search
+                    MedicineSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
                     e.Handled = true;
                 }
-            }
-        }
-        
-        private void OnQuantityKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
-        {
-            if (e.Key == Windows.System.VirtualKey.Left)
-            {
-                var container = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(sender as NumberBox) as Grid;
-                if (container != null)
-                {
-                    var unitBox = FindVisualChild<ComboBox>(container, "UnitSelector");
-                    unitBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
-                    e.Handled = true;
-                }
-            }
-            else if (e.Key == Windows.System.VirtualKey.Enter)
-            {
-                MedicineSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
-                e.Handled = true;
             }
         }
 
@@ -271,8 +251,11 @@ namespace DChemist.Views
                     var container = CartListView.ContainerFromItem(lastItem) as ListViewItem;
                     if (container != null)
                     {
-                        var numberBox = FindVisualChild<NumberBox>(container, "QuantityInput");
-                        numberBox?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                        // Decide which box to focus based on which one has the '1'
+                        string targetName = lastItem.QuantityBox > 0 ? "BoxInput" : "TabletInput";
+                        var box = FindVisualChild<TextBox>(container, targetName);
+                        box?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                        box?.SelectAll();
                     }
                 }
             });

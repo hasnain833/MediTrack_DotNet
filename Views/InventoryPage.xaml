@@ -7,13 +7,11 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:DChemist.Models"
-    xmlns:primitives="using:CommunityToolkit.WinUI.UI.Controls.Primitives"
     mc:Ignorable="d"
     x:Name="PageRoot">
 
     <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
@@ -23,188 +21,130 @@
         <Border Background="{StaticResource PremiumBackgroundBrush}"
                 CornerRadius="0,0,24,24" Padding="40,32" Margin="0,0,0,24">
             <StackPanel Spacing="10" Margin="60,0,0,16">
-                <TextBlock Text="Inventory" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
-                <TextBlock Text="Manage your medicines, stock levels and pricing." FontSize="15" Foreground="#A0AEC0"/>
+                <TextBlock Text="Medicine Inventory" FontSize="32" FontWeight="SemiBold" Foreground="White"/>
+                <TextBlock Text="View and search available medicines and current stock levels." FontSize="15" Foreground="#A0AEC0"/>
             </StackPanel>
         </Border>
 
-        <!-- Main content wrapped in ScrollViewer -->
-        <ScrollViewer Grid.Row="1" Grid.RowSpan="3" VerticalScrollBarVisibility="Auto">
+        <!-- Search Header -->
+        <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="24,16" Margin="40,0,40,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Orientation="Horizontal" Spacing="20">
+                    <AutoSuggestBox PlaceholderText="Search medicine name..." 
+                                     Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     TextMemberPath="Name"
+                                     QueryIcon="Find" Width="600" Height="40" VerticalAlignment="Center"/>
+                    
+                    <Button Command="{x:Bind ViewModel.RefreshCommand}" 
+                            Style="{StaticResource TextBlockButtonStyle}" Padding="12,8" VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"/>
+                            <TextBlock Text="Refresh" FontSize="14" VerticalAlignment="Center" FontWeight="Medium"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Inventory Table -->
+        <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="40,0,40,40" MinHeight="400">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <!-- Error Banner — hidden when empty -->
-                <Border Grid.Row="0" Background="#FFF3F3" CornerRadius="8" Padding="12,10"
-                        Margin="24,16,24,0"
-                        Visibility="{x:Bind ViewModel.ErrorMessage, Mode=OneWay, Converter={StaticResource StringToVisibilityConverter}}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE783;" FontSize="16" Foreground="#C0392B" VerticalAlignment="Center"/>
-                        <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
-                                   Foreground="#C0392B" FontWeight="SemiBold" TextWrapping="Wrap"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                </Border>
+                <!-- Table Header -->
+                <Grid Background="#F9FAFB" Padding="24,12" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="3*"/>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="120"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="150"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Medicine Name" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Grid.Column="1" Text="Category" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Grid.Column="2" Text="Batch / Supplier" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Grid.Column="3" Text="Stock Qty" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Grid.Column="4" Text="Selling Price" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Grid.Column="5" Text="Expiry" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                </Grid>
 
-                <!-- Search and Add Header -->
-                <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="24,16" Margin="40,16,40,16">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel Orientation="Horizontal" Spacing="20">
-                            <AutoSuggestBox PlaceholderText="Search inventory..." 
-                                             Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             TextMemberPath="Name"
-                                             QueryIcon="Find" Width="500" Height="40" VerticalAlignment="Center"/>
-                            
-                            <Button Command="{x:Bind ViewModel.RefreshCommand}" 
-                                    Style="{StaticResource TextBlockButtonStyle}" Padding="12,8" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="Refresh" FontSize="14" VerticalAlignment="Center" FontWeight="Medium"/>
+                <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Medicines, Mode=OneWay}" SelectionMode="None" Padding="0" Background="Transparent">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                            <Setter Property="BorderBrush" Value="#F1F5F9"/>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="models:Medicine">
+                            <Grid Padding="24,14">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="150"/>
+                                </Grid.ColumnDefinitions>
+                                
+                                <StackPanel VerticalAlignment="Center" Margin="8,0">
+                                    <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{x:Bind GenericName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" Visibility="{x:Bind GenericName, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter='Inverse'}"/>
                                 </StackPanel>
-                            </Button>
 
-                            <Button Command="{x:Bind ViewModel.ExportCommand}" 
-                                    Style="{StaticResource TextBlockButtonStyle}" Padding="12,8" VerticalAlignment="Center">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE896;" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    <TextBlock Text="Export CSV" FontSize="14" VerticalAlignment="Center" FontWeight="Medium"/>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
+                                    <TextBlock Text="{x:Bind CategoryName}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{x:Bind FormattedDosage}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
-                            </Button>
-                        </StackPanel>
 
-                        <Button Grid.Column="1" Command="{x:Bind ViewModel.DeleteSelectedCommand}"
-                                 Background="#E53E3E" Foreground="White" BorderBrush="Transparent"
-                                 HorizontalAlignment="Right" VerticalAlignment="Center"
-                                 CornerRadius="8" Padding="20,10"
-                                 Visibility="{x:Bind ViewModel.IsAdmin, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <StackPanel Orientation="Horizontal" Spacing="10">
-                                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE74D;" FontSize="16"/>
-                                <TextBlock Text="Delete Selected" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                            </StackPanel>
-                        </Button>
-                    </Grid>
-                </Border>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
+                                    <TextBlock Text="{x:Bind BatchNo}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{x:Bind SupplierName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
 
-                <!-- Inventory Table -->
-                <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0" Margin="40,0,40,40" MinHeight="400">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
+                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0" Spacing="8">
+                                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
+                                    <TextBlock Text="{x:Bind FormattedQuantity}" FontSize="13" FontWeight="SemiBold" Foreground="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
+                                </StackPanel>
 
-                        <!-- Table Header -->
-                        <Grid Background="#F9FAFB" Padding="16,12" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="50"/>
-                                <ColumnDefinition Width="2.5*"/>
-                                <ColumnDefinition Width="1.5*"/>
-                                <ColumnDefinition Width="1.5*"/>
-                                <ColumnDefinition Width="90"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="110"/>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="70"/>
-                                <ColumnDefinition Width="100"/>
-                            </Grid.ColumnDefinitions>
-                            <CheckBox IsChecked="{x:Bind ViewModel.IsAllSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="0"/>
-                            <TextBlock Grid.Column="1" Text="Medicine" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="2" Text="Category" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="3" Text="Batch/Supplier" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="4" Text="Stock" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="5" Text="Sell Price" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="6" Text="Buy Price" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0" Visibility="{x:Bind ViewModel.IsAdmin, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"/>
-                            <TextBlock Grid.Column="7" Text="Expiry" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="8" Text="GST" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                            <TextBlock Grid.Column="9" Text="Actions" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                        </Grid>
+                                <TextBlock Grid.Column="4" Text="{x:Bind SellingPrice, Converter={StaticResource CurrencyConverter}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentAccent}" VerticalAlignment="Center" Margin="8,0"/>
 
-                        <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Medicines, Mode=OneWay}" SelectionMode="None" Padding="0" Background="Transparent">
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                                    <Setter Property="Padding" Value="0"/>
-                                    <Setter Property="BorderThickness" Value="0,0,0,1"/>
-                                    <Setter Property="BorderBrush" Value="#F1F5F9"/>
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="models:Medicine">
-                                    <Grid Padding="16,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="50"/>
-                                            <ColumnDefinition Width="2.5*"/>
-                                            <ColumnDefinition Width="1.5*"/>
-                                            <ColumnDefinition Width="1.5*"/>
-                                            <ColumnDefinition Width="90"/>
-                                            <ColumnDefinition Width="110"/>
-                                            <ColumnDefinition Width="110"/>
-                                            <ColumnDefinition Width="130"/>
-                                            <ColumnDefinition Width="70"/>
-                                            <ColumnDefinition Width="100"/>
-                                        </Grid.ColumnDefinitions>
-                                        
-                                        <CheckBox IsChecked="{x:Bind IsSelected, Mode=TwoWay}" HorizontalAlignment="Center" VerticalAlignment="Center" MinWidth="0"/>
-                                        
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
-                                            <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{x:Bind GenericName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" Visibility="{x:Bind GenericName, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter='Inverse'}"/>
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
-                                            <TextBlock Text="{x:Bind CategoryName}" FontSize="12" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{x:Bind FormattedDosage}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="8,0">
-                                            <TextBlock Text="{x:Bind BatchNo}" FontSize="12" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                            <TextBlock Text="{x:Bind SupplierName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0" Spacing="6">
-                                            <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
-                                            <TextBlock Text="{x:Bind StockQty}" FontSize="14" FontWeight="SemiBold" Foreground="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
-                                        </StackPanel>
-
-                                        <TextBlock Grid.Column="5" Text="{x:Bind SellingPrice, Converter={StaticResource CurrencyConverter}}" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource AccentAccent}" VerticalAlignment="Center" Margin="8,0"/>
-
-                                        <Button Grid.Column="6" Click="OnTogglePurchasePriceClick" Style="{StaticResource TextBlockButtonStyle}" Padding="8,0" VerticalAlignment="Center" Visibility="{Binding ViewModel.IsAdmin, ElementName=PageRoot, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                            <TextBlock Text="{x:Bind FormattedPurchasePrice, Mode=OneWay}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                                        </Button>
-
-                                        <StackPanel Grid.Column="7" Orientation="Horizontal" Spacing="6" Margin="8,0" VerticalAlignment="Center">
-                                            <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="#D97706" Visibility="{Binding ExpiryDate, Converter={StaticResource NearExpiryToVisibilityConverter}}" VerticalAlignment="Center"/>
-                                            <TextBlock Text="{Binding ExpiryDate, Converter={StaticResource DateFormatConverter}, ConverterParameter='MMM yyyy'}" Foreground="{Binding ExpiryDate, Converter={StaticResource ExpiryToColorConverter}}" VerticalAlignment="Center" FontSize="13"/>
-                                        </StackPanel>
-
-                                        <TextBlock Grid.Column="8" Text="{x:Bind FormattedGst}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="8,0"/>
-
-                                        <StackPanel Grid.Column="9" Orientation="Horizontal" HorizontalAlignment="Center" Spacing="4">
-                                            <Button Click="OnEditMedicineClick" Style="{StaticResource TextBlockButtonStyle}" Padding="8">
-                                                <FontIcon Glyph="&#xE70F;" FontSize="16" Foreground="{StaticResource AccentAccent}"/>
-                                            </Button>
-                                            <Button Click="OnDeleteMedicineClick" Style="{StaticResource TextBlockButtonStyle}" Padding="8">
-                                                <FontIcon Glyph="&#xE74D;" FontSize="16" Foreground="#E53E3E"/>
-                                            </Button>
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                                       VerticalAlignment="Center" HorizontalAlignment="Center"
-                                       Foreground="{StaticResource AccentAccent}" Width="40" Height="40"/>
-                    </Grid>
-                </Border>
+                                <Grid Grid.Column="5" Margin="8,0">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="#D97706" Visibility="{Binding ExpiryDate, Converter={StaticResource NearExpiryToVisibilityConverter}}" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding ExpiryDate, Converter={StaticResource DateFormatConverter}, ConverterParameter='MMM yyyy'}" Foreground="{Binding ExpiryDate, Converter={StaticResource ExpiryToColorConverter}}" VerticalAlignment="Center" FontSize="13"/>
+                                    </StackPanel>
+                                    
+                                    <Button Grid.Column="1" Command="{Binding DataContext.DeleteBatchCommand, ElementName=PageRoot}" 
+                                            CommandParameter="{Binding}"
+                                            Background="Transparent" BorderThickness="0" Padding="4"
+                                            ToolTipService.ToolTip="Delete this batch">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="16" Foreground="#EF4444"/>
+                                    </Button>
+                                </Grid>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                               Foreground="{StaticResource AccentAccent}" Width="40" Height="40"/>
             </Grid>
-        </ScrollViewer>
+        </Border>
     </Grid>
 </Page>

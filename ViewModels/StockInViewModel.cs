@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -9,680 +9,294 @@ using DChemist.Repositories;
 using DChemist.Services;
 using DChemist.Utils;
 using Microsoft.UI.Dispatching;
+using System.Globalization;
+using System.Collections.Specialized;
 
 namespace DChemist.ViewModels
 {
-
     public class StockInViewModel : ViewModelBase
     {
-        public enum QuantityInputMode { Box, Packet, Tablet }
-        public event EventHandler<string>? RequestFocus;
-        private readonly MedicineRepository     _medicineRepo;
-        private readonly BatchRepository        _batchRepo;
-        private readonly SupplierRepository     _supplierRepo;
-        private readonly InventoryEventBus      _eventBus;
-        private readonly IDialogService          _dialogService;
-        private readonly DispatcherQueue         _dispatcher;
+        public enum QuantityInputMode { Box, Tablet }
+
+        private readonly MedicineRepository _medicineRepo;
+        private readonly SupplierRepository _supplierRepo;
+        private readonly PurchaseInvoiceRepository _invoiceRepo;
+        private readonly InventoryEventBus _eventBus;
+        private readonly IDialogService _dialogService;
+        private readonly DispatcherQueue _dispatcher;
 
         public StockInViewModel(
             MedicineRepository medicineRepo,
-            BatchRepository batchRepo,
             SupplierRepository supplierRepo,
+            PurchaseInvoiceRepository invoiceRepo,
             InventoryEventBus eventBus,
             IDialogService dialogService)
         {
-            _medicineRepo     = medicineRepo;
-            _batchRepo        = batchRepo;
-            _supplierRepo     = supplierRepo;
-            _eventBus         = eventBus;
-            _dialogService    = dialogService;
-            _dispatcher    = DispatcherQueue.GetForCurrentThread();
+            _medicineRepo = medicineRepo;
+            _supplierRepo = supplierRepo;
+            _invoiceRepo = invoiceRepo;
+            _eventBus = eventBus;
+            _dialogService = dialogService;
+            _dispatcher = DispatcherQueue.GetForCurrentThread();
 
             ReceivingItems = new ObservableCollection<ReceivingItem>();
-            ReceivingItems.CollectionChanged += (s, e) => OnPropertyChanged(nameof(GrandTotal));
-            Suppliers      = new ObservableCollection<Supplier>();
+            ReceivingItems.CollectionChanged += (s, e) => {
+                OnPropertyChanged(nameof(TotalSessionCost));
+                OnPropertyChanged(nameof(CanSave));
+                (SaveAllCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
+            };
 
-            LookupBarcodeCommand = new AsyncRelayCommand(async _ => await ExecuteLookupBarcodeAsync());
-            AddToListCommand     = new AsyncRelayCommand(async _ => await ExecuteAddToListAsync());
-            RemoveItemCommand    = new RelayCommand(item => 
-            {
-                if (item is ReceivingItem ri) ReceivingItems.Remove(ri);
-            });
-            ClearEntryCommand    = new RelayCommand(_ => ClearEntry());
-            SaveAllCommand       = new AsyncRelayCommand(async _ => await ExecuteSaveAllAsync(),
-                                                         _         => ReceivingItems.Count > 0);
+            Suppliers = new ObservableCollection<Supplier>();
+            SearchSuggestions = new ObservableCollection<Medicine>();
 
-            SessionInvoiceDate = DateTimeOffset.Now;
-            _ = LoadSuppliersAsync();
-            _ = LoadMetaDataAsync();
+            SearchMedicineCommand = new AsyncRelayCommand(async _ => await SearchAsync());
+            AddToListCommand = new RelayCommand(_ => AddToList());
+            SaveAllCommand = new AsyncRelayCommand(async _ => await SaveInvoiceAsync(), _ => ReceivingItems.Count > 0);
+            
+            LoadSuppliers();
         }
 
-        private async Task LoadMetaDataAsync()
-        {
-            await Task.CompletedTask;
-        }
-        private string _sessionInvoiceNo = string.Empty;
-        public string SessionInvoiceNo
-        {
-            get => _sessionInvoiceNo;
-            set => SetProperty(ref _sessionInvoiceNo, value);
-        }
-
-        private DateTimeOffset? _sessionInvoiceDate = DateTimeOffset.Now;
-        public DateTimeOffset? SessionInvoiceDate
-        {
-            get => _sessionInvoiceDate;
-            set => SetProperty(ref _sessionInvoiceDate, value);
-        }
-
-        private string _sessionSupplierName = string.Empty;
-        public string SessionSupplierName
-        {
-            get => _sessionSupplierName;
-            set => SetProperty(ref _sessionSupplierName, value);
-        }
-
+        public ObservableCollection<ReceivingItem> ReceivingItems { get; }
         public ObservableCollection<Supplier> Suppliers { get; }
+        public ObservableCollection<Medicine> SearchSuggestions { get; }
 
-        private Supplier? _selectedSupplier;
-        public Supplier? SelectedSupplier
-        {
-            get => _selectedSupplier;
-            set
-            {
-                if (SetProperty(ref _selectedSupplier, value))
-                {
-                    if (value != null) SessionSupplierName = value.Name;
-                }
-            }
-        }
-
-        private string _barcodeText = string.Empty;
-        public string BarcodeText
-        {
-            get => _barcodeText;
-            set => SetProperty(ref _barcodeText, value);
-        }
-
-        private bool _isContinuousScanMode;
-        public bool IsContinuousScanMode
-        {
-            get => _isContinuousScanMode;
-            set => SetProperty(ref _isContinuousScanMode, value);
-        }
-
-        private string _entryName = string.Empty;
-        public string EntryName { get => _entryName; set => SetProperty(ref _entryName, value); }
-
-        private decimal _entryGst = 0;
-        public decimal EntryGst { get => _entryGst; set => SetProperty(ref _entryGst, value); }
-
-        public string EntryGstText
-        {
-            get => _entryGst.ToString("G29", CultureInfo.InvariantCulture);
-            set { if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal res)) EntryGst = res; OnPropertyChanged(nameof(EntryGstText)); }
-        }
+        public ICommand SearchMedicineCommand { get; }
+        public ICommand AddToListCommand { get; }
+        public ICommand SaveAllCommand { get; }
 
         private Medicine? _foundMedicine;
-        public Medicine? FoundMedicine
-        {
-            get => _foundMedicine;
-            set
-            {
-                if (SetProperty(ref _foundMedicine, value))
+        public Medicine? FoundMedicine 
+        { 
+            get => _foundMedicine; 
+            set 
+            { 
+                if (SetProperty(ref _foundMedicine, value)) 
                 {
+                    OnPropertyChanged(nameof(CanAddToList)); 
                     OnPropertyChanged(nameof(HasFoundMedicine));
-                    if (value != null)
-                    {
-                        EntryName = value.Name;
-                        EntryGst = value.GstPercent;
-                        OnPropertyChanged(nameof(EntryGstText));
-                    }
                 }
             }
         }
+
         public bool HasFoundMedicine => FoundMedicine != null;
+        public string ActiveMedicineName => FoundMedicine?.Name ?? string.Empty;
 
-        private string _searchText = string.Empty;
-        public string SearchText
-        {
-            get => _searchText;
-            set
-            {
-                if (SetProperty(ref _searchText, value))
-                {
-                    if (value.Length >= 2) _ = ExecuteSearchAsync(value);
-                }
-            }
-        }
-
-        public ObservableCollection<Medicine> SearchSuggestions { get; } = new();
-
-        private async Task ExecuteSearchAsync(string query)
-        {
-            try {
-                var list = await _medicineRepo.SearchAsync(query);
-                _dispatcher.TryEnqueue(() => {
-                    SearchSuggestions.Clear();
-                    foreach (var m in list) SearchSuggestions.Add(m);
-                });
-            } catch (Exception ex) { AppLogger.LogError("StockIn.Search", ex); }
-        }
+        public string UnitCostDisplay => $"Cost: {UnitCost:N2}";
+        public string SellingPriceDisplay => $"Sale: {FoundMedicine?.SellingPrice ?? 0:N2}";
 
         public void SelectMedicine(Medicine? medicine)
         {
-            if (medicine != null)
+            if (medicine == null) return;
+
+            // Create and add immediately to the list
+            var newItem = new ReceivingItem
             {
-                FoundMedicine = medicine;
-                StatusMessage = $"✔ Loaded: {medicine.Name}";
-                SearchText = string.Empty;
-                SearchSuggestions.Clear();
-            }
+                MedicineId = medicine.Id,
+                MedicineName = medicine.Name,
+                EntryMode = medicine.DefaultEntryMode,
+                UnitsPerPack = medicine.UnitsPerPack,
+                PacketsPerBox = medicine.PacketsPerBox,
+                PackQuantity = 0,
+                PackPrice = medicine.PurchasePrice, // Pre-fill with current saved price
+                QuantityUnits = 0,
+                PurchaseTotalPrice = 0,
+                UnitCost = medicine.PurchasePrice / (medicine.UnitsPerPack > 0 ? medicine.UnitsPerPack : 1),
+                SellingPricePerUnit = medicine.SellingPrice,
+                ExpiryDate = medicine.ExpiryDate ?? DateTime.Now.AddYears(1)
+            };
+
+            // Insert at the top so it's easy to focus
+            ReceivingItems.Insert(0, newItem);
+
+            // Watch for changes in this row to update the Grand Total
+            newItem.PropertyChanged += (s, e) => {
+                if (e.PropertyName == nameof(ReceivingItem.PurchaseTotalPrice))
+                {
+                    OnPropertyChanged(nameof(TotalSessionCost));
+                }
+            };
+            
+            // Clear search text to prepare for next search
+            EntryName = string.Empty;
+            OnPropertyChanged(nameof(EntryName));
         }
 
-        private string _batchNumber = string.Empty;
-        public string BatchNumber { get => _batchNumber; set => SetProperty(ref _batchNumber, value); }
-
-        private DateTimeOffset? _expiryDate;
-        public DateTimeOffset? ExpiryDate
+        private string _entryName = string.Empty;
+        public string EntryName
         {
-            get => _expiryDate;
+            get => _entryName;
             set
             {
-                if (SetProperty(ref _expiryDate, value))
-                {
-                    OnPropertyChanged(nameof(ExpiryDateText));
-                }
+                if (SetProperty(ref _entryName, value) && value.Length >= 2)
+                    _ = SearchAsync();
             }
         }
 
-        private string _expiryDateText = string.Empty;
-        public string ExpiryDateText
-        {
-            get => _expiryDateText;
-            set
-            {
-                if (SetProperty(ref _expiryDateText, value))
-                {
-                    // Basic parsing on each change or wait for explicit trigger? 
-                    // User wants "when we press enter", but having it update on property change 
-                    // is safer for binding. We'll add an explicit FormatDate method too.
-                }
-            }
-        }
+        // Session Level
+        private Supplier? _selectedSupplier;
+        public Supplier? SelectedSupplier { get => _selectedSupplier; set => SetProperty(ref _selectedSupplier, value); }
 
-        public void FormatExpiryDate()
-        {
-            if (string.IsNullOrWhiteSpace(ExpiryDateText)) return;
+        private string _sessionSupplierName = string.Empty;
+        public string SessionSupplierName { get => _sessionSupplierName; set => SetProperty(ref _sessionSupplierName, value); }
 
-            string input = new string(ExpiryDateText.Where(char.IsDigit).ToArray());
-            DateTimeOffset? result = null;
+        private string _sessionInvoiceNo = string.Empty;
+        public string SessionInvoiceNo { get => _sessionInvoiceNo; set => SetProperty(ref _sessionInvoiceNo, value); }
 
-            try
-            {
-                if (input.Length == 4) // MMYY
-                {
-                    int month = int.Parse(input.Substring(0, 2));
-                    int year = int.Parse("20" + input.Substring(2, 2));
-                    result = new DateTimeOffset(new DateTime(year, month, DateTime.DaysInMonth(year, month)));
-                }
-                else if (input.Length == 6) // MMYYYY
-                {
-                    int month = int.Parse(input.Substring(0, 2));
-                    int year = int.Parse(input.Substring(2, 4));
-                    result = new DateTimeOffset(new DateTime(year, month, DateTime.DaysInMonth(year, month)));
-                }
-                else if (input.Length == 8) // DDMMYYYY
-                {
-                    int day = int.Parse(input.Substring(0, 2));
-                    int month = int.Parse(input.Substring(2, 2));
-                    int year = int.Parse(input.Substring(4, 4));
-                    result = new DateTimeOffset(new DateTime(year, month, day));
-                }
+        private string _sessionInvoiceDateText = DateTime.Now.ToString("dd/MM/yyyy");
+        public string SessionInvoiceDateText { get => _sessionInvoiceDateText; set => SetProperty(ref _sessionInvoiceDateText, value); }
 
-                if (result.HasValue)
-                {
-                    ExpiryDate = result;
-                    // If user provided a day (8 digits), show full date, otherwise show pharma-standard MM/yyyy
-                    _expiryDateText = input.Length == 8 ? result.Value.ToString("dd/MM/yyyy") : result.Value.ToString("MM/yyyy");
-                    OnPropertyChanged(nameof(ExpiryDateText));
-                }
-            }
-            catch
-            {
-                // Silently fail or notify
-            }
-        }
-
-        private QuantityInputMode _selectedQuantityMode = QuantityInputMode.Tablet;
+        // Entry Level
+        private QuantityInputMode _selectedQuantityMode = QuantityInputMode.Box;
         public QuantityInputMode SelectedQuantityMode
         {
             get => _selectedQuantityMode;
-            set
-            {
-                if (SetProperty(ref _selectedQuantityMode, value))
-                {
-                    OnPropertyChanged(nameof(IsBoxMode));
-                    OnPropertyChanged(nameof(IsPacketMode));
-                    OnPropertyChanged(nameof(IsTabletMode));
-                    RecalculateTotalUnits();
-                }
-            }
+            set { if (SetProperty(ref _selectedQuantityMode, value)) { OnPropertyChanged(nameof(IsBoxMode)); OnPropertyChanged(nameof(IsTabletMode)); RecalculateTotalUnits(); } }
         }
 
-        public bool IsBoxMode    => SelectedQuantityMode == QuantityInputMode.Box;
-        public bool IsPacketMode => SelectedQuantityMode == QuantityInputMode.Packet;
+        public bool IsBoxMode => SelectedQuantityMode == QuantityInputMode.Box;
         public bool IsTabletMode => SelectedQuantityMode == QuantityInputMode.Tablet;
 
-        private int _unitsPerPack = 1;
-        public int UnitsPerPack
-        {
-            get => _unitsPerPack;
-            set { if (SetProperty(ref _unitsPerPack, value)) RecalculateTotalUnits(); }
-        }
+        private int _packQuantity;
+        public int PackQuantity { get => _packQuantity; set { if (SetProperty(ref _packQuantity, value)) RecalculateTotalUnits(); } }
 
-        private int _packQuantity = 1;
-        public int PackQuantity
-        {
-            get => _packQuantity;
-            set { if (SetProperty(ref _packQuantity, value)) RecalculateTotalUnits(); }
-        }
+        private int _packetsPerBox = 1;
+        public int PacketsPerBox { get => _packetsPerBox; set { if (SetProperty(ref _packetsPerBox, value)) RecalculateTotalUnits(); } }
 
-        public string UnitsPerPackText
-        {
-            get => _unitsPerPack.ToString(CultureInfo.InvariantCulture);
-            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int res)) UnitsPerPack = res; OnPropertyChanged(nameof(UnitsPerPackText)); }
-        }
+        private int _unitsPerPacket = 1;
+        public int UnitsPerPacket { get => _unitsPerPacket; set { if (SetProperty(ref _unitsPerPacket, value)) RecalculateTotalUnits(); } }
+
+        private int _quantityUnits;
+        public int QuantityUnits { get => _quantityUnits; set => SetProperty(ref _quantityUnits, value); }
+
+        private decimal _purchaseTotalPrice;
+        public decimal PurchaseTotalPrice { get => _purchaseTotalPrice; set { if (SetProperty(ref _purchaseTotalPrice, value)) OnPropertyChanged(nameof(UnitCost)); } }
+
+        public decimal UnitCost => QuantityUnits > 0 ? PurchaseTotalPrice / QuantityUnits : 0;
+
+        public decimal TotalSessionCost => ReceivingItems.Sum(i => i.PurchaseTotalPrice);
+        public bool CanSave => ReceivingItems.Count > 0 && !IsBusy;
 
         public string PackQuantityText
         {
-            get => _packQuantity.ToString(CultureInfo.InvariantCulture);
-            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int res)) PackQuantity = res; OnPropertyChanged(nameof(PackQuantityText)); }
+            get => _packQuantity == 0 ? string.Empty : _packQuantity.ToString();
+            set { if (int.TryParse(value, out int res)) PackQuantity = res; else PackQuantity = 0; OnPropertyChanged(nameof(PackQuantityText)); }
         }
 
-        private void RecalculateTotalUnits()
+        public string PacketsPerBoxText
         {
-            if (SelectedQuantityMode == QuantityInputMode.Tablet)
-            {
-                // In tablet mode, we don't change QuantityUnits directly from here
-                // as it's bound to the main quantity box.
-            }
-            else
-            {
-                QuantityUnits = Math.Max(1, UnitsPerPack * PackQuantity);
-            }
+            get => _packetsPerBox == 0 ? string.Empty : _packetsPerBox.ToString();
+            set { if (int.TryParse(value, out int res)) PacketsPerBox = res; else PacketsPerBox = 1; OnPropertyChanged(nameof(PacketsPerBoxText)); }
         }
 
-        private int _quantityUnits = 1;
-        public int QuantityUnits
+        public string UnitsPerPacketText
         {
-            get => _quantityUnits;
-            set
-            {
-                if (SetProperty(ref _quantityUnits, value))
-                {
-                    OnPropertyChanged(nameof(QuantityUnitsText));
-                    OnPropertyChanged(nameof(PurchasePricePerUnit));
-                    OnPropertyChanged(nameof(SellingPricePerUnit));
-                    OnPropertyChanged(nameof(UnitProfitText));
-                    OnPropertyChanged(nameof(ProfitMarginText));
-                    OnPropertyChanged(nameof(TotalUnitsPreviewText));
-                }
-            }
+            get => _unitsPerPacket == 0 ? string.Empty : _unitsPerPacket.ToString();
+            set { if (int.TryParse(value, out int res)) UnitsPerPacket = res; else UnitsPerPacket = 1; OnPropertyChanged(nameof(UnitsPerPacketText)); }
         }
-
-        public string TotalUnitsPreviewText
-        {
-            get
-            {
-                if (IsTabletMode) return string.Empty;
-                string unitLabel = IsBoxMode ? "boxes" : "packets";
-                return $"({PackQuantity} {unitLabel} × {UnitsPerPack} = {QuantityUnits} units)";
-            }
-        }
-
-        private decimal _purchaseTotalPrice;
-        public decimal PurchaseTotalPrice
-        {
-            get => _purchaseTotalPrice;
-            set
-            {
-                if (SetProperty(ref _purchaseTotalPrice, value))
-                {
-                    OnPropertyChanged(nameof(PurchasePricePerUnit));
-                    OnPropertyChanged(nameof(UnitProfitText));
-                    OnPropertyChanged(nameof(ProfitMarginText));
-                }
-            }
-        }
-
-        private decimal _totalSellingPrice;
-        public decimal TotalSellingPrice
-        {
-            get => _totalSellingPrice;
-            set
-            {
-                if (SetProperty(ref _totalSellingPrice, value))
-                {
-                    OnPropertyChanged(nameof(SellingPricePerUnit));
-                    OnPropertyChanged(nameof(UnitProfitText));
-                    OnPropertyChanged(nameof(ProfitMarginText));
-                }
-            }
-        }
-
-        public decimal PurchasePricePerUnit => QuantityUnits > 0 ? PurchaseTotalPrice / QuantityUnits : 0;
-        public decimal SellingPricePerUnit  => QuantityUnits > 0 ? TotalSellingPrice / QuantityUnits : 0;
 
         public string QuantityUnitsText
         {
-            get => _quantityUnits.ToString(CultureInfo.InvariantCulture);
-            set { if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int res)) QuantityUnits = res; OnPropertyChanged(nameof(QuantityUnitsText)); }
+            get => _quantityUnits == 0 ? string.Empty : _quantityUnits.ToString();
+            set { if (int.TryParse(value, out int res)) QuantityUnits = res; else QuantityUnits = 0; OnPropertyChanged(nameof(QuantityUnitsText)); }
         }
 
         public string PurchaseTotalPriceText
         {
-            get => _purchaseTotalPrice.ToString("G29", CultureInfo.InvariantCulture);
-            set { if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal res)) PurchaseTotalPrice = res; OnPropertyChanged(nameof(PurchaseTotalPriceText)); }
+            get => _purchaseTotalPrice == 0 ? string.Empty : _purchaseTotalPrice.ToString("N2");
+            set { if (decimal.TryParse(value, out decimal res)) PurchaseTotalPrice = res; else PurchaseTotalPrice = 0; OnPropertyChanged(nameof(PurchaseTotalPriceText)); }
         }
 
-        public string TotalSellingPriceText
+        private void RecalculateTotalUnits()
         {
-            get => _totalSellingPrice.ToString("G29", CultureInfo.InvariantCulture);
-            set { if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal res)) TotalSellingPrice = res; OnPropertyChanged(nameof(TotalSellingPriceText)); }
+            if (IsBoxMode)
+                QuantityUnits = PackQuantity * PacketsPerBox * UnitsPerPacket;
+            
+            OnPropertyChanged(nameof(QuantityUnitsText));
+            OnPropertyChanged(nameof(UnitCost));
+            OnPropertyChanged(nameof(UnitCostDisplay));
         }
 
-        public string PurchasePricePerUnitText => PurchasePricePerUnit.ToString("N2");
-        public string SellingPricePerUnitText  => SellingPricePerUnit.ToString("N2");
-        public string UnitProfitText => (SellingPricePerUnit - PurchasePricePerUnit).ToString("N2");
-        public string ProfitMarginText => PurchasePricePerUnit > 0 
-            ? (((SellingPricePerUnit - PurchasePricePerUnit) / PurchasePricePerUnit) * 100).ToString("F0") + "%" 
-            : "0%";
+        public bool CanAddToList => FoundMedicine != null;
+
+        private void AddToList()
+        {
+            if (FoundMedicine == null) return;
+
+            var item = new ReceivingItem
+            {
+                MedicineId = FoundMedicine.Id,
+                MedicineName = FoundMedicine.Name,
+                QuantityUnits = QuantityUnits,
+                PurchaseTotalPrice = PurchaseTotalPrice,
+                UnitCost = UnitCost,
+                SellingPricePerUnit = FoundMedicine.SellingPrice,
+                EntryMode = SelectedQuantityMode.ToString(),
+                UnitsPerPack = UnitsPerPacket,
+                PackQuantity = PackQuantity
+            };
+
+            ReceivingItems.Add(item);
+            ClearEntry();
+        }
+
+        public void ClearEntry()
+        {
+            EntryName = string.Empty;
+            FoundMedicine = null;
+            PackQuantityText = string.Empty;
+            QuantityUnitsText = string.Empty;
+            PurchaseTotalPriceText = string.Empty;
+            OnPropertyChanged(nameof(CanAddToList));
+        }
+
+        private async Task SearchAsync()
+        {
+            if (string.IsNullOrWhiteSpace(EntryName) || EntryName.Length < 2) return;
+            var results = await _medicineRepo.SearchAsync(EntryName);
+            
+            _dispatcher.TryEnqueue(() => {
+                SearchSuggestions.Clear();
+                foreach (var m in results) SearchSuggestions.Add(m);
+            });
+        }
+
+        private async Task LoadSuppliers()
+        {
+            var list = await _supplierRepo.GetAllAsync();
+            Suppliers.Clear();
+            foreach (var s in list) Suppliers.Add(s);
+        }
+
+        private async Task SaveInvoiceAsync()
+        {
+            if (ReceivingItems.Count == 0) return;
+            IsBusy = true;
+            OnPropertyChanged(nameof(CanSave));
+            try
+            {
+                await _invoiceRepo.ProcessStockInAsync(
+                    SessionSupplierName, 
+                    SessionInvoiceNo, 
+                    DateTime.ParseExact(SessionInvoiceDateText, "dd/MM/yyyy", CultureInfo.InvariantCulture),
+                    ReceivingItems.ToList());
+
+                ReceivingItems.Clear();
+                _eventBus.Publish(InventoryChangeType.MedicineAdded);
+            }
+            catch (Exception ex) { AppLogger.LogError("StockIn save failed", ex); }
+            finally 
+            { 
+                IsBusy = false; 
+                OnPropertyChanged(nameof(CanSave));
+            }
+        }
 
         private string _statusMessage = string.Empty;
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
         private bool _isBusy;
+        private bool _showPackagingDetails;
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
-
-        private bool _isAutoAddEnabled = true; 
-        public bool IsAutoAddEnabled { get => _isAutoAddEnabled; set => SetProperty(ref _isAutoAddEnabled, value); }
-
-        public ObservableCollection<ReceivingItem> ReceivingItems { get; }
-        
-        public decimal GrandTotal => ReceivingItems.Sum(x => x.PurchaseTotalPrice);
-        public ICommand LookupBarcodeCommand { get; }
-        public ICommand AddToListCommand     { get; }
-        public ICommand RemoveItemCommand    { get; }
-        public ICommand ClearEntryCommand    { get; }
-        public ICommand SaveAllCommand       { get; }
-
-        private async Task LoadSuppliersAsync()
-        {
-            try
-            {
-                var list = await _supplierRepo.GetAllAsync();
-                _dispatcher.TryEnqueue(() =>
-                {
-                    Suppliers.Clear();
-                    foreach (var s in list) Suppliers.Add(s);
-                });
-            }
-            catch (Exception ex)
-            {
-                AppLogger.LogError("StockInViewModel.LoadSuppliersAsync", ex);
-            }
-        }
-
-        private async Task ExecuteLookupBarcodeAsync()
-        {
-            var barcode = BarcodeText.Trim();
-            if (string.IsNullOrEmpty(barcode)) 
-            {
-                AppLogger.LogInfo("StockIn.Lookup: Empty barcode.");
-                return;
-            }
-
-            AppLogger.LogInfo($"StockIn.Lookup: Scanning '{barcode}'...");
-            
-            Medicine? medicine = null;
-            try
-            {
-                medicine = await _medicineRepo.GetByBarcodeAsync(barcode);
-                if (medicine != null)
-                {
-                    AppLogger.LogInfo($"StockIn.Lookup: Found '{medicine.Name}' in local DB.");
-                    FoundMedicine = medicine;
-                    StatusMessage = $"✔ Found: {medicine.Name}";
-                    
-                    if (IsAutoAddEnabled) 
-                    {
-                        AppLogger.LogInfo("StockIn.Lookup: Auto-Add enabled. Adding to list...");
-                        await ExecuteAddToListAsync();
-                    }
-                }
-                else
-                {
-                    AppLogger.LogInfo($"StockIn.Lookup: Barcode '{barcode}' not found locally.");
-                    StatusMessage = $"ℹ New Barcode: {barcode}";
-                    ClearEntryInternal(false); 
-                    RequestFocus?.Invoke(this, "MedicineName");
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = "✘ Lookup failed.";
-                AppLogger.LogError("StockIn.Lookup", ex);
-            }
-        }
-
-        private async Task ExecuteAddToListAsync()
-        {
-            FormatExpiryDate();
-            AppLogger.LogInfo($"StockIn.AddToList: Starting for '{EntryName}'...");
-            
-            if (string.IsNullOrWhiteSpace(EntryName)) 
-            { 
-                StatusMessage = "⚠ Medicine name is required."; 
-                AppLogger.LogWarning("StockIn.AddToList: Validation failed - Name is empty.");
-                return; 
-            }
-            if (string.IsNullOrWhiteSpace(BatchNumber)) 
-            { 
-                if (IsAutoAddEnabled)
-                {
-                    BatchNumber = "B-" + DateTime.Now.ToString("yyMMddHHmm");
-                    AppLogger.LogInfo($"StockIn.AddToList: Auto-generated BatchNumber: {BatchNumber}");
-                }
-                else
-                {
-                    StatusMessage = "⚠ Batch number required."; 
-                    AppLogger.LogWarning("StockIn.AddToList: Validation failed - BatchNumber is empty.");
-                    return; 
-                }
-            }
-            if (!ExpiryDate.HasValue) 
-            { 
-                if (IsAutoAddEnabled)
-                {
-                    ExpiryDate = DateTimeOffset.Now.AddYears(2);
-                    AppLogger.LogInfo($"StockIn.AddToList: Set default ExpiryDate: {ExpiryDate}");
-                }
-                else
-                {
-                    StatusMessage = "⚠ Expiry date required."; 
-                    AppLogger.LogWarning("StockIn.AddToList: Validation failed - ExpiryDate is empty.");
-                    return; 
-                }
-            }
-            if (QuantityUnits <= 0) 
-            { 
-                StatusMessage = "⚠ Quantity must be > 0."; 
-                AppLogger.LogWarning($"StockIn.AddToList: Validation failed - QuantityUnits is {QuantityUnits}.");
-                return; 
-            }
-
-            IsBusy = true;
-            try
-            {
-                var med = FoundMedicine;
-                if (med == null)
-                {
-                    AppLogger.LogInfo("StockIn.AddToList: FoundMedicine is null. Checking by name...");
-                    var existing = await _medicineRepo.SearchAsync(EntryName);
-                    med = existing.FirstOrDefault(m => 
-                        m.Name.Equals(EntryName, StringComparison.OrdinalIgnoreCase));
-
-                    if (med == null)
-                    {
-                        AppLogger.LogInfo($"StockIn.AddToList: Creating NEW medicine record for '{EntryName}'...");
-                        med = new Medicine
-                        {
-                            Name = EntryName,
-                            GenericName = string.Empty,
-                            Strength = string.Empty,
-                            DosageForm = string.Empty,
-                            Barcode = string.IsNullOrWhiteSpace(BarcodeText) ? null : BarcodeText.Trim(),
-                            CategoryName = "General",
-                            ManufacturerName = "GSK",
-                            GstPercent = EntryGst
-                        };
-                        med = await _medicineRepo.AddAsync(med);
-                    }
-                }
-
-                if (med == null) 
-                { 
-                    StatusMessage = "✘ Error saving medicine record."; 
-                    AppLogger.LogError("StockIn.AddToList: Medicine resolution failed.", null);
-                    return; 
-                }
-
-                AppLogger.LogInfo($"StockIn.AddToList: Adding '{med.Name}' (ID: {med.Id}) to receiving list.");
-                var item = new ReceivingItem
-                {
-                    MedicineId         = med.Id,
-                    MedicineName       = med.Name,
-                    ManufacturerName   = med.ManufacturerName ?? string.Empty,
-                    BatchNo            = BatchNumber,
-                    SupplierName       = SessionSupplierName,
-                    InvoiceNo          = SessionInvoiceNo,
-                    InvoiceDate        = SessionInvoiceDate?.DateTime,
-                    QuantityUnits      = QuantityUnits,
-                    PurchaseTotalPrice = PurchaseTotalPrice,
-                    TotalSellingPrice  = TotalSellingPrice,
-                    ExpiryDate         = ExpiryDate.Value.DateTime,
-                    EntryMode          = SelectedQuantityMode.ToString(),
-                    UnitsPerPack       = UnitsPerPack,
-                    PackQuantity       = PackQuantity
-                };
-
-                ReceivingItems.Add(item);
-                StatusMessage = $"✔ Added: {item.MedicineName}";
-                ((AsyncRelayCommand)SaveAllCommand).RaiseCanExecuteChanged();
-                
-                AppLogger.LogInfo($"StockIn.AddToList: Success. Clearing entry fields.");
-                ClearEntry();
-                RequestFocus?.Invoke(this, "MedicineName");
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = "✘ Failed to add item.";
-                AppLogger.LogError("StockIn.AddToList failed", ex);
-            }
-            finally { IsBusy = false; }
-        }
-
-        private async Task ExecuteSaveAllAsync()
-        {
-            if (ReceivingItems.Count == 0)
-            {
-                StatusMessage = "⚠ Nothing to save — add at least one item.";
-                return;
-            }
-
-            bool confirmed = await _dialogService.ShowConfirmationAsync(
-                "Save Stock",
-                $"Save {ReceivingItems.Count} item(s) to inventory?",
-                "Save All", "Cancel");
-            if (!confirmed) return;
-
-            IsBusy = true;
-            StatusMessage = "Saving…";
-            try
-            {
-                int finalSupplierId = SelectedSupplier?.Id ?? 0;
-                if (finalSupplierId == 0 && !string.IsNullOrWhiteSpace(SessionSupplierName))
-                {
-                    var resolvedSupplier = await _supplierRepo.GetOrCreateByNameAsync(SessionSupplierName);
-                    finalSupplierId = resolvedSupplier.Id;
-                }
-
-                var batches = ReceivingItems.Select(r => new InventoryBatch
-                {
-                    MedicineId         = r.MedicineId,
-                    SupplierId         = finalSupplierId,
-                    BatchNo            = r.BatchNo,
-                    InvoiceNo          = r.InvoiceNo,
-                    InvoiceDate        = r.InvoiceDate,
-                    QuantityUnits      = r.QuantityUnits,
-                    PurchaseTotalPrice = r.PurchaseTotalPrice,
-                    UnitCost           = r.UnitCost,
-                    SellingPrice       = r.SellingPrice,
-                    RemainingUnits     = r.QuantityUnits,
-                    ExpiryDate         = r.ExpiryDate!.Value,
-                    EntryMode          = r.EntryMode,
-                    UnitsPerPack       = r.UnitsPerPack,
-                    PackQuantity       = r.PackQuantity
-                }).ToList();
-
-                await _batchRepo.AddBulkAsync(batches);
-
-                _eventBus.Publish(InventoryChangeType.MedicineAdded);
-
-                int total = ReceivingItems.Sum(r => r.QuantityUnits);
-                StatusMessage = $"✔ Saved {batches.Count} batch(es) — {total} units added to inventory.";
-                ReceivingItems.Clear();
-                ((AsyncRelayCommand)SaveAllCommand).RaiseCanExecuteChanged();
-                ClearEntry();
-
-                SessionInvoiceNo = string.Empty;
-                SessionSupplierName = string.Empty;
-                SelectedSupplier = null;
-            }
-            catch (Exception ex)
-            {
-                StatusMessage = "✘ Unexpected error during save.";
-                AppLogger.LogError("StockIn.SaveAll", ex);
-            }
-            finally
-            {
-                IsBusy = false;
-            }
-        }
-
-        private void ClearEntry() => ClearEntryInternal(true);
-
-        private void ClearEntryInternal(bool clearBarcode)
-        {
-            FoundMedicine = null;
-            EntryName = string.Empty;
-
-            BatchNumber = string.Empty;
-            ExpiryDate = null;
-            ExpiryDateText = string.Empty;
-            QuantityUnitsText = "1";
-            PackQuantity = 1;
-            UnitsPerPack = 1;
-            SelectedQuantityMode = QuantityInputMode.Box; // Default to box for convenience
-            PurchaseTotalPriceText = "0";
-            TotalSellingPriceText = "0";
-            EntryGst = 0;
-            OnPropertyChanged(nameof(EntryGstText));
-            if (clearBarcode) BarcodeText = string.Empty;
-        }
-
-        private static string Capitalize(string s) =>
-            string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s[1..];
+        public bool ShowPackagingDetails { get => _showPackagingDetails; set => SetProperty(ref _showPackagingDetails, value); }
     }
 }

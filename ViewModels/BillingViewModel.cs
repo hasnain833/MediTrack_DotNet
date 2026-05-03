@@ -216,8 +216,8 @@ namespace DChemist.ViewModels
                     MedicineName = med.Name,
                     BaseUnitPrice = bestBatch.SellingPrice,
                     UnitsPerPack = bestBatch.UnitsPerPack > 0 ? bestBatch.UnitsPerPack : 1,
-                    SelectedUnit = "Tablet",
-                    Quantity = 1
+                    QuantityBoxText = string.Empty, // Start blank
+                    QuantityTabletText = string.Empty // Start blank
                 };
                 newItem.PropertyChanged += OnItemPropertyChanged;
                 CartItems.Add(newItem);
@@ -385,40 +385,77 @@ namespace DChemist.ViewModels
         public int UnitsPerPack { get; set; } = 1;
         public decimal BaseUnitPrice { get; set; }
 
-        private string _selectedUnit = "Tablet";
-        public string SelectedUnit
+        private int _quantityBox = 0;
+        public int QuantityBox
         {
-            get => _selectedUnit;
+            get => _quantityBox;
+            set { if (SetProperty(ref _quantityBox, value)) { _quantityBoxText = value.ToString(); OnPropertyChanged(nameof(QuantityBoxText)); Recalculate(); } }
+        }
+
+        private string _quantityBoxText = string.Empty;
+        public string QuantityBoxText
+        {
+            get => _quantityBoxText;
             set
             {
-                if (SetProperty(ref _selectedUnit, value))
+                if (SetProperty(ref _quantityBoxText, value))
                 {
-                    OnPropertyChanged(nameof(UnitPrice));
-                    OnPropertyChanged(nameof(Subtotal));
+                    if (string.IsNullOrWhiteSpace(value)) { _quantityBox = 0; Recalculate(); }
+                    else if (int.TryParse(value, out int result)) { _quantityBox = result; Recalculate(); }
                 }
             }
         }
 
-        public ObservableCollection<string> AvailableUnits { get; } = new() { "Tablet", "Packet", "Box" };
-
-        public decimal UnitPrice
+        private int _quantityTablet = 0;
+        public int QuantityTablet
         {
-            get
-            {
-                if (SelectedUnit == "Tablet") return BaseUnitPrice;
-                return BaseUnitPrice * UnitsPerPack;
-            }
-            set { }
+            get => _quantityTablet;
+            set { if (SetProperty(ref _quantityTablet, value)) { _quantityTabletText = value.ToString(); OnPropertyChanged(nameof(QuantityTabletText)); Recalculate(); } }
         }
 
-        private int _quantity = 1;
+        private string _quantityTabletText = string.Empty;
+        public string QuantityTabletText
+        {
+            get => _quantityTabletText;
+            set
+            {
+                if (SetProperty(ref _quantityTabletText, value))
+                {
+                    if (string.IsNullOrWhiteSpace(value)) { _quantityTablet = 0; Recalculate(); }
+                    else if (int.TryParse(value, out int result)) { _quantityTablet = result; Recalculate(); }
+                }
+            }
+        }
+
+        public decimal UnitPrice => BaseUnitPrice; // Always show unit price for clarity
+
+        public decimal Subtotal => BaseUnitPrice * TotalTablets;
+        public int TotalTablets => (QuantityBox * UnitsPerPack) + QuantityTablet;
+        
+        // For compatibility with existing logic (e.g. Quantity++)
         public int Quantity
         {
-            get => _quantity;
-            set { if (SetProperty(ref _quantity, value)) OnPropertyChanged(nameof(Subtotal)); }
+            get => TotalTablets;
+            set
+            {
+                // If it's a box medicine, we increment the boxes, otherwise tablets
+                if (UnitsPerPack > 1 && QuantityTablet == 0)
+                {
+                    QuantityBox = value / UnitsPerPack;
+                }
+                else
+                {
+                    QuantityTablet = value - (QuantityBox * UnitsPerPack);
+                }
+                Recalculate();
+            }
         }
 
-        public decimal Subtotal => UnitPrice * Quantity;
-        public int TotalTablets => SelectedUnit == "Tablet" ? Quantity : Quantity * UnitsPerPack;
+        private void Recalculate()
+        {
+            OnPropertyChanged(nameof(TotalTablets));
+            OnPropertyChanged(nameof(Quantity));
+            OnPropertyChanged(nameof(Subtotal));
+        }
     }
 }

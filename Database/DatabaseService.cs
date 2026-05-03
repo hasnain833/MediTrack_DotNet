@@ -94,6 +94,9 @@ namespace DChemist.Database
                     dosage_form     TEXT,
                     strength        TEXT,
                     barcode         TEXT UNIQUE,
+                    units_per_pack  INTEGER NOT NULL DEFAULT 1,
+                    packets_per_box INTEGER NOT NULL DEFAULT 1,
+                    default_entry_mode TEXT NOT NULL DEFAULT 'Tablet',
                     created_at      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
                 );
 
@@ -176,6 +179,23 @@ namespace DChemist.Database
 
             using var command = new NpgsqlCommand(schema, connection);
             await command.ExecuteNonQueryAsync();
+
+            // Ensure columns exist for existing databases
+            const string migrationsSql = @"
+                DO $$ BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='units_per_pack') THEN
+                        ALTER TABLE medicines ADD COLUMN units_per_pack INTEGER NOT NULL DEFAULT 1;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='packets_per_box') THEN
+                        ALTER TABLE medicines ADD COLUMN packets_per_box INTEGER NOT NULL DEFAULT 1;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='medicines' AND column_name='default_entry_mode') THEN
+                        ALTER TABLE medicines ADD COLUMN default_entry_mode TEXT NOT NULL DEFAULT 'Tablet';
+                    END IF;
+                END $$;
+            ";
+            using var migrateCmd = new NpgsqlCommand(migrationsSql, connection);
+            await migrateCmd.ExecuteNonQueryAsync();
         }
 
         private static async Task EnsureSettingsTableAsync(NpgsqlConnection connection)

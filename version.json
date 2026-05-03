@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.8.0.1",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.1/DChemist_v1.8.1_Release.zip",
-  "ReleaseNotes": "v1.8.1 - Fixes for Inventory Page loading and Logo display in release builds."
+  "LatestVersion": "1.8.0.3",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.3/DChemist_v1.8.3_Release.zip",
+  "ReleaseNotes": "v1.8.3 - Fixed update download timeout (set to 60m). Read-only Inventory view. Removed Login logo. Navigation menu renamed."
 }

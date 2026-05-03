@@ -37,7 +37,14 @@ namespace DChemist.Repositories
                     b.selling_price as SellingPrice,
                     b.unit_cost as PurchasePrice,
                     b.expiry_date as ExpiryDate,
-                    m.gst_percent as GstPercent
+                    m.gst_percent as GstPercent,
+                    m.units_per_pack as UnitsPerPack,
+                    m.packets_per_box as PacketsPerBox,
+                    m.default_entry_mode as DefaultEntryMode,
+                    b.id as BatchId,
+                    b.entry_mode as BatchEntryMode,
+                    b.units_per_pack as BatchUnitsPerPack,
+                    b.pack_quantity as BatchPackQuantity
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
@@ -71,7 +78,14 @@ namespace DChemist.Repositories
                     b.selling_price as SellingPrice,
                     b.unit_cost as PurchasePrice,
                     b.expiry_date as ExpiryDate,
-                    m.gst_percent as GstPercent
+                    m.gst_percent as GstPercent,
+                    m.units_per_pack as UnitsPerPack,
+                    m.packets_per_box as PacketsPerBox,
+                    m.default_entry_mode as DefaultEntryMode,
+                    b.id as BatchId,
+                    b.entry_mode as BatchEntryMode,
+                    b.units_per_pack as BatchUnitsPerPack,
+                    b.pack_quantity as BatchPackQuantity
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
@@ -109,7 +123,14 @@ namespace DChemist.Repositories
                     b.selling_price as SellingPrice,
                     b.unit_cost as PurchasePrice,
                     b.expiry_date as ExpiryDate,
-                    m.gst_percent as GstPercent
+                    m.gst_percent as GstPercent,
+                    m.units_per_pack as UnitsPerPack,
+                    m.packets_per_box as PacketsPerBox,
+                    m.default_entry_mode as DefaultEntryMode,
+                    b.id as BatchId,
+                    b.entry_mode as BatchEntryMode,
+                    b.units_per_pack as BatchUnitsPerPack,
+                    b.pack_quantity as BatchPackQuantity
                 FROM medicines m
                 LEFT JOIN categories c ON m.category_id = c.id
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
@@ -139,6 +160,8 @@ namespace DChemist.Repositories
 
             try
             {
+                if (string.IsNullOrWhiteSpace(medicine.Barcode)) medicine.Barcode = null;
+
                 // 1. Resolve Category, Manufacturer, Supplier IDs
                 if (medicine.CategoryId == null && !string.IsNullOrWhiteSpace(medicine.CategoryName))
                     medicine.CategoryId = await GetOrCreateCategoryAsync(medicine.CategoryName, connection, transaction);
@@ -163,8 +186,8 @@ namespace DChemist.Repositories
  
                 // 2. Insert Medicine
                 const string medQuery = @"
-                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode, gst_percent)
-                    VALUES (@Name, @GenericName, @CategoryId, @ManufacturerId, @DosageForm, @Strength, @Barcode, @GstPercent)
+                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode, gst_percent, units_per_pack, packets_per_box, default_entry_mode)
+                    VALUES (@Name, @GenericName, @CategoryId, @ManufacturerId, @DosageForm, @Strength, @Barcode, @GstPercent, @UnitsPerPack, @PacketsPerBox, @DefaultEntryMode)
                     RETURNING id;";
 
                 int medId = await connection.ExecuteScalarAsync<int>(medQuery, medicine, transaction);
@@ -181,7 +204,7 @@ namespace DChemist.Repositories
                     { 
                         medId, 
                         supId = supplierId, 
-                        batchNo = "BATCH-" + DateTime.Now.ToString("yyyyMMdd"),
+                        batchNo = "Standard", // Unified with Stock-In
                         qty = medicine.StockQty,
                         pTotal = medicine.PurchasePrice * medicine.StockQty,
                         uCost = medicine.PurchasePrice,
@@ -245,6 +268,8 @@ namespace DChemist.Repositories
 
             try
             {
+                if (string.IsNullOrWhiteSpace(medicine.Barcode)) medicine.Barcode = null;
+
                 // 1. Resolve Category, Manufacturer, Supplier IDs
                 if (medicine.CategoryId == null && !string.IsNullOrWhiteSpace(medicine.CategoryName))
                     medicine.CategoryId = await GetOrCreateCategoryAsync(medicine.CategoryName, connection, transaction);
@@ -271,7 +296,8 @@ namespace DChemist.Repositories
                 const string medQuery = @"
                     UPDATE medicines 
                     SET name = @Name, generic_name = @GenericName, category_id = @CategoryId, 
-                        manufacturer_id = @ManufacturerId, dosage_form = @DosageForm, strength = @Strength, barcode = @Barcode, gst_percent = @GstPercent
+                        manufacturer_id = @ManufacturerId, dosage_form = @DosageForm, strength = @Strength, barcode = @Barcode, gst_percent = @GstPercent,
+                        units_per_pack = @UnitsPerPack, packets_per_box = @PacketsPerBox, default_entry_mode = @DefaultEntryMode
                     WHERE id = @Id";
                 
                 await connection.ExecuteAsync(medQuery, medicine, transaction);

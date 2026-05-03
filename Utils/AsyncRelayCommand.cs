@@ -28,6 +28,11 @@ namespace DChemist.Utils
 
         public async void Execute(object? parameter)
         {
+            await ExecuteAsync(parameter);
+        }
+
+        public async Task ExecuteAsync(object? parameter)
+        {
             if (!CanExecute(parameter)) return;
 
             _isExecuting = true;

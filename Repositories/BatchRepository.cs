@@ -110,13 +110,15 @@ namespace DChemist.Repositories
                         medicine_id, supplier_id, batch_no, quantity_units, 
                         purchase_total_price, unit_cost, selling_price, 
                         remaining_units, manufacture_date, expiry_date, 
-                        invoice_no, invoice_date, entry_mode, units_per_pack, pack_quantity
+                        invoice_no, invoice_date, entry_mode, units_per_pack, pack_quantity,
+                        purchase_invoice_id
                     )
                     VALUES (
                         @MedicineId, @SupplierId, @BatchNo, @QuantityUnits, 
                         @PurchaseTotalPrice, @UnitCost, @SellingPrice, 
                         @RemainingUnits, @ManufactureDate, @ExpiryDate, 
-                        @InvoiceNo, @InvoiceDate, @EntryMode, @UnitsPerPack, @PackQuantity
+                        @InvoiceNo, @InvoiceDate, @EntryMode, @UnitsPerPack, @PackQuantity,
+                        @PurchaseInvoiceId
                     )";
                 
                 using var conn = _db.GetConnection();
@@ -130,12 +132,32 @@ namespace DChemist.Repositories
             }
         }
 
-        public async Task AddBulkAsync(IEnumerable<InventoryBatch> batches)
+        public async Task AddBulkAsync(IEnumerable<InventoryBatch> batches, NpgsqlConnection? existingConn = null, NpgsqlTransaction? transaction = null)
         {
             _auth.EnforceAdmin();
+            
+            if (existingConn != null)
+            {
+                const string query = @"
+                    INSERT INTO inventory_batches (
+                        medicine_id, supplier_id, batch_no, quantity_units, 
+                        purchase_total_price, unit_cost, selling_price, 
+                        remaining_units, expiry_date, invoice_no, invoice_date,
+                        entry_mode, units_per_pack, pack_quantity, purchase_invoice_id
+                    )
+                    VALUES (
+                        @MedicineId, @SupplierId, @BatchNo, @QuantityUnits, 
+                        @PurchaseTotalPrice, @UnitCost, @SellingPrice, 
+                        @RemainingUnits, @ExpiryDate, @InvoiceNo, @InvoiceDate,
+                        @EntryMode, @UnitsPerPack, @PackQuantity, @PurchaseInvoiceId
+                    )";
+                await existingConn.ExecuteAsync(query, batches, transaction);
+                return;
+            }
+
             using var connection = _db.GetConnection();
             await connection.OpenAsync();
-            using var transaction = await connection.BeginTransactionAsync();
+            using var tx = await connection.BeginTransactionAsync();
             try
             {
                 const string query = @"
@@ -143,23 +165,22 @@ namespace DChemist.Repositories
                         medicine_id, supplier_id, batch_no, quantity_units, 
                         purchase_total_price, unit_cost, selling_price, 
                         remaining_units, expiry_date, invoice_no, invoice_date,
-                        entry_mode, units_per_pack, pack_quantity
+                        entry_mode, units_per_pack, pack_quantity, purchase_invoice_id
                     )
                     VALUES (
                         @MedicineId, @SupplierId, @BatchNo, @QuantityUnits, 
                         @PurchaseTotalPrice, @UnitCost, @SellingPrice, 
                         @RemainingUnits, @ExpiryDate, @InvoiceNo, @InvoiceDate,
-                        @EntryMode, @UnitsPerPack, @PackQuantity
+                        @EntryMode, @UnitsPerPack, @PackQuantity, @PurchaseInvoiceId
                     )";
 
-                await connection.ExecuteAsync(query, batches, transaction);
-
-                await transaction.CommitAsync();
+                await connection.ExecuteAsync(query, batches, tx);
+                await tx.CommitAsync();
                 AppLogger.LogInfo($"[StockIn] Bulk save committed — {batches.Count()} batch(es).");
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                await tx.RollbackAsync();
                 AppLogger.LogError("BatchRepository.AddBulkAsync failed — rolled back", ex);
                 throw new DataAccessException("Bulk stock save failed. All changes have been rolled back.", ex);
             }
@@ -197,6 +218,21 @@ namespace DChemist.Repositories
                 await transaction.RollbackAsync();
                 AppLogger.LogError($"BatchRepository.UpdateStockManualAsync failed for batch {batchId}", ex);
                 throw new DataAccessException("Stock adjustment failed. Please try again.", ex);
+            }
+        }
+        public async Task DeleteAsync(int batchId)
+        {
+            _auth.EnforceAdmin();
+            try
+            {
+                const string query = "DELETE FROM inventory_batches WHERE id = @batchId";
+                using var conn = _db.GetConnection();
+                await conn.ExecuteAsync(query, new { batchId });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"BatchRepository.DeleteAsync failed for batch {batchId}", ex);
+                throw new DataAccessException("Could not delete the batch. It might be tied to existing sales.", ex);
             }
         }
     }

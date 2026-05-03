@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using DChemist.Models;
@@ -15,6 +16,7 @@ namespace DChemist.ViewModels
     public class InventoryViewModel : ViewModelBase, IDisposable
     {
         private readonly MedicineRepository _medicineRepository;
+        private readonly BatchRepository _batchRepository;
         private readonly AuthorizationService _auth;
         private readonly InventoryEventBus _eventBus;
         private readonly IReportingService _reportingService;
@@ -25,9 +27,16 @@ namespace DChemist.ViewModels
         private bool _isBusy;
         private bool _isAllSelected;
 
-        public InventoryViewModel(MedicineRepository medicineRepository, AuthorizationService auth, InventoryEventBus eventBus, IReportingService reportingService, IDialogService dialogService)
+        public InventoryViewModel(
+            MedicineRepository medicineRepository, 
+            BatchRepository batchRepository,
+            AuthorizationService auth, 
+            InventoryEventBus eventBus, 
+            IReportingService reportingService, 
+            IDialogService dialogService)
         {
             _medicineRepository = medicineRepository;
+            _batchRepository = batchRepository;
             _auth = auth;
             _eventBus = eventBus;
             _reportingService = reportingService;
@@ -39,6 +48,7 @@ namespace DChemist.ViewModels
             AddMedicineCommand = new AsyncRelayCommand(async _ => await ExecuteAddMedicineAsync());
             EditMedicineCommand = new AsyncRelayCommand(async m => await ExecuteEditMedicineAsync(m as Medicine));
             DeleteMedicineCommand = new AsyncRelayCommand(async m => await ExecuteDeleteMedicineAsync(m as Medicine));
+            DeleteBatchCommand = new AsyncRelayCommand(async m => await ExecuteDeleteBatchAsync(m as Medicine));
             DeleteSelectedCommand = new AsyncRelayCommand(async _ => await ExecuteDeleteSelectedAsync(), _ => Medicines.Any(m => m.IsSelected));
             TogglePurchasePriceCommand = new RelayCommand(m => ExecuteTogglePurchasePrice(m as Medicine));
             ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportInventoryToCsvAsync(Medicines));
@@ -63,6 +73,7 @@ namespace DChemist.ViewModels
         public ICommand AddMedicineCommand { get; }
         public ICommand EditMedicineCommand { get; }
         public ICommand DeleteMedicineCommand { get; }
+        public ICommand DeleteBatchCommand { get; }
         public ICommand DeleteSelectedCommand { get; }
         public ICommand TogglePurchasePriceCommand { get; }
         public ICommand ExportCommand { get; }
@@ -205,9 +216,9 @@ namespace DChemist.ViewModels
             if (medicine == null) return;
             
             bool confirmed = await _dialogService.ShowConfirmationAsync(
-                "Delete Medicine",
-                $"Are you sure you want to delete {medicine.Name}?",
-                "Delete",
+                "Delete Entire Medicine",
+                $"Are you sure you want to delete {medicine.Name} and ALL its stock batches?",
+                "Delete All",
                 "Cancel"
             );
             
@@ -226,6 +237,38 @@ namespace DChemist.ViewModels
                 {
                     ErrorMessage = "Could not delete medicine. Please try again.";
                     AppLogger.LogError("InventoryViewModel.ExecuteDeleteMedicineAsync unexpected error", ex);
+                }
+            }
+        }
+
+        private async Task ExecuteDeleteBatchAsync(Medicine? medicine)
+        {
+            if (medicine == null || !medicine.BatchId.HasValue) return;
+
+            bool confirmed = await _dialogService.ShowConfirmationAsync(
+                "Delete Batch",
+                $"Are you sure you want to delete Batch {medicine.BatchNo} for {medicine.Name}? This cannot be undone.",
+                "Delete",
+                "Cancel"
+            );
+
+            if (confirmed)
+            {
+                ErrorMessage = string.Empty;
+                try
+                {
+                    await _batchRepository.DeleteAsync(medicine.BatchId.Value);
+                    Medicines.Remove(medicine);
+                    _eventBus.Publish(InventoryChangeType.MedicineDeleted);
+                }
+                catch (DataAccessException ex)
+                {
+                    ErrorMessage = ex.Message;
+                }
+                catch (Exception ex)
+                {
+                    ErrorMessage = "Could not delete batch. It may be tied to sales history.";
+                    AppLogger.LogError("InventoryViewModel.ExecuteDeleteBatchAsync unexpected error", ex);
                 }
             }
         }
@@ -249,11 +292,9 @@ namespace DChemist.ViewModels
                 try
                 {
                     await _medicineRepository.DeleteBulkAsync(selectedIds);
-                    // The event bus will trigger a RefreshAsync, clearing the selected items.
                 }
                 catch (DataAccessException ex)
                 {
-                    // Postgres error 23503 is Foreign Key Violation
                     if (ex.InnerException is Npgsql.PostgresException pgEx && pgEx.SqlState == "23503")
                     {
                         ErrorMessage = "Cannot delete medicines that have already been sold. Check sales history.";
@@ -281,7 +322,6 @@ namespace DChemist.ViewModels
             {
                 (DeleteSelectedCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
                 
-                // Update IsAllSelected without triggering the loop
                 var allSelected = Medicines.Count > 0 && Medicines.All(m => m.IsSelected);
                 if (_isAllSelected != allSelected)
                 {

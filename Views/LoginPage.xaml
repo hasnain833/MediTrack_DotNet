@@ -80,20 +80,6 @@
                     </TransitionCollection>
                 </StackPanel.ChildrenTransitions>
 
-                <!-- Store Logo -->
-                <Border Width="90" Height="90" CornerRadius="20"
-                        HorizontalAlignment="Center"
-                        Margin="0,0,0,24"
-                        Background="#10FFFFFF"
-                        BorderBrush="#30FFFFFF"
-                        BorderThickness="1">
-                    <Image Source="ms-appx:///Assets/store-logo.png"
-                           Width="76"
-                           Height="76"
-                           Stretch="Uniform"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"/>
-                </Border>
 
                 <!-- Branding -->
                 <TextBlock Text="D. Chemist"

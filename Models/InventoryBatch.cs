@@ -6,6 +6,7 @@ namespace DChemist.Models
     {
         public int Id { get; set; }
         public int MedicineId { get; set; }
+        public string? MedicineName { get; set; }
         public int? SupplierId { get; set; }
         public string BatchNo { get; set; } = string.Empty;
         public int QuantityUnits { get; set; }
@@ -20,6 +21,7 @@ namespace DChemist.Models
         public string EntryMode { get; set; } = "Tablet";
         public int UnitsPerPack { get; set; } = 1;
         public int PackQuantity { get; set; } = 0;
+        public int? PurchaseInvoiceId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
     }
 }

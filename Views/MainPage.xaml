@@ -68,7 +68,6 @@
                     <StackPanel Spacing="2" Margin="24,8,24,0"
                                 Visibility="{x:Bind ViewModel.IsSidebarExpanded, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <TextBlock Text="D. Chemist" FontSize="22" FontWeight="Bold" Foreground="White" TextWrapping="NoWrap"/>
-                        <TextBlock Text="Management" FontSize="11" Foreground="#88FFFFFF"/>
                     </StackPanel>
                 </StackPanel>
 

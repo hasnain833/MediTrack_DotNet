@@ -99,6 +99,7 @@ namespace DChemist
             services.AddSingleton<AuditRepository>();
             services.AddSingleton<ErrorLogRepository>();
             services.AddSingleton<IDashboardRepository, DashboardRepository>();
+            services.AddSingleton<PurchaseInvoiceRepository>();
 
             // Services
             services.AddSingleton<AuthService>();
@@ -127,7 +128,9 @@ namespace DChemist
             services.AddTransient<FinancialViewModel>();
             services.AddTransient<SettingsViewModel>();
             services.AddTransient<StockInViewModel>();
+            services.AddTransient<ItemsViewModel>();
             services.AddTransient<FinancialReportViewModel>();
+            services.AddTransient<PurchaseHistoryViewModel>();
 
             return services.BuildServiceProvider();
         }

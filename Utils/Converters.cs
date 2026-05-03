@@ -15,6 +15,17 @@ namespace DChemist.Utils
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 
+    public class BooleanToDoubleConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            double falseValue = 0.5;
+            if (parameter is string s && double.TryParse(s, out double p)) falseValue = p;
+            return (value is bool b && b) ? 1.0 : falseValue;
+        }
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
     public class InverseBooleanToVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
