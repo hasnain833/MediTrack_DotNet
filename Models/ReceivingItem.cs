@@ -61,6 +61,15 @@ namespace DChemist.Models
         public int PacketsPerBox { get; set; } = 1;
         public int UnitsPerPack { get; set; } = 1;
 
+        /// <summary>Human-readable packaging rule, e.g. "10 packs/box × 10 tabs/pack = 100 tabs/box"</summary>
+        public string PkgDimension =>
+            PacketsPerBox > 1
+                ? $"{PacketsPerBox} packs/box × {UnitsPerPack} tabs/pack = {PacketsPerBox * UnitsPerPack} tabs/box"
+                : $"{UnitsPerPack} tabs/pack";
+
+        /// <summary>Column header label: "BOX" or "TABS" depending on entry mode.</summary>
+        public string QtyLabel => EntryMode == "Box" ? "QTY (BOX)" : "QTY (TABS)";
+
         private int _quantityUnits;
         public int QuantityUnits
         {
@@ -99,7 +108,9 @@ namespace DChemist.Models
 
         private void Recalculate()
         {
-            _purchaseTotalPrice = PackQuantity * PackPrice;
+            // PackPrice IS the total price the user paid for all units.
+            // We do NOT multiply by PackQuantity — the user types the grand total directly.
+            _purchaseTotalPrice = _packPrice;
             OnPropertyChanged(nameof(PurchaseTotalPrice));
 
             if (EntryMode == "Box")

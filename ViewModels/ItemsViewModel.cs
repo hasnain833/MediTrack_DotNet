@@ -259,8 +259,11 @@ namespace DChemist.ViewModels
         {
             FormatExpiryDate();
             if (string.IsNullOrWhiteSpace(EntryName)) { StatusMessage = "⚠ Medicine name required."; return; }
-            if (QuantityUnits <= 0) { StatusMessage = "⚠ Quantity required."; return; }
             if (SellingPrice <= 0) { StatusMessage = "⚠ Selling price required."; return; }
+            int totalUnitsPerBox = (PacketsPerBox > 0 ? PacketsPerBox : 1) * (UnitsPerPacket > 0 ? UnitsPerPacket : 1);
+            decimal sellingPricePerUnit = SelectedQuantityMode == QuantityInputMode.Box
+                ? SellingPrice / totalUnitsPerBox
+                : SellingPrice;
 
             IsBusy = true;
             try
@@ -287,7 +290,6 @@ namespace DChemist.ViewModels
                     }
                     else if (SelectedQuantityMode == QuantityInputMode.Box)
                     {
-                        // Update existing medicine defaults if entered in box mode here
                         med.DefaultEntryMode = "Box";
                         med.UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1;
                         med.PacketsPerBox = PacketsPerBox > 0 ? PacketsPerBox : 1;
@@ -299,21 +301,14 @@ namespace DChemist.ViewModels
                 {
                     MedicineId = med.Id,
                     BatchNo = string.IsNullOrWhiteSpace(BatchNumber) ? "B-" + DateTime.Now.ToString("yyMMdd") : BatchNumber,
-                    QuantityUnits = QuantityUnits,
-                    RemainingUnits = QuantityUnits,
-                    SellingPrice = SellingPrice / (QuantityUnits > 0 ? QuantityUnits : 1), 
+                    QuantityUnits = 0,          // Item page saves packaging only — stock starts at 0
+                    RemainingUnits = 0,
+                    SellingPrice = sellingPricePerUnit,  // stored as price-per-tablet
                     ExpiryDate = ExpiryDate?.DateTime ?? DateTime.Now.AddYears(1),
                     EntryMode = SelectedQuantityMode.ToString(),
                     UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1,
                     PackQuantity = PackQuantity
                 };
-
-                // Wait, user might want to enter UNIT price or TOTAL price? 
-                // In StockIn it was TotalSellingPrice. Let's assume Unit Price here as it's a simpler "Item" page.
-                // Actually, let's look at user's StockIn form. It has "Selling TOTAL".
-                // I'll stick to Unit Price for this simpler page unless asked otherwise.
-                // Actually, user's screenshot of StockIn shows "Selling TOTAL".
-                // I'll rename my field to SellingPrice and treat it as Unit Price for now as it's more common in "Add Item" contexts.
                 
                 await _batchRepo.AddAsync(batch);
                 _eventBus.Publish(InventoryChangeType.MedicineAdded);

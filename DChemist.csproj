@@ -9,8 +9,8 @@
     <Product>D. Chemist</Product>
     <ApplicationTitle>D. Chemist</ApplicationTitle>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.8.0.3</Version>
-    <FileVersion>1.8.0.3</FileVersion>
+    <Version>1.8.0.4</Version>
+    <FileVersion>1.8.0.4</FileVersion>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     
     <Platforms>x64</Platforms>

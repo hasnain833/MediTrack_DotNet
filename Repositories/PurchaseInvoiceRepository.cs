@@ -62,7 +62,7 @@ namespace DChemist.Repositories
             try
             {
                 const string query = @"
-                    SELECT b.*, m.name as MedicineName
+                    SELECT b.*, m.name as MedicineName, m.packets_per_box as PacketsPerBox
                     FROM inventory_batches b
                     JOIN medicines m ON m.id = b.medicine_id
                     WHERE b.purchase_invoice_id = @invoiceId";
@@ -104,41 +104,72 @@ namespace DChemist.Repositories
                     new { invoiceNo, supplierId, date, total = items.Sum(i => i.PurchaseTotalPrice) }, 
                     transaction);
 
-                // 3. Process Items: Upsert into "Standard" Batch (where stock is actually stored)
+                // 3. Process each item — update existing batch OR create new one
                 foreach (var item in items)
                 {
-                    // We check if a 'Standard' batch exists for this medicine.
-                    // This is where your stock info (Qty, Price) actually lives.
-                    var existingBatchId = await conn.ExecuteScalarAsync<int?>(
-                        "SELECT id FROM inventory_batches WHERE medicine_id = @MedicineId AND batch_no = 'Standard' LIMIT 1",
+                    // ── Load the medicine's packaging dimensions from DB ──────────────
+                    var med = await conn.QuerySingleOrDefaultAsync<dynamic>(
+                        "SELECT packets_per_box, units_per_pack FROM medicines WHERE id = @id",
+                        new { id = item.MedicineId }, transaction);
+
+                    int packetsPerBox = (int)(med?.packets_per_box ?? 1);
+                    int unitsPerPack  = (int)(med?.units_per_pack  ?? 1);
+
+                    // Total tablets = boxes × packets/box × tablets/packet
+                    // EntryMode tells us if PackQuantity is in boxes or individual tablets
+                    int totalUnits = item.EntryMode == "Box"
+                        ? item.PackQuantity * packetsPerBox * unitsPerPack
+                        : item.PackQuantity;  // Tablet mode: PackQuantity IS the tablet count
+
+                    // Cost per tablet = total purchase price ÷ total tablets
+                    decimal unitCost = totalUnits > 0 ? item.PurchaseTotalPrice / totalUnits : 0;
+
+                    // ── Find the most recent existing batch for this medicine ─────────
+                    // This matches the 0-qty placeholder batch created by the Items page,
+                    // preventing a duplicate row from being inserted.
+                    var existingBatch = await conn.QuerySingleOrDefaultAsync<dynamic>(@"
+                        SELECT id
+                        FROM inventory_batches
+                        WHERE medicine_id = @MedicineId
+                        ORDER BY created_at DESC
+                        LIMIT 1",
                         new { item.MedicineId }, transaction);
 
-                    if (existingBatchId.HasValue)
+                    if (existingBatch != null)
                     {
-                        // Update existing Standard batch
+                        // ── UPDATE: add stock to existing batch ──────────────────────
+                        long batchId = Convert.ToInt64(existingBatch.id);
                         await conn.ExecuteAsync(@"
                             UPDATE inventory_batches 
-                            SET quantity_units = quantity_units + @QuantityUnits,
-                                remaining_units = remaining_units + @QuantityUnits,
-                                purchase_total_price = @PurchaseTotalPrice,
-                                unit_cost = @UnitCost,
-                                selling_price = @SellingPrice,
-                                purchase_invoice_id = @invoiceId,
-                                expiry_date = @ExpiryDate
+                            SET quantity_units       = quantity_units + @totalUnits,
+                                remaining_units      = remaining_units + @totalUnits,
+                                purchase_total_price = @PurchaseTotal,
+                                unit_cost            = @unitCost,
+                                selling_price        = @SellingPrice,
+                                pack_quantity        = pack_quantity + @packQty,
+                                entry_mode           = @EntryMode,
+                                units_per_pack       = @unitsPerPack,
+                                purchase_invoice_id  = @invoiceId,
+                                expiry_date          = @ExpiryDate
                             WHERE id = @batchId",
-                            new { 
-                                item.QuantityUnits, 
-                                item.PurchaseTotalPrice, 
-                                item.UnitCost, 
-                                SellingPrice = item.SellingPricePerUnit, 
-                                invoiceId, 
+                            new {
+                                totalUnits,
+                                PurchaseTotal = item.PurchaseTotalPrice,
+                                unitCost,
+                                SellingPrice  = item.SellingPricePerUnit,
+                                packQty       = item.PackQuantity,
+                                item.EntryMode,
+                                unitsPerPack,
+                                invoiceId,
                                 item.ExpiryDate,
-                                batchId = existingBatchId.Value 
+                                batchId
                             }, transaction);
+
+                        AppLogger.LogInfo($"[StockIn] Updated batch {batchId} for medicine {item.MedicineId}: +{totalUnits} units @ {unitCost:N4}/unit.");
                     }
                     else
                     {
-                        // Create a new Standard batch if it doesn't exist
+                        // ── INSERT: first-ever stock for this medicine ───────────────
                         await conn.ExecuteAsync(@"
                             INSERT INTO inventory_batches (
                                 medicine_id, supplier_id, batch_no, quantity_units, 
@@ -147,26 +178,28 @@ namespace DChemist.Repositories
                                 entry_mode, units_per_pack, pack_quantity, purchase_invoice_id
                             )
                             VALUES (
-                                @MedicineId, @supplierId, 'Standard', @QuantityUnits, 
-                                @PurchaseTotalPrice, @UnitCost, @SellingPricePerUnit, 
-                                @QuantityUnits, @ExpiryDate, @invoiceNo, @date,
-                                @EntryMode, @UnitsPerPack, @PackQuantity, @invoiceId
+                                @MedicineId, @supplierId, 'Standard', @totalUnits, 
+                                @PurchaseTotal, @unitCost, @SellingPricePerUnit, 
+                                @totalUnits, @ExpiryDate, @invoiceNo, @date,
+                                @EntryMode, @unitsPerPack, @PackQuantity, @invoiceId
                             )",
                             new {
                                 item.MedicineId,
                                 supplierId,
-                                item.QuantityUnits,
-                                item.PurchaseTotalPrice,
-                                item.UnitCost,
-                                SellingPricePerUnit = item.SellingPricePerUnit,
+                                totalUnits,
+                                PurchaseTotal        = item.PurchaseTotalPrice,
+                                unitCost,
+                                item.SellingPricePerUnit,
                                 item.ExpiryDate,
                                 invoiceNo,
                                 date,
                                 item.EntryMode,
-                                item.UnitsPerPack,
+                                unitsPerPack,
                                 item.PackQuantity,
                                 invoiceId
                             }, transaction);
+
+                        AppLogger.LogInfo($"[StockIn] Created new batch for medicine {item.MedicineId}: {totalUnits} units @ {unitCost:N4}/unit.");
                     }
                 }
 

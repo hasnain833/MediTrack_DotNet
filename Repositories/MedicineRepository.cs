@@ -399,9 +399,76 @@ namespace DChemist.Repositories
         {
             _auth.EnforceAdmin();
             const string query = "DELETE FROM medicines WHERE id = @id";
-            using var conn = _db.GetConnection();
-            await conn.ExecuteAsync(query, new { id });
-            _eventBus.Publish(InventoryChangeType.MedicineDeleted);
+            try
+            {
+                using var conn = _db.GetConnection();
+                await conn.ExecuteAsync(query, new { id });
+                _eventBus.Publish(InventoryChangeType.MedicineDeleted);
+            }
+            catch (Npgsql.PostgresException pgEx) when (pgEx.SqlState == "23503")
+            {
+                AppLogger.LogWarning($"MedicineRepository.DeleteAsync: FK constraint violation for medicine {id}.");
+                throw new DataAccessException(
+                    "Cannot delete this medicine — it has been used in past sales. " +
+                    "You can clear all sales data from Settings if you wish to remove it.");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"MedicineRepository.DeleteAsync failed for id {id}", ex);
+                throw new DataAccessException("Could not delete medicine. Please try again.", ex);
+            }
+        }
+        public async Task UpdateMetadataAsync(Medicine medicine)
+        {
+            _auth.EnforceAdmin();
+            using var connection = _db.GetConnection();
+            await connection.OpenAsync();
+            using var transaction = await connection.BeginTransactionAsync();
+
+            try
+            {
+                // 1. Resolve category if changed
+                if (medicine.CategoryId == null && !string.IsNullOrWhiteSpace(medicine.CategoryName))
+                    medicine.CategoryId = await GetOrCreateCategoryAsync(medicine.CategoryName, connection, transaction);
+
+                // 2. Update medicine name + category only
+                const string medQuery = @"
+                    UPDATE medicines
+                    SET name = @Name,
+                        category_id = COALESCE(@CategoryId, category_id)
+                    WHERE id = @Id";
+                await connection.ExecuteAsync(medQuery, medicine, transaction);
+
+                // 3. Update selling price on all active batches (non-zero remaining)
+                if (medicine.SellingPrice > 0)
+                {
+                    const string priceQuery = @"
+                        UPDATE inventory_batches
+                        SET selling_price = @SellingPrice
+                        WHERE medicine_id = @Id AND remaining_units > 0";
+                    await connection.ExecuteAsync(priceQuery, medicine, transaction);
+                }
+
+                // 4. Optionally rename the batch record if BatchNo was changed
+                if (!string.IsNullOrWhiteSpace(medicine.BatchNo) && medicine.BatchId.HasValue)
+                {
+                    const string batchQuery = @"
+                        UPDATE inventory_batches
+                        SET batch_no = @BatchNo
+                        WHERE id = @BatchId";
+                    await connection.ExecuteAsync(batchQuery, medicine, transaction);
+                }
+
+                await transaction.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                AppLogger.LogError($"MedicineRepository.UpdateMetadataAsync failed for medicine {medicine.Id}", ex);
+                throw new DataAccessException("Could not save changes. Please try again.", ex);
+            }
+
+            _eventBus.Publish(InventoryChangeType.MedicineUpdated);
         }
 
         public async Task DeleteBulkAsync(IEnumerable<int> ids)

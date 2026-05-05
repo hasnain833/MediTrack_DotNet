@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.8.0.3",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.3/DChemist_v1.8.3_Release.zip",
-  "ReleaseNotes": "v1.8.3 - Fixed update download timeout (set to 60m). Read-only Inventory view. Removed Login logo. Navigation menu renamed."
+  "LatestVersion": "1.8.0.4",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.4/DChemist_v1.8.4_Release.zip",
+  "ReleaseNotes": "v1.8.4 - Redesigned Sales & Bill History layout. Separated Print/Save billing actions. Fixed Return item functionality."
 }

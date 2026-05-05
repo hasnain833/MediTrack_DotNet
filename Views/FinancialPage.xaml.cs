@@ -20,5 +20,16 @@ namespace DChemist.Views
             base.OnNavigatedTo(e);
             await ViewModel.InitializeAsync();
         }
+
+        private void ReturnItem_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is InvoiceItemViewModel item)
+            {
+                if (ViewModel.ExecuteReturnCommand.CanExecute(item))
+                {
+                    ViewModel.ExecuteReturnCommand.Execute(item);
+                }
+            }
+        }
     }
 }

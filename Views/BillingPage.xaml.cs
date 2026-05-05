@@ -251,8 +251,8 @@ namespace DChemist.Views
                     var container = CartListView.ContainerFromItem(lastItem) as ListViewItem;
                     if (container != null)
                     {
-                        // Decide which box to focus based on which one has the '1'
-                        string targetName = lastItem.QuantityBox > 0 ? "BoxInput" : "TabletInput";
+                        // Always focus BoxInput first
+                        string targetName = "BoxInput";
                         var box = FindVisualChild<TextBox>(container, targetName);
                         box?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
                         box?.SelectAll();

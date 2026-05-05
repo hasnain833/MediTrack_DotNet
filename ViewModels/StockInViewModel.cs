@@ -88,35 +88,38 @@ namespace DChemist.ViewModels
         {
             if (medicine == null) return;
 
-            // Create and add immediately to the list
+            // Total tablets per box = packets/box × tablets/packet
+            int totalUnitsPerBox = (medicine.PacketsPerBox > 0 ? medicine.PacketsPerBox : 1)
+                                 * (medicine.UnitsPerPack  > 0 ? medicine.UnitsPerPack  : 1);
+
+            // Pre-fill unit cost: purchase price was stored per-tablet in DB
+            decimal prefillUnitCost = medicine.PurchasePrice > 0
+                ? medicine.PurchasePrice                      // already per-tablet
+                : medicine.SellingPrice / totalUnitsPerBox;   // fallback estimate
+
             var newItem = new ReceivingItem
             {
-                MedicineId = medicine.Id,
-                MedicineName = medicine.Name,
-                EntryMode = medicine.DefaultEntryMode,
-                UnitsPerPack = medicine.UnitsPerPack,
-                PacketsPerBox = medicine.PacketsPerBox,
-                PackQuantity = 0,
-                PackPrice = medicine.PurchasePrice, // Pre-fill with current saved price
-                QuantityUnits = 0,
+                MedicineId         = medicine.Id,
+                MedicineName       = medicine.Name,
+                EntryMode          = medicine.DefaultEntryMode,
+                UnitsPerPack       = medicine.UnitsPerPack,
+                PacketsPerBox      = medicine.PacketsPerBox,
+                PackQuantity       = 0,
+                PackPrice          = 0,
+                QuantityUnits      = 0,
                 PurchaseTotalPrice = 0,
-                UnitCost = medicine.PurchasePrice / (medicine.UnitsPerPack > 0 ? medicine.UnitsPerPack : 1),
+                UnitCost           = prefillUnitCost,
                 SellingPricePerUnit = medicine.SellingPrice,
-                ExpiryDate = medicine.ExpiryDate ?? DateTime.Now.AddYears(1)
+                ExpiryDate         = medicine.ExpiryDate ?? DateTime.Now.AddYears(1)
             };
 
-            // Insert at the top so it's easy to focus
             ReceivingItems.Insert(0, newItem);
 
-            // Watch for changes in this row to update the Grand Total
             newItem.PropertyChanged += (s, e) => {
                 if (e.PropertyName == nameof(ReceivingItem.PurchaseTotalPrice))
-                {
                     OnPropertyChanged(nameof(TotalSessionCost));
-                }
             };
-            
-            // Clear search text to prepare for next search
+
             EntryName = string.Empty;
             OnPropertyChanged(nameof(EntryName));
         }
@@ -271,22 +274,41 @@ namespace DChemist.ViewModels
         {
             if (ReceivingItems.Count == 0) return;
             IsBusy = true;
+            StatusMessage = string.Empty;
             OnPropertyChanged(nameof(CanSave));
             try
             {
+                // Auto-generate a unique invoice number if blank or still the default
+                string invoiceNo = SessionInvoiceNo?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(invoiceNo) || invoiceNo == "INV-000")
+                    invoiceNo = "INV-" + DateTime.Now.ToString("yyyyMMdd-HHmmss");
+
+                if (!DateTime.TryParseExact(SessionInvoiceDateText, "dd/MM/yyyy",
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.None, out DateTime invoiceDate))
+                {
+                    invoiceDate = DateTime.Today;
+                }
+
                 await _invoiceRepo.ProcessStockInAsync(
-                    SessionSupplierName, 
-                    SessionInvoiceNo, 
-                    DateTime.ParseExact(SessionInvoiceDateText, "dd/MM/yyyy", CultureInfo.InvariantCulture),
+                    SessionSupplierName,
+                    invoiceNo,
+                    invoiceDate,
                     ReceivingItems.ToList());
 
                 ReceivingItems.Clear();
+                SessionInvoiceNo = string.Empty;  // reset so next save also auto-generates
+                StatusMessage = "✔ Purchase saved successfully.";
                 _eventBus.Publish(InventoryChangeType.MedicineAdded);
             }
-            catch (Exception ex) { AppLogger.LogError("StockIn save failed", ex); }
-            finally 
-            { 
-                IsBusy = false; 
+            catch (Exception ex)
+            {
+                StatusMessage = "⚠ Could not save purchase. Please try again.";
+                AppLogger.LogError("StockIn save failed", ex);
+            }
+            finally
+            {
+                IsBusy = false;
                 OnPropertyChanged(nameof(CanSave));
             }
         }

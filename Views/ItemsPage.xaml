@@ -186,14 +186,14 @@
                                             <ColumnDefinition Width="2*"/>
                                             <ColumnDefinition Width="1*"/>
                                             <ColumnDefinition Width="1*"/>
-                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="2*"/>
                                             <ColumnDefinition Width="1*"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="Medicine" FontWeight="Bold" Foreground="#4A5568" FontSize="13"/>
                                         <TextBlock Grid.Column="1" Text="Batch" FontWeight="Bold" Foreground="#4A5568" FontSize="13"/>
                                         <TextBlock Grid.Column="2" Text="Expiry" FontWeight="Bold" Foreground="#4A5568" FontSize="13"/>
-                                        <TextBlock Grid.Column="3" Text="Qty" FontWeight="Bold" Foreground="#4A5568" FontSize="13" TextAlignment="Center"/>
-                                        <TextBlock Grid.Column="4" Text="Price" FontWeight="Bold" Foreground="#4A5568" FontSize="13" TextAlignment="Right"/>
+                                        <TextBlock Grid.Column="3" Text="Pkg Dimension" FontWeight="Bold" Foreground="#4A5568" FontSize="13"/>
+                                        <TextBlock Grid.Column="4" Text="Sell Price/Unit" FontWeight="Bold" Foreground="#4A5568" FontSize="13" TextAlignment="Right"/>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.HeaderTemplate>
@@ -204,14 +204,14 @@
                                             <ColumnDefinition Width="2*"/>
                                             <ColumnDefinition Width="1*"/>
                                             <ColumnDefinition Width="1*"/>
-                                            <ColumnDefinition Width="1*"/>
+                                            <ColumnDefinition Width="2*"/>
                                             <ColumnDefinition Width="1*"/>
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Text="{x:Bind MedicineName}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#2D3748"/>
                                         <TextBlock Grid.Column="1" Text="{x:Bind BatchNo}" VerticalAlignment="Center" Foreground="#4A5568"/>
                                         <TextBlock Grid.Column="2" Text="{x:Bind ExpiryDate, Converter={StaticResource DateConverter}}" VerticalAlignment="Center" Foreground="#4A5568"/>
-                                        <TextBlock Grid.Column="3" Text="{x:Bind QuantityUnits}" VerticalAlignment="Center" TextAlignment="Center" Foreground="#2D3748" FontWeight="Medium"/>
-                                        <TextBlock Grid.Column="4" Text="{x:Bind TotalSellingPrice, Converter={StaticResource CurrencyConverter}}" VerticalAlignment="Center" TextAlignment="Right" Foreground="{StaticResource AccentAccent}" FontWeight="Bold"/>
+                                        <TextBlock Grid.Column="3" Text="{x:Bind PkgDimension}" VerticalAlignment="Center" Foreground="#6366F1" FontSize="12" FontWeight="Medium"/>
+                                        <TextBlock Grid.Column="4" Text="{x:Bind SellingPricePerUnit, Converter={StaticResource CurrencyConverter}}" VerticalAlignment="Center" TextAlignment="Right" Foreground="{StaticResource AccentAccent}" FontWeight="Bold"/>
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

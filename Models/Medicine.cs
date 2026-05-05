@@ -30,10 +30,11 @@ namespace DChemist.Models
         {
             get
             {
-                if (BatchEntryMode == "Box" && BatchUnitsPerPack > 0)
+                if (BatchEntryMode == "Box" && PacketsPerBox > 0 && UnitsPerPack > 0)
                 {
-                    int boxes = StockQty / BatchUnitsPerPack.Value;
-                    int loose = StockQty % BatchUnitsPerPack.Value;
+                    int unitsPerBox = PacketsPerBox * UnitsPerPack;
+                    int boxes = StockQty / unitsPerBox;
+                    int loose = StockQty % unitsPerBox;
                     if (loose == 0) return $"{boxes} Box";
                     return $"{boxes} Box + {loose} Tab";
                 }
@@ -48,6 +49,62 @@ namespace DChemist.Models
             get => _isSelected;
             set => SetProperty(ref _isSelected, value);
         }
+
+        // ── Inline-edit state ────────────────────────────────────────────
+        private bool _isEditing;
+        public bool IsEditing
+        {
+            get => _isEditing;
+            set
+            {
+                if (SetProperty(ref _isEditing, value))
+                {
+                    OnPropertyChanged(nameof(IsNotEditing));
+                }
+            }
+        }
+        public bool IsNotEditing => !_isEditing;
+
+        // Editable shadow copies (populated when edit starts)
+        private string _editName = string.Empty;
+        public string EditName { get => _editName; set => SetProperty(ref _editName, value); }
+
+        private string _editCategoryName = string.Empty;
+        public string EditCategoryName { get => _editCategoryName; set => SetProperty(ref _editCategoryName, value); }
+
+        private string _editSellingPrice = string.Empty;
+        public string EditSellingPrice { get => _editSellingPrice; set => SetProperty(ref _editSellingPrice, value); }
+
+        private string _editBatchNo = string.Empty;
+        public string EditBatchNo { get => _editBatchNo; set => SetProperty(ref _editBatchNo, value); }
+
+        private string _editExpiryDate = string.Empty;
+        public string EditExpiryDate { get => _editExpiryDate; set => SetProperty(ref _editExpiryDate, value); }
+
+        /// <summary>Copies current values into edit fields so the user sees them pre-filled.</summary>
+        public void BeginEdit()
+        {
+            EditName         = Name ?? string.Empty;
+            EditCategoryName = CategoryName ?? string.Empty;
+            EditSellingPrice = SellingPrice.ToString("G29");
+            EditBatchNo      = BatchNo ?? string.Empty;
+            EditExpiryDate   = ExpiryDate.HasValue ? ExpiryDate.Value.ToString("MM/yyyy") : string.Empty;
+            IsEditing        = true;
+        }
+
+        /// <summary>Applies edit fields back to the model properties.</summary>
+        public void CommitEdit()
+        {
+            Name         = EditName;
+            CategoryName = EditCategoryName;
+            if (decimal.TryParse(EditSellingPrice, System.Globalization.NumberStyles.Any,
+                                  System.Globalization.CultureInfo.InvariantCulture, out decimal sp))
+                SellingPrice = sp;
+            BatchNo = EditBatchNo;
+            IsEditing = false;
+        }
+
+        public void CancelEdit() => IsEditing = false;
 
         public string? CategoryName { get; set; }
         public string? ManufacturerName { get; set; }

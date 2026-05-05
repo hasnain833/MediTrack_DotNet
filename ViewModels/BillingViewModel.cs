@@ -215,7 +215,7 @@ namespace DChemist.ViewModels
                     BatchId = bestBatch.Id,
                     MedicineName = med.Name,
                     BaseUnitPrice = bestBatch.SellingPrice,
-                    UnitsPerPack = bestBatch.UnitsPerPack > 0 ? bestBatch.UnitsPerPack : 1,
+                    UnitsPerBox = (med.PacketsPerBox > 0 ? med.PacketsPerBox : 1) * (med.UnitsPerPack > 0 ? med.UnitsPerPack : 1),
                     QuantityBoxText = string.Empty, // Start blank
                     QuantityTabletText = string.Empty // Start blank
                 };
@@ -300,7 +300,7 @@ namespace DChemist.ViewModels
             };
         }
 
-        private async Task ExecuteCompleteSaleAsync(bool reportToFbr)
+        private async Task ExecuteCompleteSaleAsync(bool shouldPrint)
         {
             if (!CartItems.Any()) return;
 
@@ -319,7 +319,7 @@ namespace DChemist.ViewModels
                     TaxAmount = TaxAmount,
                     DiscountAmount = DiscountAmount,
                     GrandTotal = GrandTotal,
-                    ReportToFbr = reportToFbr,
+                    ReportToFbr = false, // Not using FBR here
                     Items = CartItems.Select(i => new SaleLineItemDto
                     {
                         MedicineId = i.MedicineId,
@@ -340,7 +340,7 @@ namespace DChemist.ViewModels
                     return;
                 }
 
-                if (saleResult.BillNo != null)
+                if (shouldPrint && saleResult.BillNo != null)
                 {
                     var printReq = CreatePrintReceiptRequest(saleResult.BillNo, saleResult.FbrInvoiceNo);
                     var printResult = await _salesWorkflow.PrintReceiptAsync(printReq);
@@ -348,18 +348,13 @@ namespace DChemist.ViewModels
                     {
                         IsStatusSuccess = false;
                         StatusMessage = "Sale finished, but receipt printing failed: " + printResult.Message;
+                        return;
                     }
                 }
 
-                CartItems.Clear();
-                UpdateTotals();
-                CustomerName = string.Empty;
-                CustomerPhone = string.Empty;
-
                 IsStatusSuccess = true;
-                StatusMessage = saleResult.FbrFailedButSavedLocally
-                    ? $"Sale saved locally, but FBR reporting failed: {saleResult.Message}"
-                    : saleResult.Message;
+                StatusMessage = shouldPrint ? "Sale completed and printed successfully!" : "Sale saved successfully!";
+                ExecuteClearCart();
 
                 ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
@@ -382,7 +377,7 @@ namespace DChemist.ViewModels
         public int MedicineId { get; set; }
         public int BatchId { get; set; }
         public string MedicineName { get; set; } = string.Empty;
-        public int UnitsPerPack { get; set; } = 1;
+        public int UnitsPerBox { get; set; } = 1;
         public decimal BaseUnitPrice { get; set; }
 
         private int _quantityBox = 0;
@@ -430,7 +425,7 @@ namespace DChemist.ViewModels
         public decimal UnitPrice => BaseUnitPrice; // Always show unit price for clarity
 
         public decimal Subtotal => BaseUnitPrice * TotalTablets;
-        public int TotalTablets => (QuantityBox * UnitsPerPack) + QuantityTablet;
+        public int TotalTablets => (QuantityBox * UnitsPerBox) + QuantityTablet;
         
         // For compatibility with existing logic (e.g. Quantity++)
         public int Quantity
@@ -438,14 +433,14 @@ namespace DChemist.ViewModels
             get => TotalTablets;
             set
             {
-                // If it's a box medicine, we increment the boxes, otherwise tablets
-                if (UnitsPerPack > 1 && QuantityTablet == 0)
+                if (UnitsPerBox > 1)
                 {
-                    QuantityBox = value / UnitsPerPack;
+                    QuantityBox = value / UnitsPerBox;
+                    QuantityTablet = value % UnitsPerBox;
                 }
                 else
                 {
-                    QuantityTablet = value - (QuantityBox * UnitsPerPack);
+                    QuantityTablet = value;
                 }
                 Recalculate();
             }

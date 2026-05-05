@@ -20,8 +20,25 @@ namespace DChemist.Models
         public DateTime? InvoiceDate { get; set; }
         public string EntryMode { get; set; } = "Tablet";
         public int UnitsPerPack { get; set; } = 1;
+        public int PacketsPerBox { get; set; } = 1;
         public int PackQuantity { get; set; } = 0;
         public int? PurchaseInvoiceId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+        public string FormattedQuantity
+        {
+            get
+            {
+                if (EntryMode == "Box" && PacketsPerBox > 0 && UnitsPerPack > 0)
+                {
+                    int unitsPerBox = PacketsPerBox * UnitsPerPack;
+                    int boxes = QuantityUnits / unitsPerBox;
+                    int loose = QuantityUnits % unitsPerBox;
+                    if (loose == 0) return $"{boxes} Box";
+                    return $"{boxes} Box + {loose} Tab";
+                }
+                return $"{QuantityUnits} Units";
+            }
+        }
     }
 }

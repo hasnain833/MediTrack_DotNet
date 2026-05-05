@@ -52,6 +52,9 @@ namespace DChemist.ViewModels
             DeleteSelectedCommand = new AsyncRelayCommand(async _ => await ExecuteDeleteSelectedAsync(), _ => Medicines.Any(m => m.IsSelected));
             TogglePurchasePriceCommand = new RelayCommand(m => ExecuteTogglePurchasePrice(m as Medicine));
             ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportInventoryToCsvAsync(Medicines));
+            BeginEditCommand = new RelayCommand(m => (m as Medicine)?.BeginEdit());
+            CancelEditCommand = new RelayCommand(m => (m as Medicine)?.CancelEdit());
+            SaveRowCommand = new AsyncRelayCommand(async m => await ExecuteSaveRowAsync(m as Medicine));
 
             _eventBus.InventoryChanged += OnInventoryChanged;
         }
@@ -77,6 +80,9 @@ namespace DChemist.ViewModels
         public ICommand DeleteSelectedCommand { get; }
         public ICommand TogglePurchasePriceCommand { get; }
         public ICommand ExportCommand { get; }
+        public ICommand BeginEditCommand { get; }
+        public ICommand CancelEditCommand { get; }
+        public ICommand SaveRowCommand { get; }
 
         public bool IsAllSelected
         {
@@ -216,9 +222,9 @@ namespace DChemist.ViewModels
             if (medicine == null) return;
             
             bool confirmed = await _dialogService.ShowConfirmationAsync(
-                "Delete Entire Medicine",
-                $"Are you sure you want to delete {medicine.Name} and ALL its stock batches?",
-                "Delete All",
+                "Delete Medicine",
+                $"Are you sure you want to permanently delete '{medicine.Name}' and ALL its stock batches? This cannot be undone.",
+                "Delete",
                 "Cancel"
             );
             
@@ -228,9 +234,11 @@ namespace DChemist.ViewModels
                 try
                 {
                     await _medicineRepository.DeleteAsync(medicine.Id);
+                    Medicines.Remove(medicine); // only remove from UI after successful DB delete
                 }
                 catch (DataAccessException ex)
                 {
+                    // Friendly message shown inline (e.g. FK violation from past sales)
                     ErrorMessage = ex.Message;
                 }
                 catch (Exception ex)
@@ -238,6 +246,29 @@ namespace DChemist.ViewModels
                     ErrorMessage = "Could not delete medicine. Please try again.";
                     AppLogger.LogError("InventoryViewModel.ExecuteDeleteMedicineAsync unexpected error", ex);
                 }
+            }
+        }
+
+        private async Task ExecuteSaveRowAsync(Medicine? medicine)
+        {
+            if (medicine == null) return;
+            medicine.CommitEdit();
+            ErrorMessage = string.Empty;
+            try
+            {
+                // Use metadata-only update — does NOT touch stock quantities
+                await _medicineRepository.UpdateMetadataAsync(medicine);
+            }
+            catch (DataAccessException ex)
+            {
+                ErrorMessage = ex.Message;
+                medicine.BeginEdit(); // re-enter edit mode so user can fix and retry
+            }
+            catch (Exception ex)
+            {
+                ErrorMessage = "Could not save changes. Please try again.";
+                AppLogger.LogError("InventoryViewModel.ExecuteSaveRowAsync unexpected error", ex);
+                medicine.BeginEdit();
             }
         }
 

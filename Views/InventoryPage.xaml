@@ -7,8 +7,13 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:DChemist.Models"
+    xmlns:utils="using:DChemist.Utils"
     mc:Ignorable="d"
     x:Name="PageRoot">
+
+    <Page.Resources>
+        <utils:BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+    </Page.Resources>
 
     <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light">
         <Grid.RowDefinitions>
@@ -66,15 +71,17 @@
                         <ColumnDefinition Width="2*"/>
                         <ColumnDefinition Width="2*"/>
                         <ColumnDefinition Width="120"/>
-                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="140"/>
+                        <ColumnDefinition Width="140"/>
                         <ColumnDefinition Width="150"/>
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Medicine Name" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
                     <TextBlock Grid.Column="1" Text="Category" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
                     <TextBlock Grid.Column="2" Text="Batch / Supplier" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
                     <TextBlock Grid.Column="3" Text="Stock Qty" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                    <TextBlock Grid.Column="4" Text="Selling Price" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
-                    <TextBlock Grid.Column="5" Text="Expiry" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Grid.Column="4" Text="Purchase Price" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Grid.Column="5" Text="Selling Price" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                    <TextBlock Grid.Column="6" Text="Expiry" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
                 </Grid>
 
                 <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Medicines, Mode=OneWay}" SelectionMode="None" Padding="0" Background="Transparent">
@@ -88,56 +95,137 @@
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:Medicine">
-                            <Grid Padding="24,14">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="3*"/>
-                                    <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="2*"/>
-                                    <ColumnDefinition Width="120"/>
-                                    <ColumnDefinition Width="150"/>
-                                    <ColumnDefinition Width="150"/>
-                                </Grid.ColumnDefinitions>
-                                
-                                <StackPanel VerticalAlignment="Center" Margin="8,0">
-                                    <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{x:Bind GenericName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" Visibility="{x:Bind GenericName, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter='Inverse'}"/>
-                                </StackPanel>
+                            <StackPanel>
 
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
-                                    <TextBlock Text="{x:Bind CategoryName}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{x:Bind FormattedDosage}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
-                                    <TextBlock Text="{x:Bind BatchNo}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock Text="{x:Bind SupplierName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
-                                </StackPanel>
-
-                                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0" Spacing="8">
-                                    <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
-                                    <TextBlock Text="{x:Bind FormattedQuantity}" FontSize="13" FontWeight="SemiBold" Foreground="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
-                                </StackPanel>
-
-                                <TextBlock Grid.Column="4" Text="{x:Bind SellingPrice, Converter={StaticResource CurrencyConverter}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentAccent}" VerticalAlignment="Center" Margin="8,0"/>
-
-                                <Grid Grid.Column="5" Margin="8,0">
+                                <!-- ═══ READ-ONLY ROW ═══ -->
+                                <Grid Padding="24,14" Visibility="{x:Bind IsNotEditing, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="3*"/>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="150"/>
                                     </Grid.ColumnDefinitions>
-                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="#D97706" Visibility="{Binding ExpiryDate, Converter={StaticResource NearExpiryToVisibilityConverter}}" VerticalAlignment="Center"/>
-                                        <TextBlock Text="{Binding ExpiryDate, Converter={StaticResource DateFormatConverter}, ConverterParameter='MMM yyyy'}" Foreground="{Binding ExpiryDate, Converter={StaticResource ExpiryToColorConverter}}" VerticalAlignment="Center" FontSize="13"/>
+
+                                    <StackPanel VerticalAlignment="Center" Margin="8,0">
+                                        <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{x:Bind GenericName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" Visibility="{x:Bind GenericName, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter='Inverse'}"/>
                                     </StackPanel>
-                                    
-                                    <Button Grid.Column="1" Command="{Binding DataContext.DeleteBatchCommand, ElementName=PageRoot}" 
-                                            CommandParameter="{Binding}"
-                                            Background="Transparent" BorderThickness="0" Padding="4"
-                                            ToolTipService.ToolTip="Delete this batch">
-                                        <FontIcon Glyph="&#xE74D;" FontSize="16" Foreground="#EF4444"/>
-                                    </Button>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
+                                        <TextBlock Text="{x:Bind CategoryName, Mode=OneWay}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
+                                        <TextBlock Text="{x:Bind BatchNo, Mode=OneWay}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock Text="{x:Bind SupplierName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0" Spacing="8">
+                                        <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
+                                        <TextBlock Text="{x:Bind FormattedQuantity}" FontSize="13" FontWeight="SemiBold" Foreground="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
+                                    </StackPanel>
+
+                                    <!-- Purchase Price (cost per unit from last stock-in) -->
+                                    <TextBlock Grid.Column="4" Text="{x:Bind FormattedPurchasePrice, Mode=OneWay}" FontSize="13" FontWeight="SemiBold" Foreground="#D97706" VerticalAlignment="Center" Margin="8,0"/>
+
+                                    <TextBlock Grid.Column="5" Text="{x:Bind SellingPrice, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentAccent}" VerticalAlignment="Center" Margin="8,0"/>
+
+                                    <!-- Expiry + Action Buttons -->
+                                    <Grid Grid.Column="6" Margin="8,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                            <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="#D97706" Visibility="{Binding ExpiryDate, Converter={StaticResource NearExpiryToVisibilityConverter}}" VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding ExpiryDate, Converter={StaticResource DateFormatConverter}, ConverterParameter='MMM yyyy'}" Foreground="{Binding ExpiryDate, Converter={StaticResource ExpiryToColorConverter}}" VerticalAlignment="Center" FontSize="13"/>
+                                        </StackPanel>
+
+                                        <!-- Edit Button -->
+                                        <Button Grid.Column="1"
+                                                Command="{Binding DataContext.BeginEditCommand, ElementName=PageRoot}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent" BorderThickness="0" Padding="4"
+                                                ToolTipService.ToolTip="Edit this entry">
+                                            <FontIcon Glyph="&#xE70F;" FontSize="15" Foreground="#3B82F6"/>
+                                        </Button>
+
+                                        <!-- Delete Button (full record) -->
+                                        <Button Grid.Column="2"
+                                                Command="{Binding DataContext.DeleteMedicineCommand, ElementName=PageRoot}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent" BorderThickness="0" Padding="4"
+                                                ToolTipService.ToolTip="Delete this medicine">
+                                            <FontIcon Glyph="&#xE74D;" FontSize="16" Foreground="#EF4444"/>
+                                        </Button>
+                                    </Grid>
                                 </Grid>
-                            </Grid>
+
+                                <!-- ═══ EDIT ROW ═══ -->
+                                <Grid Padding="12,10" Visibility="{x:Bind IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisConverter}}"
+                                      Background="#EFF6FF" CornerRadius="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3*"/>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="2*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="150"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <TextBox Text="{x:Bind EditName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="Medicine name" Margin="4,0" FontSize="13"
+                                             VerticalAlignment="Center"/>
+
+                                    <TextBox Grid.Column="1"
+                                             Text="{x:Bind EditCategoryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="Category" Margin="4,0" FontSize="13"
+                                             VerticalAlignment="Center"/>
+
+                                    <TextBox Grid.Column="2"
+                                             Text="{x:Bind EditBatchNo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="Batch #" Margin="4,0" FontSize="13"
+                                             VerticalAlignment="Center"/>
+
+                                    <!-- Stock Qty is read-only in edit row (managed via StockIn) -->
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0" Spacing="8">
+                                        <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
+                                        <TextBlock Text="{x:Bind FormattedQuantity}" FontSize="13" FontWeight="SemiBold" Foreground="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
+                                    </StackPanel>
+
+                                    <!-- Purchase Price is read-only in edit mode -->
+                                    <TextBlock Grid.Column="4" Text="{x:Bind FormattedPurchasePrice, Mode=OneWay}"
+                                               FontSize="13" FontWeight="SemiBold" Foreground="#D97706"
+                                               VerticalAlignment="Center" Margin="8,0"/>
+
+                                    <TextBox Grid.Column="5"
+                                             Text="{x:Bind EditSellingPrice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="Sell Price" Margin="4,0" FontSize="13"
+                                             VerticalAlignment="Center"/>
+
+                                    <!-- Save + Cancel -->
+                                    <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="4,0">
+                                        <Button Command="{Binding DataContext.SaveRowCommand, ElementName=PageRoot}"
+                                                CommandParameter="{Binding}"
+                                                Background="#22C55E" BorderThickness="0" Padding="8,4" CornerRadius="6"
+                                                ToolTipService.ToolTip="Save changes">
+                                            <FontIcon Glyph="&#xE73E;" FontSize="14" Foreground="White"/>
+                                        </Button>
+                                        <Button Command="{Binding DataContext.CancelEditCommand, ElementName=PageRoot}"
+                                                CommandParameter="{Binding}"
+                                                Background="#EF4444" BorderThickness="0" Padding="8,4" CornerRadius="6"
+                                                ToolTipService.ToolTip="Cancel">
+                                            <FontIcon Glyph="&#xE711;" FontSize="14" Foreground="White"/>
+                                        </Button>
+                                    </StackPanel>
+                                </Grid>
+
+                            </StackPanel>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>

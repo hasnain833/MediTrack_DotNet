@@ -67,7 +67,7 @@
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:PurchaseInvoice">
-                                <Grid Padding="16,12">
+                                <Grid Padding="16,12" Background="Transparent">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="Auto"/>
@@ -141,7 +141,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="{x:Bind MedicineName}" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
                                     <TextBlock Grid.Column="1" Text="{x:Bind BatchNo}" VerticalAlignment="Center" FontSize="12" Foreground="#718096" HorizontalAlignment="Center"/>
-                                    <TextBlock Grid.Column="2" Text="{x:Bind QuantityUnits}" VerticalAlignment="Center" FontSize="13" HorizontalAlignment="Right"/>
+                                    <TextBlock Grid.Column="2" Text="{x:Bind FormattedQuantity}" VerticalAlignment="Center" FontSize="13" HorizontalAlignment="Right"/>
                                     <TextBlock Grid.Column="3" Text="{x:Bind PurchaseTotalPrice, Converter={StaticResource CurrencyConverter}}" VerticalAlignment="Center" FontSize="13" FontWeight="Bold" HorizontalAlignment="Right"/>
                                 </Grid>
                             </DataTemplate>

@@ -58,28 +58,36 @@ namespace DChemist.Views
 
         private void OnRowInputKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            if (e.Key == Windows.System.VirtualKey.Enter)
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+
+            var currentBox = sender as TextBox;
+            if (currentBox == null) return;
+
+            // Walk up to find the row Grid (the DataTemplate root)
+            var rowGrid = currentBox.Parent as Grid        // direct child
+                       ?? (currentBox.Parent as FrameworkElement)?.Parent as Grid; // inside StackPanel
+
+            if (rowGrid == null) return;
+
+            // Identify which textbox we are in by name
+            if (currentBox.Name == "QtyBox")
             {
-                var currentBox = sender as TextBox;
-                if (currentBox == null) return;
-
-                // Move from Qty -> Price or Price -> Next Search
-                // In XAML, Qty box has Header="Quantity" (or similar) or we can check Column
-                int column = Grid.GetColumn(currentBox);
-
-                if (column == 1) // Quantity Column
+                // Move to the Total Price box (direct child of row Grid, col 2)
+                var priceBox = rowGrid.Children
+                    .OfType<TextBox>()
+                    .FirstOrDefault(tb => tb.Name == "PriceBox");
+                if (priceBox != null)
                 {
-                    // Move to Price column in the same row
-                    var parent = currentBox.Parent as Grid;
-                    var priceBox = parent?.Children.OfType<TextBox>().FirstOrDefault(c => Grid.GetColumn(c as FrameworkElement) == 2);
-                    priceBox?.Focus(FocusState.Programmatic);
-                    priceBox?.SelectAll();
+                    priceBox.Focus(FocusState.Programmatic);
+                    priceBox.SelectAll();
+                    e.Handled = true;
                 }
-                else if (column == 2) // Price Column
-                {
-                    // Done with this row, back to Search
-                    MedicineSearchBox.Focus(FocusState.Programmatic);
-                }
+            }
+            else if (currentBox.Name == "PriceBox")
+            {
+                // Done with this row — go back to medicine search
+                MedicineSearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
             }
         }
 
