@@ -1,4 +1,5 @@
 using System;
+using DChemist.Repositories;
 
 namespace DChemist.Models
 {
@@ -15,5 +16,8 @@ namespace DChemist.Models
         public int FbrSalesCount { get; set; }
         public int InternalSalesCount { get; set; }
         public int ReturnsCount { get; set; }
+        
+        public decimal TotalProfit { get; set; }
+        public System.Collections.Generic.List<SaleSummary> DailyBills { get; set; } = new();
     }
 }

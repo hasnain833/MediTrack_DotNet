@@ -75,12 +75,7 @@
             <!-- 3. Brushes (Dependent on Tokens) -->
             <SolidColorBrush x:Key="AccentAccent" Color="#00D2FF"/>
             
-            <LinearGradientBrush x:Key="PremiumBackgroundBrush" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#0A1628" Offset="0.0" />
-                <GradientStop Color="#0D2137" Offset="0.4" />
-                <GradientStop Color="#0A2A4A" Offset="0.75" />
-                <GradientStop Color="#0D3347" Offset="1.0" />
-            </LinearGradientBrush>
+            <SolidColorBrush x:Key="PremiumBackgroundBrush" Color="#111827"/>
 
             <LinearGradientBrush x:Key="PremiumAccentBrush" StartPoint="0,0" EndPoint="1,0">
                 <GradientStop Color="#00D2FF" Offset="0.0" />
@@ -334,6 +329,74 @@
                                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
                                                       Margin="0"/>
+                                </Grid>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="HorizontalNavigationItemStyle" TargetType="ListViewItem">
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Foreground" Value="#A0AEC0"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Margin" Value="8,0"/>
+                <Setter Property="Padding" Value="32,12"/>
+                <Setter Property="Height" Value="Auto"/>
+                <Setter Property="MinHeight" Value="52"/>
+                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Grid x:Name="RootGrid" Background="Transparent" CornerRadius="8">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="#15FFFFFF"/>
+                                                <Setter Target="ContentPresenter.Foreground" Value="White"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="#25FFFFFF"/>
+                                                <Setter Target="ContentPresenter.Foreground" Value="White"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
+                                                <Setter Target="ContentPresenter.Foreground" Value="White"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="SelectedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="#10FFFFFF"/>
+                                                <Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
+                                                <Setter Target="ContentPresenter.Foreground" Value="White"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                
+                                <Grid>
+                                    <ContentPresenter x:Name="ContentPresenter"
+                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                                      Content="{TemplateBinding Content}"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                      Margin="0"/>
+                                    
+                                    <!-- Selection Indicator (Sleek Bottom Line) -->
+                                    <Rectangle x:Name="SelectionIndicator" 
+                                               Height="3" Width="24" 
+                                               Fill="{StaticResource AccentAccent}" 
+                                               HorizontalAlignment="Center" 
+                                               VerticalAlignment="Bottom"
+                                               Visibility="Collapsed"
+                                               Margin="0,0,0,6"
+                                               RadiusX="1.5" RadiusY="1.5"/>
                                 </Grid>
                             </Grid>
                         </ControlTemplate>

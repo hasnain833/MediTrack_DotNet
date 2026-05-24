@@ -49,11 +49,32 @@ namespace DChemist.ViewModels
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
 
+        private SaleSummary? _selectedBill;
+        public SaleSummary? SelectedBill
+        {
+            get => _selectedBill;
+            set 
+            { 
+                if (SetProperty(ref _selectedBill, value)) 
+                {
+                    _ = LoadSelectedBillDetailsAsync();
+                }
+            }
+        }
+
+        private Sale? _selectedBillDetails;
+        public Sale? SelectedBillDetails
+        {
+            get => _selectedBillDetails;
+            set => SetProperty(ref _selectedBillDetails, value);
+        }
+
         public ICommand LoadReportCommand { get; }
         public ICommand ExportCsvCommand { get; }
 
         private async Task LoadReportAsync()
         {
+            SelectedBill = null;
             IsBusy = true;
             try
             {
@@ -63,6 +84,26 @@ namespace DChemist.ViewModels
             {
                 AppLogger.LogError("Failed to load financial report", ex);
                 StatusMessage = "⚠ Failed to load report data.";
+            }
+            finally { IsBusy = false; }
+        }
+
+        private async Task LoadSelectedBillDetailsAsync()
+        {
+            if (_selectedBill == null)
+            {
+                SelectedBillDetails = null;
+                return;
+            }
+            IsBusy = true;
+            try
+            {
+                SelectedBillDetails = await _saleRepo.GetSaleWithItemsAsync(_selectedBill.BillNo);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"Failed to load bill details for {_selectedBill.BillNo}", ex);
+                StatusMessage = "⚠ Failed to load bill details.";
             }
             finally { IsBusy = false; }
         }

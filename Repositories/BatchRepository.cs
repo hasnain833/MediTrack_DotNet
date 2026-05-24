@@ -235,5 +235,78 @@ namespace DChemist.Repositories
                 throw new DataAccessException("Could not delete the batch. It might be tied to existing sales.", ex);
             }
         }
+
+        public async Task<InventoryBatch?> GetByIdAsync(int id)
+        {
+            try
+            {
+                const string query = @"
+                    SELECT 
+                        id AS Id,
+                        medicine_id AS MedicineId,
+                        supplier_id AS SupplierId,
+                        batch_no AS BatchNo,
+                        quantity_units AS QuantityUnits,
+                        purchase_total_price AS PurchaseTotalPrice,
+                        unit_cost AS UnitCost,
+                        selling_price AS SellingPrice,
+                        remaining_units AS RemainingUnits,
+                        manufacture_date AS ManufactureDate,
+                        expiry_date AS ExpiryDate,
+                        invoice_no AS InvoiceNo,
+                        invoice_date AS InvoiceDate,
+                        entry_mode AS EntryMode,
+                        units_per_pack AS UnitsPerPack,
+                        pack_quantity AS PackQuantity,
+                        purchase_invoice_id AS PurchaseInvoiceId,
+                        created_at AS CreatedAt
+                    FROM inventory_batches 
+                    WHERE id = @id";
+                using var conn = _db.GetConnection();
+                return await conn.QuerySingleOrDefaultAsync<InventoryBatch>(query, new { id });
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"BatchRepository.GetByIdAsync failed for id={id}", ex);
+                throw new DataAccessException("Could not load batch information.", ex);
+            }
+        }
+
+        public async Task UpdateAsync(InventoryBatch batch)
+        {
+            _auth.EnforceAdmin();
+            try
+            {
+                const string query = @"
+                    UPDATE inventory_batches 
+                    SET 
+                        medicine_id = @MedicineId,
+                        supplier_id = @SupplierId,
+                        batch_no = @BatchNo,
+                        quantity_units = @QuantityUnits,
+                        purchase_total_price = @PurchaseTotalPrice,
+                        unit_cost = @UnitCost,
+                        selling_price = @SellingPrice,
+                        remaining_units = @RemainingUnits,
+                        manufacture_date = @ManufactureDate,
+                        expiry_date = @ExpiryDate,
+                        invoice_no = @InvoiceNo,
+                        invoice_date = @InvoiceDate,
+                        entry_mode = @EntryMode,
+                        units_per_pack = @UnitsPerPack,
+                        pack_quantity = @PackQuantity,
+                        purchase_invoice_id = @PurchaseInvoiceId
+                    WHERE id = @Id";
+                
+                using var conn = _db.GetConnection();
+                await conn.ExecuteAsync(query, batch);
+                AppLogger.LogInfo($"Batch updated: id={batch.Id}, batch={batch.BatchNo}");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"BatchRepository.UpdateAsync failed for batch id={batch.Id}", ex);
+                throw new DataAccessException("Could not update the inventory batch.", ex);
+            }
+        }
     }
 }

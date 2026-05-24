@@ -343,4 +343,34 @@ namespace DChemist.Utils
         }
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
+
+    /// <summary>Converts IsEditMode bool → form title string.</summary>
+    public class EditModeToTitleConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+            => (value is bool b && b) ? "Edit Medicine" : "Medicine Information";
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    /// <summary>Converts IsEditMode bool → save button label string.</summary>
+    public class EditModeToButtonTextConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, string language)
+            => (value is bool b && b) ? "Update Medicine" : "Add to List";
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+
+    public class BooleanToGridLengthConverter : IValueConverter
+    {
+        public double TrueLength { get; set; } = 1.0;
+        public double FalseLength { get; set; } = 0.0;
+
+        public object Convert(object value, Type targetType, object parameter, string language)
+        {
+            bool b = value is bool v && v;
+            return new GridLength(b ? TrueLength : FalseLength);
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
 }

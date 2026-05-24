@@ -14,17 +14,8 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- Page Banner -->
-        <Border Background="{StaticResource PremiumBackgroundBrush}"
-                CornerRadius="0,0,24,24" Padding="60,40" Margin="0,0,0,32">
-            <StackPanel Spacing="10">
-                <TextBlock Text="Billing" FontSize="36" FontWeight="SemiBold" Foreground="White"/>
-                <TextBlock Text="Create sales, scan items and generate receipts." FontSize="16" Foreground="#A0AEC0"/>
-            </StackPanel>
-        </Border>
-
-        <!-- Main two-column layout -->
-        <Grid Grid.Row="1" Background="{ThemeResource AppBackgroundBrush}">
+        <!-- Main layout (Banner removed) -->
+        <Grid Grid.Row="1" Background="{ThemeResource AppBackgroundBrush}" Padding="0,24,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="400"/>
@@ -68,6 +59,7 @@
                                                 QueryIcon="Find"
                                                 TextMemberPath="Name"
                                                 Text="{x:Bind ViewModel.SearchMedicineText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                UpdateTextOnSelect="False"
                                                 ItemsSource="{x:Bind ViewModel.MedicineResults, Mode=OneWay}"
                                                 QuerySubmitted="MedicineSearchBox_QuerySubmitted"
                                                 CornerRadius="8" Height="36">

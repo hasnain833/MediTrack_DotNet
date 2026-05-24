@@ -21,7 +21,7 @@
                     <FontIcon Glyph="&#xE81C;" Foreground="{StaticResource AccentAccent}" FontSize="24"/>
                 </Border>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="Purchase History" FontSize="24" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="Invoices" FontSize="24" FontWeight="Bold" Foreground="White"/>
                     <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" FontSize="13" Foreground="#CBD5E0"/>
                 </StackPanel>
                 

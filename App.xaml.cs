@@ -123,7 +123,6 @@ namespace DChemist
             services.AddTransient<LoginViewModel>();
             services.AddTransient<MainViewModel>();
             services.AddTransient<DashboardViewModel>();
-            services.AddTransient<InventoryViewModel>();
             services.AddTransient<BillingViewModel>();
             services.AddTransient<FinancialViewModel>();
             services.AddTransient<SettingsViewModel>();

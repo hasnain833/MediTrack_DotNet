@@ -13,8 +13,9 @@ namespace DChemist.Repositories
         Task<long> GetLowStockCountAsync(int threshold = 10);
         Task<long> GetExpiringSoonCountAsync(int days = 30);
         Task<decimal> GetTodaysRevenueAsync();
-        Task<List<DashboardSaleItem>> GetRecentSalesAsync(int limit = 5);
-        Task<List<CriticalAlert>> GetCriticalAlertsAsync();
+        Task<List<DashboardSaleItem>> GetRecentSalesAsync(int limit = 15);
+        Task<List<DashboardMedicineAlert>> GetLowStockItemsAsync(int threshold = 10, int limit = 15);
+        Task<List<DashboardMedicineAlert>> GetExpiringItemsAsync(int days = 30, int limit = 15);
     }
 
     public class DashboardRepository : IDashboardRepository
@@ -75,37 +76,40 @@ namespace DChemist.Repositories
             return results.ToList();
         }
 
-        public async Task<List<CriticalAlert>> GetCriticalAlertsAsync()
+        public async Task<List<DashboardMedicineAlert>> GetLowStockItemsAsync(int threshold = 10, int limit = 15)
         {
+            const string query = @"
+                SELECT 
+                    m.name as Name,
+                    COALESCE(SUM(b.remaining_units), 0) || ' units left' as SubText
+                FROM medicines m
+                LEFT JOIN inventory_batches b ON m.id = b.medicine_id
+                GROUP BY m.id, m.name
+                HAVING COALESCE(SUM(b.remaining_units), 0) < @threshold
+                ORDER BY COALESCE(SUM(b.remaining_units), 0) ASC
+                LIMIT @limit";
+            
             using var conn = _db.GetConnection();
-            
-            // 1. Low stock alerts
-            const string lowStockQuery = @"
-                SELECT 
-                    m.name || ' is low in stock (' || SUM(b.remaining_units) || ' units)' as Message,
-                    'Low Stock' as Type
-                FROM medicines m
-                JOIN inventory_batches b ON m.id = b.medicine_id
-                GROUP BY m.name
-                HAVING SUM(b.remaining_units) < @threshold
-                LIMIT 5";
-            
-            var lowStockAlerts = await conn.QueryAsync<CriticalAlert>(lowStockQuery, new { threshold = 10 });
+            var results = await conn.QueryAsync<DashboardMedicineAlert>(query, new { threshold, limit });
+            return results.ToList();
+        }
 
-            // 2. Expiry alerts (next 30 days)
-            const string expiryQuery = @"
+        public async Task<List<DashboardMedicineAlert>> GetExpiringItemsAsync(int days = 30, int limit = 15)
+        {
+            string query = $@"
                 SELECT 
-                    m.name || ' (Batch: ' || b.batch_no || ') expires on ' || TO_CHAR(b.expiry_date, 'YYYY-MM-DD') as Message,
-                    'Expiry' as Type
+                    m.name as Name,
+                    'Expires: ' || TO_CHAR(b.expiry_date, 'YYYY-MM-DD') as SubText
                 FROM medicines m
                 JOIN inventory_batches b ON m.id = b.medicine_id
-                WHERE b.expiry_date <= CURRENT_DATE + INTERVAL '30 days'
+                WHERE b.expiry_date <= CURRENT_DATE + INTERVAL '{days} days'
                 AND b.remaining_units > 0
-                LIMIT 5";
+                ORDER BY b.expiry_date ASC
+                LIMIT @limit";
             
-            var expiryAlerts = await conn.QueryAsync<CriticalAlert>(expiryQuery);
-
-            return lowStockAlerts.Concat(expiryAlerts).ToList();
+            using var conn = _db.GetConnection();
+            var results = await conn.QueryAsync<DashboardMedicineAlert>(query, new { limit });
+            return results.ToList();
         }
     }
 
@@ -117,9 +121,9 @@ namespace DChemist.Repositories
         public string Method { get; set; } = string.Empty;
     }
 
-    public class CriticalAlert
+    public class DashboardMedicineAlert
     {
-        public string Message { get; set; } = string.Empty;
-        public string Type { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string SubText { get; set; } = string.Empty;
     }
 }

@@ -17,38 +17,7 @@
             <RowDefinition Height="*"/>    <!-- Content -->
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <Border Background="{StaticResource PremiumBackgroundBrush}" Padding="40,24">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Border Background="White" Width="48" Height="48" CornerRadius="12">
-                    <FontIcon Glyph="&#xE14D;" Foreground="{StaticResource AccentAccent}" FontSize="24"/>
-                </Border>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="20,0,0,0">
-                    <TextBlock Text="Sales &amp; Bill History" FontSize="24" FontWeight="Bold" Foreground="White"/>
-                    <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" FontSize="13" Foreground="#CBD5E0"/>
-                </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-                    <Button Command="{x:Bind ViewModel.ReprintReceiptCommand}" Style="{StaticResource SecondaryButtonStyle}" Padding="12,8">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE749;" FontSize="14"/>
-                            <TextBlock Text="Print Copy" FontSize="13"/>
-                        </StackPanel>
-                    </Button>
-                    <Button Command="{x:Bind ViewModel.VoidSaleCommand}" Background="#FEE2E2" Foreground="#DC2626" BorderBrush="Transparent" Padding="12,8">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE107;" FontSize="14"/>
-                            <TextBlock Text="Return Entire" FontSize="13" FontWeight="SemiBold"/>
-                        </StackPanel>
-                    </Button>
-                </StackPanel>
-            </Grid>
-        </Border>
-
+        <!-- Page Body (Header removed) -->
         <Grid Grid.Row="1" Margin="40,24">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="450"/> <!-- Invoice List -->

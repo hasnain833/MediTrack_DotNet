@@ -8,13 +8,17 @@
     xmlns:viewmodels="using:DChemist.ViewModels"
     xmlns:utils="using:DChemist.Utils"
     mc:Ignorable="d"
-    Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light">
+    Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light"
+    x:Name="PageRoot">
 
     <Page.Resources>
         <utils:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <utils:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
         <utils:DateConverter x:Key="DateConverter"/>
         <utils:CurrencyConverter x:Key="CurrencyConverter"/>
+        <utils:EditModeToTitleConverter x:Key="EditModeToTitleConverter"/>
+        <utils:EditModeToButtonTextConverter x:Key="EditModeToButtonTextConverter"/>
+        <utils:BooleanToGridLengthConverter x:Key="BooleanToGridLengthConverter" TrueLength="450" FalseLength="0"/>
 
         <DataTemplate x:Key="SmallHeader" x:DataType="x:String">
             <TextBlock Text="{x:Bind}" FontSize="13" FontWeight="SemiBold" Foreground="#718096" Margin="0,0,0,2"/>
@@ -27,25 +31,8 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ═══════════════ Banner Header ═══════════════ -->
-        <Border Background="{StaticResource PremiumBackgroundBrush}"
-                CornerRadius="0,0,24,24" Padding="60,32" Margin="0,0,0,16">
-            <Grid>
-                <StackPanel Spacing="2">
-                    <TextBlock Text="Manage Items" FontSize="28" FontWeight="SemiBold" Foreground="White"/>
-                    <TextBlock Text="Add individual medicines directly to your inventory." FontSize="14" Foreground="#A0AEC0"/>
-                </StackPanel>
-
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Spacing="20">
-                    <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
-                               FontSize="14" FontWeight="SemiBold" Foreground="#A0AEC0"
-                               MaxWidth="500" TextWrapping="Wrap" VerticalAlignment="Center"
-                               TextAlignment="Right"/>
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <Grid Grid.Row="1">
+        <!-- Page Body -->
+        <Grid Grid.Row="1" Margin="0,16,0,0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
@@ -53,172 +40,275 @@
 
             <!-- Toggle Bar -->
             <StackPanel Grid.Row="0" Orientation="Horizontal" Padding="48,0,0,8">
-                <Button Style="{StaticResource TextBlockButtonStyle}" Click="ToggleForm_Click" Padding="8">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE700;" FontSize="16" Foreground="#718096"/>
-                    </StackPanel>
+                <Button Style="{StaticResource TextBlockButtonStyle}" Click="ToggleForm_Click" Padding="8" ToolTipService.ToolTip="Toggle Form">
+                    <FontIcon Glyph="&#xE700;" FontSize="16" Foreground="#718096"/>
                 </Button>
             </StackPanel>
 
-            <SplitView Grid.Row="1" x:Name="FormSplitView" PaneBackground="Transparent"
-                       IsPaneOpen="{x:Bind ViewModel.IsFormExpanded, Mode=TwoWay}"
-                       DisplayMode="Inline" OpenPaneLength="450">
-                
-                <SplitView.Pane>
-                    <Grid Margin="48,0,0,48">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel Spacing="24" Padding="32" Background="White" CornerRadius="16" BorderBrush="#E2E8F0" BorderThickness="1">
-                                <TextBlock Text="Medicine Information" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
+            <!-- Two-column layout: Form pane + Table -->
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <!-- Form pane: collapses to 0 when IsFormExpanded=false -->
+                    <ColumnDefinition Width="{x:Bind ViewModel.IsFormExpanded, Mode=OneWay, Converter={StaticResource BooleanToGridLengthConverter}}"/>
+                    <!-- Table -->
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
 
-                                <!-- Medicine Details Section -->
-                                <StackPanel Spacing="20">
-                                    <TextBox x:Name="BarcodeBox" Header="Barcode Scan" 
-                                             HeaderTemplate="{StaticResource SmallHeader}"
-                                             Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             KeyDown="OnBarcodeKeyDown" PlaceholderText="Ready for scanning..."/>
+                <!-- Form Pane -->
+                <Grid Grid.Column="0" Margin="48,0,0,48"
+                      Visibility="{x:Bind ViewModel.IsFormExpanded, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                      MinWidth="0">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Spacing="24" Padding="32" Background="White" CornerRadius="16" BorderBrush="#E2E8F0" BorderThickness="1">
+                            <TextBlock Text="{x:Bind ViewModel.IsEditMode, Mode=OneWay, Converter={StaticResource EditModeToTitleConverter}}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
 
-                                    <TextBox x:Name="MedicineNameBox" Header="Medicine Name" 
-                                             HeaderTemplate="{StaticResource SmallHeader}"
-                                             Text="{x:Bind ViewModel.EntryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             PlaceholderText="Type medicine name..." KeyDown="OnInputKeyDown"/>
+                            <!-- Medicine Details Section -->
+                            <StackPanel Spacing="20">
+                                <TextBox x:Name="BarcodeBox" Header="Barcode Scan"
+                                         HeaderTemplate="{StaticResource SmallHeader}"
+                                         Text="{x:Bind ViewModel.BarcodeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         KeyDown="OnBarcodeKeyDown" PlaceholderText="Ready for scanning..."/>
 
-                                    <Grid ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="BatchNumberBox" Header="Batch Number" HeaderTemplate="{StaticResource SmallHeader}"
-                                                 Text="{x:Bind ViewModel.BatchNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 PlaceholderText="BN-1234..." KeyDown="OnInputKeyDown"/>
-                                        <TextBox x:Name="ExpiryDateBox" Grid.Column="1" Header="Expiry Date" HeaderTemplate="{StaticResource SmallHeader}"
-                                                 Text="{x:Bind ViewModel.ExpiryDateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 PlaceholderText="MMYY or MM/YYYY" HorizontalAlignment="Stretch"
-                                                 KeyDown="OnInputKeyDown" LostFocus="ExpiryDateBox_LostFocus"/>
-                                    </Grid>
-                                </StackPanel>
+                                <TextBox x:Name="MedicineNameBox" Header="Medicine Name"
+                                         HeaderTemplate="{StaticResource SmallHeader}"
+                                         Text="{x:Bind ViewModel.EntryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         PlaceholderText="Type medicine name..." KeyDown="OnInputKeyDown"/>
 
-                                <!-- Quantity Section -->
-                                <StackPanel Spacing="12">
-                                    <TextBlock Text="Quantity Entry Mode" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                    
-                                    <Grid ColumnSpacing="4" Background="#EDF2F7" CornerRadius="8" Padding="4" Height="40">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <ToggleButton Content="Box" x:Name="BoxModeBtn"
-                                                      IsChecked="{x:Bind ViewModel.IsBoxMode, Mode=OneWay}"
-                                                      Click="OnModeChanged" PreviewKeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                                      Style="{StaticResource SegmentedButtonStyle}"/>
-                                        <ToggleButton Grid.Column="1" Content="Tablet" x:Name="TabletModeBtn"
-                                                      IsChecked="{x:Bind ViewModel.IsTabletMode, Mode=OneWay}"
-                                                      Click="OnModeChanged" PreviewKeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                                      Style="{StaticResource SegmentedButtonStyle}"/>
-                                    </Grid>
-
-                                    <!-- Box Mode Grid -->
-                                    <Grid Visibility="{x:Bind ViewModel.IsBoxMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox Header="No. of Boxes" x:Name="PackQuantityBox" Margin="0,0,4,0"
-                                                 HeaderTemplate="{StaticResource SmallHeader}"
-                                                 Text="{x:Bind ViewModel.PackQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 PlaceholderText="e.g. 10" KeyDown="OnInputKeyDown"/>
-                                        <TextBox Grid.Column="1" Header="Packs / Box" x:Name="PacketsPerBoxBox" Margin="4,0,4,0"
-                                                 HeaderTemplate="{StaticResource SmallHeader}"
-                                                 Text="{x:Bind ViewModel.PacketsPerBoxText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 PlaceholderText="e.g. 20" KeyDown="OnInputKeyDown"/>
-                                        <TextBox Grid.Column="2" Header="Tabs / Pack" x:Name="UnitsPerPacketBox" Margin="4,0,0,0"
-                                                 HeaderTemplate="{StaticResource SmallHeader}"
-                                                 Text="{x:Bind ViewModel.UnitsPerPacketText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 PlaceholderText="e.g. 10" KeyDown="OnInputKeyDown"/>
-                                    </Grid>
-
-                                    <TextBox Header="Quantity (Total Tablets)" x:Name="QuantityBox"
-                                             HeaderTemplate="{StaticResource SmallHeader}"
-                                             Visibility="{x:Bind ViewModel.IsTabletMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
-                                             Text="{x:Bind ViewModel.QuantityUnitsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             KeyDown="OnInputKeyDown"/>
-
-                                    <TextBlock Text="{x:Bind ViewModel.TotalUnitsPreviewText, Mode=OneWay}"
-                                               Visibility="{x:Bind ViewModel.IsTabletMode, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
-                                               FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentAccent}" HorizontalAlignment="Right" Margin="0,-4,0,0"/>
-                                </StackPanel>
-
-                                <!-- Price Section -->
-                                <StackPanel Spacing="12">
-                                    <TextBox x:Name="SellingPriceBox" Header="Selling Price" 
-                                             HeaderTemplate="{StaticResource SmallHeader}"
-                                             Text="{x:Bind ViewModel.SellingPriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             PlaceholderText="0.00" KeyDown="OnInputKeyDown"/>
-                                </StackPanel>
-
-                                <Button Content="Add to List" HorizontalAlignment="Stretch" Height="48"
-                                        Click="OnSaveClick" Style="{StaticResource PremiumButtonStyle}"
-                                        Margin="0,12,0,0"/>
-                                
-                                <Button Content="Clear Form" HorizontalAlignment="Stretch"
-                                        Command="{x:Bind ViewModel.ClearEntryCommand}"
-                                        Style="{StaticResource SecondaryButtonStyle}"/>
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="BatchNumberBox" Header="Batch Number" HeaderTemplate="{StaticResource SmallHeader}"
+                                             Text="{x:Bind ViewModel.BatchNumber, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="BN-1234..." KeyDown="OnInputKeyDown"/>
+                                    <TextBox x:Name="ExpiryDateBox" Grid.Column="1" Header="Expiry Date" HeaderTemplate="{StaticResource SmallHeader}"
+                                             Text="{x:Bind ViewModel.ExpiryDateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="MMYY or MM/YYYY" HorizontalAlignment="Stretch"
+                                             KeyDown="OnInputKeyDown" LostFocus="ExpiryDateBox_LostFocus"/>
+                                </Grid>
                             </StackPanel>
-                        </ScrollViewer>
-                    </Grid>
-                </SplitView.Pane>
 
-                <Grid Padding="48,0,48,48">
+                            <!-- Quantity Section -->
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Quantity Entry Mode" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+
+                                <Grid ColumnSpacing="4" Background="#EDF2F7" CornerRadius="8" Padding="4" Height="40">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ToggleButton Content="Box" x:Name="BoxModeBtn"
+                                                  IsChecked="{x:Bind ViewModel.IsBoxMode, Mode=OneWay}"
+                                                  Click="OnModeChanged" PreviewKeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                                  Style="{StaticResource SegmentedButtonStyle}"/>
+                                    <ToggleButton Grid.Column="1" Content="Tablet" x:Name="TabletModeBtn"
+                                                  IsChecked="{x:Bind ViewModel.IsTabletMode, Mode=OneWay}"
+                                                  Click="OnModeChanged" PreviewKeyDown="OnModeKeyDown" Padding="0" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                                  Style="{StaticResource SegmentedButtonStyle}"/>
+                                </Grid>
+
+                                <!-- Box Mode Grid -->
+                                <Grid Visibility="{x:Bind ViewModel.IsBoxMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Header="No. of Boxes" x:Name="PackQuantityBox" Margin="0,0,4,0"
+                                             HeaderTemplate="{StaticResource SmallHeader}"
+                                             Text="{x:Bind ViewModel.PackQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="e.g. 10" KeyDown="OnInputKeyDown"/>
+                                    <TextBox Grid.Column="1" Header="Packs / Box" x:Name="PacketsPerBoxBox" Margin="4,0,4,0"
+                                             HeaderTemplate="{StaticResource SmallHeader}"
+                                             Text="{x:Bind ViewModel.PacketsPerBoxText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="e.g. 20" KeyDown="OnInputKeyDown"/>
+                                    <TextBox Grid.Column="2" Header="Tabs / Pack" x:Name="UnitsPerPacketBox" Margin="4,0,0,0"
+                                             HeaderTemplate="{StaticResource SmallHeader}"
+                                             Text="{x:Bind ViewModel.UnitsPerPacketText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="e.g. 10" KeyDown="OnInputKeyDown"/>
+                                </Grid>
+
+                                <TextBox Header="Quantity (Total Tablets)" x:Name="QuantityBox"
+                                         HeaderTemplate="{StaticResource SmallHeader}"
+                                         Visibility="{x:Bind ViewModel.IsTabletMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                         Text="{x:Bind ViewModel.QuantityUnitsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         KeyDown="OnInputKeyDown"/>
+
+                                <TextBlock Text="{x:Bind ViewModel.TotalUnitsPreviewText, Mode=OneWay}"
+                                           Visibility="{x:Bind ViewModel.IsTabletMode, Mode=OneWay, Converter={StaticResource InverseBooleanToVisibilityConverter}}"
+                                           FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource AccentAccent}" HorizontalAlignment="Right" Margin="0,-4,0,0"/>
+                            </StackPanel>
+
+                            <!-- Price Section -->
+                            <StackPanel Spacing="12">
+                                <TextBox x:Name="SellingPriceBox" Header="Selling Price"
+                                         HeaderTemplate="{StaticResource SmallHeader}"
+                                         Text="{x:Bind ViewModel.SellingPriceText, Mode=TwoWay}"
+                                         PlaceholderText="0.00" KeyDown="OnInputKeyDown"/>
+                            </StackPanel>
+
+                            <!-- Edit-Mode Extra Fields (visible only when editing) -->
+                            <StackPanel Spacing="12"
+                                        Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Border Height="1" Background="#E2E8F0"/>
+                                <TextBlock Text="Edit Details" FontSize="13" FontWeight="SemiBold" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                <TextBox Header="Category"
+                                         HeaderTemplate="{StaticResource SmallHeader}"
+                                         Text="{x:Bind ViewModel.EditCategory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         PlaceholderText="e.g. General, Antibiotic..."/>
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Header="Purchase Price"
+                                             HeaderTemplate="{StaticResource SmallHeader}"
+                                             Text="{x:Bind ViewModel.EditPurchasePriceText, Mode=TwoWay}"
+                                             PlaceholderText="0.00"/>
+                                    <TextBox Grid.Column="1" Header="Stock Qty (Tablets)"
+                                             HeaderTemplate="{StaticResource SmallHeader}"
+                                             Text="{x:Bind ViewModel.EditStockQtyText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="e.g. 100"/>
+                                </Grid>
+                            </StackPanel>
+
+                            <Button HorizontalAlignment="Stretch" Height="48"
+                                    Click="OnSaveClick" Style="{StaticResource PremiumButtonStyle}"
+                                    Margin="0,12,0,0">
+                                <TextBlock Text="{x:Bind ViewModel.IsEditMode, Mode=OneWay, Converter={StaticResource EditModeToButtonTextConverter}}"
+                                           FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                            </Button>
+
+                            <Button Content="Clear Form" HorizontalAlignment="Stretch"
+                                    Command="{x:Bind ViewModel.ClearEntryCommand}"
+                                    Style="{StaticResource SecondaryButtonStyle}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- Table / Content Area -->
+                <Grid Grid.Column="1" Padding="48,0,48,48">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Text="Recently Added Items" FontSize="20" FontWeight="Bold" Foreground="#2D3748" Margin="0,8,0,24"/>
+                    <!-- Table Header with Search -->
+                    <Grid Grid.Row="0" Margin="0,8,0,24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Spacing="20">
+                            <AutoSuggestBox PlaceholderText="Search medicine..."
+                                            Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                            QueryIcon="Find" Width="300" Height="40" VerticalAlignment="Center"/>
+                            <Button Command="{x:Bind ViewModel.RefreshCommand}"
+                                    Style="{StaticResource TextBlockButtonStyle}" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE72C;" FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                    <TextBlock Text="Refresh" FontSize="14" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
 
                     <Border Background="White" CornerRadius="16" BorderBrush="#E2E8F0" BorderThickness="1" Grid.Row="1">
-                        <ListView ItemsSource="{x:Bind ViewModel.AddedItems, Mode=OneWay}"
-                                  SelectionMode="None" Padding="0">
-                            <ListView.HeaderTemplate>
-                                <DataTemplate>
-                                    <Grid Background="#F8FAFC" Padding="20,12" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="2*"/>
-                                            <ColumnDefinition Width="1*"/>
-                                            <ColumnDefinition Width="1*"/>
-                                            <ColumnDefinition Width="2*"/>
-                                            <ColumnDefinition Width="1*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Medicine" FontWeight="Bold" Foreground="#4A5568" FontSize="13"/>
-                                        <TextBlock Grid.Column="1" Text="Batch" FontWeight="Bold" Foreground="#4A5568" FontSize="13"/>
-                                        <TextBlock Grid.Column="2" Text="Expiry" FontWeight="Bold" Foreground="#4A5568" FontSize="13"/>
-                                        <TextBlock Grid.Column="3" Text="Pkg Dimension" FontWeight="Bold" Foreground="#4A5568" FontSize="13"/>
-                                        <TextBlock Grid.Column="4" Text="Sell Price/Unit" FontWeight="Bold" Foreground="#4A5568" FontSize="13" TextAlignment="Right"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.HeaderTemplate>
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="models:ReceivingItem">
-                                    <Grid Padding="20,16" BorderBrush="#EDF2F7" BorderThickness="0,0,0,1">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="2*"/>
-                                            <ColumnDefinition Width="1*"/>
-                                            <ColumnDefinition Width="1*"/>
-                                            <ColumnDefinition Width="2*"/>
-                                            <ColumnDefinition Width="1*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{x:Bind MedicineName}" VerticalAlignment="Center" FontWeight="SemiBold" Foreground="#2D3748"/>
-                                        <TextBlock Grid.Column="1" Text="{x:Bind BatchNo}" VerticalAlignment="Center" Foreground="#4A5568"/>
-                                        <TextBlock Grid.Column="2" Text="{x:Bind ExpiryDate, Converter={StaticResource DateConverter}}" VerticalAlignment="Center" Foreground="#4A5568"/>
-                                        <TextBlock Grid.Column="3" Text="{x:Bind PkgDimension}" VerticalAlignment="Center" Foreground="#6366F1" FontSize="12" FontWeight="Medium"/>
-                                        <TextBlock Grid.Column="4" Text="{x:Bind SellingPricePerUnit, Converter={StaticResource CurrencyConverter}}" VerticalAlignment="Center" TextAlignment="Right" Foreground="{StaticResource AccentAccent}" FontWeight="Bold"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Table Header -->
+                            <Grid Background="#F9FAFB" Padding="24,12" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="3*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="2*"/>
+                                    <ColumnDefinition Width="120"/>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="140"/>
+                                    <ColumnDefinition Width="150"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Medicine Name" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBlock Grid.Column="1" Text="Category" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBlock Grid.Column="2" Text="Batch / Supplier" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBlock Grid.Column="3" Text="Stock Qty" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBlock Grid.Column="4" Text="Purchase Price" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBlock Grid.Column="5" Text="Selling Price" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                                <TextBlock Grid.Column="6" Text="Expiry" FontWeight="Bold" FontSize="12" Foreground="#4A5568" VerticalAlignment="Center" Margin="8,0"/>
+                            </Grid>
+
+                            <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.Medicines, Mode=OneWay}" SelectionMode="None" Padding="0" Background="Transparent">
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="BorderThickness" Value="0,0,0,1"/>
+                                        <Setter Property="BorderBrush" Value="#F1F5F9"/>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="models:Medicine">
+                                        <Grid Padding="24,14">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="3*"/>
+                                                <ColumnDefinition Width="2*"/>
+                                                <ColumnDefinition Width="2*"/>
+                                                <ColumnDefinition Width="120"/>
+                                                <ColumnDefinition Width="140"/>
+                                                <ColumnDefinition Width="140"/>
+                                                <ColumnDefinition Width="150"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel VerticalAlignment="Center" Margin="8,0">
+                                                <TextBlock Text="{x:Bind Name, Mode=OneWay}" FontWeight="SemiBold" FontSize="14" Foreground="{StaticResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"/>
+                                                <TextBlock Text="{x:Bind GenericName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" Visibility="{x:Bind GenericName, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter='Inverse'}"/>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="1" Text="{x:Bind CategoryName, Mode=OneWay}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="8,0"/>
+
+                                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="8,0">
+                                                <TextBlock Text="{x:Bind BatchNo, Mode=OneWay}" FontSize="13" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                                <TextBlock Text="{x:Bind SupplierName}" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="8,0" Spacing="8">
+                                                <Ellipse Width="8" Height="8" VerticalAlignment="Center" Fill="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
+                                                <TextBlock Text="{x:Bind FormattedQuantity}" FontSize="13" FontWeight="SemiBold" Foreground="{x:Bind StockQty, Converter={StaticResource StockLevelColorConverter}}"/>
+                                            </StackPanel>
+
+                                            <TextBlock Grid.Column="4" Text="{x:Bind FormattedPurchasePrice, Mode=OneWay}" FontSize="13" FontWeight="SemiBold" Foreground="#D97706" VerticalAlignment="Center" Margin="8,0" Tapped="OnPurchasePriceTapped" IsTextSelectionEnabled="False"/>
+
+                                            <TextBlock Grid.Column="5" Text="{x:Bind SellingPrice, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource AccentAccent}" VerticalAlignment="Center" Margin="8,0"/>
+
+                                            <Grid Grid.Column="6" Margin="8,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                    <FontIcon Glyph="&#xE7BA;" FontSize="13" Foreground="#D97706" Visibility="{Binding ExpiryDate, Converter={StaticResource NearExpiryToVisibilityConverter}}" VerticalAlignment="Center"/>
+                                                    <TextBlock Text="{Binding ExpiryDate, Converter={StaticResource DateFormatConverter}, ConverterParameter='MMM yyyy'}" Foreground="{Binding ExpiryDate, Converter={StaticResource ExpiryToColorConverter}}" VerticalAlignment="Center" FontSize="13"/>
+                                                </StackPanel>
+                                                <Button Grid.Column="1" Click="OnEditClick" Tag="{Binding}" Background="Transparent" BorderThickness="0" Padding="6" CornerRadius="4" ToolTipService.ToolTip="Edit">
+                                                    <FontIcon Glyph="&#xE70F;" FontSize="15" Foreground="#3B82F6"/>
+                                                </Button>
+                                                <Button Grid.Column="2" Click="OnDeleteClick" Tag="{Binding}" Background="Transparent" BorderThickness="0" Padding="6" CornerRadius="4" ToolTipService.ToolTip="Delete">
+                                                    <FontIcon Glyph="&#xE74D;" FontSize="16" Foreground="#EF4444"/>
+                                                </Button>
+                                            </Grid>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </Grid>
                     </Border>
                 </Grid>
-            </SplitView>
+            </Grid>
         </Grid>
         
         <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" 

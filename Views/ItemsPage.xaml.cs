@@ -157,5 +157,41 @@ namespace DChemist.Views
         {
             await (ViewModel.SaveCommand as AsyncRelayCommand)!.ExecuteAsync(null);
         }
+
+        private void OnEditClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is DChemist.Models.Medicine medicine)
+            {
+                ViewModel.EditInFormCommand.Execute(medicine);
+            }
+        }
+
+        private async void OnDeleteClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is DChemist.Models.Medicine medicine)
+            {
+                var dialog = new ContentDialog
+                {
+                    Title = "Delete Medicine",
+                    Content = $"Are you sure you want to permanently delete '{medicine.Name}' and ALL its stock batches?\n\nThis cannot be undone.",
+                    PrimaryButtonText = "Delete",
+                    CloseButtonText = "Cancel",
+                    DefaultButton = ContentDialogButton.Close,
+                    XamlRoot = this.XamlRoot
+                };
+                var result = await dialog.ShowAsync();
+                if (result == ContentDialogResult.Primary)
+                {
+                    await (ViewModel.DeleteMedicineCommand as AsyncRelayCommand)!.ExecuteAsync(medicine);
+                }
+            }
+        }
+        private void OnPurchasePriceTapped(object sender, Microsoft.UI.Xaml.Input.TappedRoutedEventArgs e)
+        {
+            if (sender is FrameworkElement fe && fe.DataContext is DChemist.Models.Medicine med)
+            {
+                med.IsPurchasePriceVisible = !med.IsPurchasePriceVisible;
+            }
+        }
     }
 }

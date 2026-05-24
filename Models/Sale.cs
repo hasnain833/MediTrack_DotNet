@@ -17,6 +17,19 @@ namespace DChemist.Models
         public string Status { get; set; } = "Completed";
         
         public List<SaleItem> Items { get; set; } = new();
+
+        public decimal TotalProfit
+        {
+            get
+            {
+                decimal profit = 0;
+                foreach (var item in Items)
+                {
+                    profit += item.Profit;
+                }
+                return profit;
+            }
+        }
     }
 
     public class SaleItem
@@ -30,5 +43,10 @@ namespace DChemist.Models
         public int ReturnedQuantity { get; set; }
         public decimal UnitPrice { get; set; }
         public decimal Subtotal { get; set; }
+
+        public decimal PurchasePrice { get; set; }
+        public int NetQuantity => Quantity - ReturnedQuantity;
+        public decimal NetSubtotal => NetQuantity * UnitPrice;
+        public decimal Profit => NetSubtotal - (NetQuantity * PurchasePrice);
     }
 }

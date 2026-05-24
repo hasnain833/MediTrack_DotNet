@@ -27,23 +27,8 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <!-- ═══════════════ Header Banner ═══════════════ -->
-        <Border Background="{StaticResource PremiumBackgroundBrush}" CornerRadius="0,0,24,24" Padding="40,28">
-            <Grid>
-                <StackPanel Spacing="2" Margin="60,0,0,0">
-                    <TextBlock Text="Purchase Entry" FontSize="28" FontWeight="SemiBold" Foreground="White"/>
-                    <TextBlock Text="Add stock to inventory using supplier invoices." FontSize="13" Foreground="#A0AEC0"/>
-                </StackPanel>
-
-                <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
-                           HorizontalAlignment="Right" VerticalAlignment="Center"
-                           FontSize="13" FontWeight="SemiBold" Foreground="#A0AEC0"
-                           MaxWidth="400" TextWrapping="Wrap" TextAlignment="Right"/>
-            </Grid>
-        </Border>
-
-        <!-- ═══════════════ Page Body ═══════════════ -->
-        <Grid Grid.Row="1" Margin="40,20,40,32">
+        <!-- Page Body (Header removed) -->
+        <Grid Grid.Row="1" Margin="40,24,40,32">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
@@ -90,6 +75,7 @@
                                 TextMemberPath="Name"
                                 ItemsSource="{x:Bind ViewModel.SearchSuggestions, Mode=OneWay}"
                                 Text="{x:Bind ViewModel.EntryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                UpdateTextOnSelect="False"
                                 QuerySubmitted="OnMedicineSearch_QuerySubmitted"
                                 FontSize="16" FontWeight="Medium">
                     <AutoSuggestBox.ItemTemplate>

@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.8.0.4",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.4/DChemist_v1.8.4_Release.zip",
-  "ReleaseNotes": "v1.8.4 - Redesigned Sales & Bill History layout. Separated Print/Save billing actions. Fixed Return item functionality."
+  "LatestVersion": "1.8.0.5",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.5/DChemist_v1.8.5_Release.zip",
+  "ReleaseNotes": "v1.8.5 - Complete Dashboard UI redesign with 3-column list view and removed startup popups."
 }

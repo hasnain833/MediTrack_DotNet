@@ -53,7 +53,7 @@ namespace DChemist.ViewModels
             AddToListCommand = new RelayCommand(_ => AddToList());
             SaveAllCommand = new AsyncRelayCommand(async _ => await SaveInvoiceAsync(), _ => ReceivingItems.Count > 0);
             
-            LoadSuppliers();
+            _ = LoadSuppliers();
         }
 
         public ObservableCollection<ReceivingItem> ReceivingItems { get; }

@@ -258,9 +258,11 @@ namespace DChemist.Repositories
                         si.id, si.sale_id as SaleId, si.medicine_id as MedicineId, 
                         si.batch_id as BatchId, si.quantity, si.returned_qty as ReturnedQuantity, 
                         si.unit_price as UnitPrice, si.subtotal, 
-                        m.name as MedicineName 
+                        m.name as MedicineName,
+                        COALESCE(ib.unit_cost, 0) as PurchasePrice
                     FROM sale_items si 
                     LEFT JOIN medicines m ON si.medicine_id = m.id 
+                    LEFT JOIN inventory_batches ib ON si.batch_id = ib.id
                     WHERE si.sale_id = @saleId";
                 
                 var items = await conn.QueryAsync<SaleItem>(itemsQuery, new { saleId = sale.Id }, transaction);
@@ -397,14 +399,39 @@ namespace DChemist.Repositories
                 JOIN sales s ON si.sale_id = s.id
                 WHERE s.sale_date::date = @date AND si.returned_qty > 0";
 
+            const string profitQuery = @"
+                SELECT ROUND(COALESCE(SUM((si.quantity - si.returned_qty) * (si.unit_price - COALESCE(ib.unit_cost, 0))), 0), 2)
+                FROM sale_items si
+                JOIN sales s ON si.sale_id = s.id
+                LEFT JOIN medicines m ON si.medicine_id = m.id
+                LEFT JOIN inventory_batches ib ON si.batch_id = ib.id
+                WHERE s.sale_date::date = @date AND s.status != 'Voided'";
+
+            const string dailyBillsQuery = @"
+                SELECT 
+                    s.bill_no as BillNo, 
+                    COALESCE(c.customer_name, 'Walking Customer') as Customer, 
+                    s.grand_total as Amount, 
+                    to_char(s.sale_date, 'DD Mon YYYY HH24:MI') as Date,
+                    s.status as Status,
+                    s.fbr_reported as FbrReported
+                FROM sales s
+                LEFT JOIN customers c ON s.customer_id = c.id
+                WHERE s.sale_date::date = @date AND s.status != 'Voided'
+                ORDER BY s.sale_date DESC";
+
             using var conn = _db.GetConnection();
             var report = await conn.QuerySingleAsync<FinancialReport>(query, new { date = date.Date });
             var returnData = await conn.QuerySingleAsync(returnsQuery, new { date = date.Date });
+            var totalProfit = await conn.ExecuteScalarAsync<decimal>(profitQuery, new { date = date.Date });
+            var dailyBills = await conn.QueryAsync<SaleSummary>(dailyBillsQuery, new { date = date.Date });
 
             report.ReportDate = date;
             report.ReturnsCount = returnData.returnscount;
             report.TotalReturns = returnData.totalreturns;
             report.NetSales = report.GrossSales - report.TotalReturns;
+            report.TotalProfit = totalProfit;
+            report.DailyBills = dailyBills.ToList();
 
             return report;
         }

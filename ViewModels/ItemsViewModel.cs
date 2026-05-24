@@ -22,22 +22,117 @@ namespace DChemist.ViewModels
         private readonly IDialogService _dialogService;
         private readonly DispatcherQueue _dispatcher;
 
+        private readonly AuthorizationService _auth;
+        private readonly IReportingService _reportingService;
+        private string _searchText = string.Empty;
+
         public ItemsViewModel(
             MedicineRepository medicineRepo,
             BatchRepository batchRepo,
+            AuthorizationService auth,
             InventoryEventBus eventBus,
+            IReportingService reportingService,
             IDialogService dialogService)
         {
             _medicineRepo = medicineRepo;
             _batchRepo = batchRepo;
+            _auth = auth;
             _eventBus = eventBus;
+            _reportingService = reportingService;
             _dialogService = dialogService;
             _dispatcher = DispatcherQueue.GetForCurrentThread();
 
-            AddedItems = new ObservableCollection<ReceivingItem>();
+            Medicines = new ObservableCollection<Medicine>();
+            
+            RefreshCommand = new AsyncRelayCommand(async _ => await RefreshAsync());
+            DeleteMedicineCommand = new AsyncRelayCommand(async m => await ExecuteDeleteMedicineAsync(m as Medicine));
+            DeleteBatchCommand = new AsyncRelayCommand(async m => await ExecuteDeleteBatchAsync(m as Medicine));
+            BeginEditCommand = new RelayCommand(m => (m as Medicine)?.BeginEdit());
+            CancelEditCommand = new RelayCommand(m => (m as Medicine)?.CancelEdit());
+            SaveRowCommand = new AsyncRelayCommand(async m => await ExecuteSaveRowAsync(m as Medicine));
+            EditInFormCommand = new RelayCommand(m => ExecuteEditInForm(m as Medicine));
+            ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportInventoryToCsvAsync(Medicines));
+
             LookupBarcodeCommand = new AsyncRelayCommand(async _ => await ExecuteLookupBarcodeAsync());
             SaveCommand = new AsyncRelayCommand(async _ => await ExecuteSaveAsync());
             ClearEntryCommand = new RelayCommand(_ => ClearEntry());
+
+            _eventBus.InventoryChanged += OnInventoryChanged;
+            
+            // Initial load
+            _ = RefreshAsync();
+        }
+
+        public Task LoadAsync() => RefreshAsync();
+        public ObservableCollection<Medicine> Medicines { get; }
+        public bool IsAdmin => _auth.IsAdmin;
+
+        public string SearchText
+        {
+            get => _searchText;
+            set { if (SetProperty(ref _searchText, value)) _ = SearchAsync(); }
+        }
+
+        public ICommand RefreshCommand { get; }
+        public ICommand DeleteMedicineCommand { get; }
+        public ICommand DeleteBatchCommand { get; }
+        public ICommand BeginEditCommand { get; }
+        public ICommand CancelEditCommand { get; }
+        public ICommand SaveRowCommand { get; }
+        public ICommand EditInFormCommand { get; }
+        public ICommand ExportCommand { get; }
+
+        private void OnInventoryChanged(object? sender, InventoryChangedEventArgs e)
+        {
+            _dispatcher.TryEnqueue(async () =>
+            {
+                if (!string.IsNullOrWhiteSpace(_searchText))
+                    await SearchAsync();
+                else
+                    await RefreshAsync();
+            });
+        }
+
+        private async Task RefreshAsync()
+        {
+            IsBusy = true;
+            try
+            {
+                var list = await _medicineRepo.GetAllAsync();
+                Medicines.Clear();
+                foreach (var item in list)
+                {
+                    Medicines.Add(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "✘ Failed to load inventory.";
+                AppLogger.LogError("ItemsViewModel.Refresh", ex);
+            }
+            finally { IsBusy = false; }
+        }
+
+        private async Task SearchAsync()
+        {
+            if (string.IsNullOrWhiteSpace(SearchText)) { await RefreshAsync(); return; }
+
+            IsBusy = true;
+            try
+            {
+                var list = await _medicineRepo.SearchAsync(SearchText);
+                Medicines.Clear();
+                foreach (var item in list)
+                {
+                    Medicines.Add(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusMessage = "✘ Search failed.";
+                AppLogger.LogError("ItemsViewModel.Search", ex);
+            }
+            finally { IsBusy = false; }
         }
 
         public bool IsBoxMode => SelectedQuantityMode == QuantityInputMode.Box;
@@ -172,7 +267,6 @@ namespace DChemist.ViewModels
             }
         }
 
-        public ObservableCollection<ReceivingItem> AddedItems { get; }
         public ICommand LookupBarcodeCommand { get; }
         public ICommand SaveCommand { get; }
         public ICommand ClearEntryCommand { get; }
@@ -183,8 +277,30 @@ namespace DChemist.ViewModels
         private bool _isBusy;
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
 
-        private bool _isFormExpanded = true;
+        private bool _isFormExpanded = false;
         public bool IsFormExpanded { get => _isFormExpanded; set => SetProperty(ref _isFormExpanded, value); }
+
+        // Edit mode flag - shows extra fields (Category, Purchase Price, Stock Qty) only when editing
+        private bool _isEditMode;
+        public bool IsEditMode { get => _isEditMode; set => SetProperty(ref _isEditMode, value); }
+
+        // Edit-only extra fields
+        private string _editCategory = string.Empty;
+        public string EditCategory { get => _editCategory; set => SetProperty(ref _editCategory, value); }
+
+        private string _editPurchasePriceText = string.Empty;
+        public string EditPurchasePriceText
+        {
+            get => _editPurchasePriceText;
+            set => SetProperty(ref _editPurchasePriceText, value);
+        }
+
+        private string _editStockQtyText = string.Empty;
+        public string EditStockQtyText
+        {
+            get => _editStockQtyText;
+            set => SetProperty(ref _editStockQtyText, value);
+        }
 
         private Medicine? _foundMedicine;
 
@@ -259,18 +375,43 @@ namespace DChemist.ViewModels
         {
             FormatExpiryDate();
             if (string.IsNullOrWhiteSpace(EntryName)) { StatusMessage = "⚠ Medicine name required."; return; }
-            if (SellingPrice <= 0) { StatusMessage = "⚠ Selling price required."; return; }
-            int totalUnitsPerBox = (PacketsPerBox > 0 ? PacketsPerBox : 1) * (UnitsPerPacket > 0 ? UnitsPerPacket : 1);
-            decimal sellingPricePerUnit = SelectedQuantityMode == QuantityInputMode.Box
-                ? SellingPrice / totalUnitsPerBox
-                : SellingPrice;
-
+            
             IsBusy = true;
             try
             {
+                int totalUnitsPerBox = (PacketsPerBox > 0 ? PacketsPerBox : 1) * (UnitsPerPacket > 0 ? UnitsPerPacket : 1);
+                decimal sellingPricePerUnit = SelectedQuantityMode == QuantityInputMode.Box
+                    ? SellingPrice / totalUnitsPerBox
+                    : SellingPrice;
+
                 var med = _foundMedicine;
-                if (med == null)
+                
+                // 1. Update/Add Medicine Metadata
+                if (med != null)
                 {
+                    med.Name = EntryName;
+                    med.Barcode = string.IsNullOrWhiteSpace(BarcodeText) ? null : BarcodeText.Trim();
+                    med.UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1;
+                    med.PacketsPerBox = PacketsPerBox > 0 ? PacketsPerBox : 1;
+                    med.DefaultEntryMode = SelectedQuantityMode.ToString();
+
+                    // Apply edit-mode extra fields if in edit mode
+                    if (IsEditMode)
+                    {
+                        if (!string.IsNullOrWhiteSpace(EditCategory))
+                            med.CategoryName = EditCategory;
+                        if (decimal.TryParse(EditPurchasePriceText, System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture, out decimal pp))
+                            med.PurchasePrice = pp;
+                        if (int.TryParse(EditStockQtyText, out int sq))
+                            med.StockQty = sq;
+                    }
+
+                    await _medicineRepo.UpdateAsync(med);
+                }
+                else
+                {
+                    // Check if it already exists by name
                     var existing = await _medicineRepo.SearchAsync(EntryName);
                     med = existing.FirstOrDefault(m => m.Name.Equals(EntryName, StringComparison.OrdinalIgnoreCase));
 
@@ -288,47 +429,169 @@ namespace DChemist.ViewModels
                         };
                         med = await _medicineRepo.AddAsync(med);
                     }
-                    else if (SelectedQuantityMode == QuantityInputMode.Box)
+                    else
                     {
-                        med.DefaultEntryMode = "Box";
+                        med.DefaultEntryMode = SelectedQuantityMode.ToString();
                         med.UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1;
                         med.PacketsPerBox = PacketsPerBox > 0 ? PacketsPerBox : 1;
                         await _medicineRepo.UpdateAsync(med);
                     }
                 }
 
-                var batch = new InventoryBatch
+                // 2. Update/Add Batch
+                if (med.BatchId.HasValue)
                 {
-                    MedicineId = med.Id,
-                    BatchNo = string.IsNullOrWhiteSpace(BatchNumber) ? "B-" + DateTime.Now.ToString("yyMMdd") : BatchNumber,
-                    QuantityUnits = 0,          // Item page saves packaging only — stock starts at 0
-                    RemainingUnits = 0,
-                    SellingPrice = sellingPricePerUnit,  // stored as price-per-tablet
-                    ExpiryDate = ExpiryDate?.DateTime ?? DateTime.Now.AddYears(1),
-                    EntryMode = SelectedQuantityMode.ToString(),
-                    UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1,
-                    PackQuantity = PackQuantity
-                };
-                
-                await _batchRepo.AddAsync(batch);
-                _eventBus.Publish(InventoryChangeType.MedicineAdded);
+                    // Update existing batch
+                    var batch = await _batchRepo.GetByIdAsync(med.BatchId.Value);
+                    if (batch != null)
+                    {
+                        batch.BatchNo = string.IsNullOrWhiteSpace(BatchNumber) ? batch.BatchNo : BatchNumber;
+                        batch.SellingPrice = sellingPricePerUnit;
+                        batch.ExpiryDate = ExpiryDate?.DateTime ?? batch.ExpiryDate;
+                        batch.UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1;
 
-                var item = new ReceivingItem
+                        // Apply purchase price and stock qty if editing
+                        if (IsEditMode)
+                        {
+                            if (decimal.TryParse(EditPurchasePriceText, System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture, out decimal pp))
+                                batch.UnitCost = pp;
+                            if (int.TryParse(EditStockQtyText, out int sq))
+                            {
+                                batch.QuantityUnits = sq;
+                                batch.RemainingUnits = sq;
+                            }
+                        }
+
+                        await _batchRepo.UpdateAsync(batch);
+                    }
+                }
+                else
                 {
-                    MedicineName = med.Name,
-                    BatchNo = batch.BatchNo,
-                    QuantityUnits = batch.QuantityUnits,
-                    TotalSellingPrice = SellingPrice,
-                    ExpiryDate = batch.ExpiryDate
-                };
-                AddedItems.Insert(0, item);
+                    // Create new batch
+                    var batch = new InventoryBatch
+                    {
+                        MedicineId = med.Id,
+                        BatchNo = string.IsNullOrWhiteSpace(BatchNumber) ? "B-" + DateTime.Now.ToString("yyMMdd") : BatchNumber,
+                        QuantityUnits = 0,
+                        RemainingUnits = 0,
+                        SellingPrice = sellingPricePerUnit,
+                        ExpiryDate = ExpiryDate?.DateTime ?? DateTime.Now.AddYears(1),
+                        EntryMode = SelectedQuantityMode.ToString(),
+                        UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1,
+                        PackQuantity = PackQuantity
+                    };
+                    await _batchRepo.AddAsync(batch);
+                }
+                
+                _eventBus.Publish(InventoryChangeType.MedicineAdded);
+                _ = RefreshAsync();
 
                 StatusMessage = $"✔ Saved: {med.Name}";
                 ClearEntry();
                 RequestFocus?.Invoke(this, "Barcode");
             }
-            catch (Exception ex) { StatusMessage = "✘ Save failed."; AppLogger.LogError("Items.Save", ex); }
+            catch (Exception ex) 
+            { 
+                StatusMessage = "✘ Save failed."; 
+                AppLogger.LogError("Items.Save", ex); 
+            }
             finally { IsBusy = false; }
+        }
+
+        private void ExecuteEditInForm(Medicine? medicine)
+        {
+            if (medicine == null) return;
+            
+            _foundMedicine = medicine;
+            BarcodeText = medicine.Barcode ?? string.Empty;
+            EntryName = medicine.Name;
+            BatchNumber = medicine.BatchNo ?? string.Empty;
+            
+            if (medicine.ExpiryDate.HasValue)
+            {
+                ExpiryDate = new DateTimeOffset(medicine.ExpiryDate.Value);
+                ExpiryDateText = medicine.ExpiryDate.Value.ToString("MM/yyyy");
+            }
+            else
+            {
+                ExpiryDate = null;
+                ExpiryDateText = string.Empty;
+            }
+
+            PacketsPerBox = medicine.PacketsPerBox;
+            UnitsPerPacket = medicine.UnitsPerPack;
+            
+            // For price, if it's stored as price-per-tablet, we might want to convert it back to price-per-box if that's the default
+            bool isBox = medicine.DefaultEntryMode == "Box";
+            SelectedQuantityMode = isBox ? QuantityInputMode.Box : QuantityInputMode.Tablet;
+            
+            if (isBox)
+            {
+                int totalUnits = Math.Max(1, medicine.PacketsPerBox * medicine.UnitsPerPack);
+                SellingPrice = medicine.SellingPrice * totalUnits;
+            }
+            else
+            {
+                SellingPrice = medicine.SellingPrice;
+            }
+
+            // Populate edit-only extra fields
+            EditCategory = medicine.CategoryName ?? string.Empty;
+            EditPurchasePriceText = medicine.PurchasePrice > 0
+                ? medicine.PurchasePrice.ToString("G29", System.Globalization.CultureInfo.InvariantCulture)
+                : string.Empty;
+            EditStockQtyText = medicine.StockQty > 0 ? medicine.StockQty.ToString() : string.Empty;
+
+            // Activate edit mode so extra fields become visible
+            IsEditMode = true;
+            IsFormExpanded = true;
+            StatusMessage = $"Editing: {medicine.Name}";
+            
+            OnPropertyChanged(nameof(SellingPriceText));
+            OnPropertyChanged(nameof(ExpiryDateText));
+            OnPropertyChanged(nameof(PacketsPerBoxText));
+            OnPropertyChanged(nameof(UnitsPerPacketText));
+        }
+
+        private async Task ExecuteDeleteMedicineAsync(Medicine? medicine)
+        {
+            if (medicine == null) return;
+            try
+            {
+                await _medicineRepo.DeleteAsync(medicine.Id);
+                Medicines.Remove(medicine);
+                StatusMessage = $"✔ Deleted: {medicine.Name}";
+            }
+            catch (DataAccessException ex)
+            {
+                AppLogger.LogError("Items.DeleteMed", ex);
+                await _dialogService.ShowMessageAsync("Cannot Delete Medicine", ex.Message, "OK");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Items.DeleteMed", ex);
+                await _dialogService.ShowMessageAsync("Delete Failed", $"An unexpected error occurred:\n{ex.Message}", "OK");
+            }
+        }
+
+        private async Task ExecuteDeleteBatchAsync(Medicine? medicine)
+        {
+            if (medicine == null || !medicine.BatchId.HasValue) return;
+            bool confirmed = await _dialogService.ShowConfirmationAsync("Delete Batch", $"Are you sure you want to delete Batch {medicine.BatchNo} for {medicine.Name}?", "Delete", "Cancel");
+            if (confirmed)
+            {
+                try { await _batchRepo.DeleteAsync(medicine.BatchId.Value); Medicines.Remove(medicine); _eventBus.Publish(InventoryChangeType.MedicineDeleted); }
+                catch (Exception ex) { StatusMessage = "✘ Delete failed."; AppLogger.LogError("Items.DeleteBatch", ex); }
+            }
+        }
+
+        private async Task ExecuteSaveRowAsync(Medicine? medicine)
+        {
+            if (medicine == null) return;
+            medicine.CommitEdit();
+            try { await _medicineRepo.UpdateMetadataAsync(medicine); StatusMessage = "✔ Updated successfully."; }
+            catch (Exception ex) { StatusMessage = "✘ Update failed."; AppLogger.LogError("Items.UpdateRow", ex); medicine.BeginEdit(); }
         }
 
         private void ClearEntry()
@@ -344,6 +607,11 @@ namespace DChemist.ViewModels
             UnitsPerPacket = 0;
             QuantityUnits = 0;
             SellingPrice = 0;
+            // Reset edit-mode extra fields and revert to normal entry mode
+            IsEditMode = false;
+            EditCategory = string.Empty;
+            EditPurchasePriceText = string.Empty;
+            EditStockQtyText = string.Empty;
             OnPropertyChanged(nameof(PackQuantityText));
             OnPropertyChanged(nameof(PacketsPerBoxText));
             OnPropertyChanged(nameof(UnitsPerPacketText));
