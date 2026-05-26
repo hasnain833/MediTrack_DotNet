@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.8.0.6",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.6/DChemist_v1.8.6_Release.zip",
-  "ReleaseNotes": "v1.8.6 - Added Batch No column display in Purchase page and optimized grid column styling."
+  "LatestVersion": "1.8.0.7",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.7/DChemist_v1.8.7_Release.zip",
+  "ReleaseNotes": "v1.8.7 - Fixed Batch No display column alignment and VM population on Purchase page."
 }
