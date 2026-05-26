@@ -105,16 +105,18 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="120"/>
                                 <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="180"/>
                                 <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="130"/>
                                 <ColumnDefinition Width="48"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="MEDICINE NAME" FontSize="11" FontWeight="Bold" Foreground="#718096" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="BATCH NO" FontSize="11" FontWeight="Bold" Foreground="#718096" TextAlignment="Center" VerticalAlignment="Center"/>
                             <!-- QTY header: label changes per row via QtyLabel, so we show a generic "QTY" here -->
-                            <TextBlock Grid.Column="1" Text="QTY" FontSize="11" FontWeight="Bold" Foreground="#718096" TextAlignment="Center" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="2" Text="TOTAL PRICE" FontSize="11" FontWeight="Bold" Foreground="#718096" TextAlignment="Center" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="3" Text="COST / UNIT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentAccent}" TextAlignment="Right" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="QTY" FontSize="11" FontWeight="Bold" Foreground="#718096" TextAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="3" Text="TOTAL PRICE" FontSize="11" FontWeight="Bold" Foreground="#718096" TextAlignment="Center" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="COST / UNIT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentAccent}" TextAlignment="Right" VerticalAlignment="Center"/>
                         </Grid>
                     </Border>
 
@@ -132,9 +134,10 @@
                                 <Grid Padding="24,10" BorderThickness="0,0,0,1" BorderBrush="#F1F5F9">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
                                         <ColumnDefinition Width="160"/>
-                                        <ColumnDefinition Width="180"/>
                                         <ColumnDefinition Width="150"/>
+                                        <ColumnDefinition Width="130"/>
                                         <ColumnDefinition Width="48"/>
                                     </Grid.ColumnDefinitions>
 
@@ -144,8 +147,14 @@
                                         <TextBlock Text="{x:Bind PkgDimension}" FontSize="10" Foreground="#718096"/>
                                     </StackPanel>
 
+                                    <!-- Batch No Display -->
+                                    <TextBlock Grid.Column="1"
+                                               Text="{x:Bind BatchNo, Mode=OneWay}"
+                                               FontSize="13" Foreground="#4A5568"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
                                     <!-- QTY input — label below shows BOX or TABS -->
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                         <TextBox x:Name="QtyBox"
                                                  Text="{Binding PackQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                  PlaceholderText="0" TextAlignment="Center" CornerRadius="6"
@@ -156,19 +165,19 @@
                                     </StackPanel>
 
                                     <!-- TOTAL PRICE input (total amount paid, not per-pack) -->
-                                    <TextBox Grid.Column="2" x:Name="PriceBox"
+                                    <TextBox Grid.Column="3" x:Name="PriceBox"
                                              Text="{Binding PackPriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             PlaceholderText="Total paid (e.g. 1200)" TextAlignment="Right" CornerRadius="6"
+                                             PlaceholderText="Total paid" TextAlignment="Right" CornerRadius="6"
                                              Margin="8,2"
                                              KeyDown="OnRowInputKeyDown"/>
 
                                     <!-- COST / UNIT — calculated: TotalPrice ÷ TotalTablets -->
-                                    <TextBlock Grid.Column="3"
+                                    <TextBlock Grid.Column="4"
                                                Text="{Binding UnitCost, Converter={StaticResource CurrencyConverter}}"
                                                VerticalAlignment="Center" TextAlignment="Right"
                                                FontWeight="Bold" FontSize="14" Foreground="{StaticResource AccentAccent}"/>
 
-                                    <Button Grid.Column="4" Click="OnRemoveItem_Click" Tag="{x:Bind}"
+                                    <Button Grid.Column="5" Click="OnRemoveItem_Click" Tag="{x:Bind}"
                                             Background="Transparent" BorderThickness="0" Padding="8"
                                             HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="#EF4444"/>

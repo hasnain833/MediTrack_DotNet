@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.8.0.5",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.5/DChemist_v1.8.5_Release.zip",
-  "ReleaseNotes": "v1.8.5 - Complete Dashboard UI redesign with 3-column list view and removed startup popups."
+  "LatestVersion": "1.8.0.6",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.6/DChemist_v1.8.6_Release.zip",
+  "ReleaseNotes": "v1.8.6 - Added Batch No column display in Purchase page and optimized grid column styling."
 }

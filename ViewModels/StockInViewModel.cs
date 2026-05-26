@@ -101,6 +101,7 @@ namespace DChemist.ViewModels
             {
                 MedicineId         = medicine.Id,
                 MedicineName       = medicine.Name,
+                BatchNo            = medicine.BatchNo ?? "Standard",
                 EntryMode          = medicine.DefaultEntryMode,
                 UnitsPerPack       = medicine.UnitsPerPack,
                 PacketsPerBox      = medicine.PacketsPerBox,
@@ -229,6 +230,7 @@ namespace DChemist.ViewModels
             {
                 MedicineId = FoundMedicine.Id,
                 MedicineName = FoundMedicine.Name,
+                BatchNo = FoundMedicine.BatchNo ?? "Standard",
                 QuantityUnits = QuantityUnits,
                 PurchaseTotalPrice = PurchaseTotalPrice,
                 UnitCost = UnitCost,

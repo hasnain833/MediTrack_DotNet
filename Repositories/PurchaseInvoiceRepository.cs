@@ -124,16 +124,16 @@ namespace DChemist.Repositories
                     // Cost per tablet = total purchase price ÷ total tablets
                     decimal unitCost = totalUnits > 0 ? item.PurchaseTotalPrice / totalUnits : 0;
 
-                    // ── Find the most recent existing batch for this medicine ─────────
-                    // This matches the 0-qty placeholder batch created by the Items page,
-                    // preventing a duplicate row from being inserted.
+                    // ── Find the most recent existing batch for this medicine with the same batch number ─────────
+                    // This matches an existing batch of the same batch number (or a placeholder),
+                    // preventing duplicate rows from being inserted.
                     var existingBatch = await conn.QuerySingleOrDefaultAsync<dynamic>(@"
                         SELECT id
                         FROM inventory_batches
-                        WHERE medicine_id = @MedicineId
+                        WHERE medicine_id = @MedicineId AND LOWER(batch_no) = LOWER(@BatchNo)
                         ORDER BY created_at DESC
                         LIMIT 1",
-                        new { item.MedicineId }, transaction);
+                        new { item.MedicineId, item.BatchNo }, transaction);
 
                     if (existingBatch != null)
                     {
@@ -165,11 +165,11 @@ namespace DChemist.Repositories
                                 batchId
                             }, transaction);
 
-                        AppLogger.LogInfo($"[StockIn] Updated batch {batchId} for medicine {item.MedicineId}: +{totalUnits} units @ {unitCost:N4}/unit.");
+                        AppLogger.LogInfo($"[StockIn] Updated batch {batchId} (Batch: {item.BatchNo}) for medicine {item.MedicineId}: +{totalUnits} units @ {unitCost:N4}/unit.");
                     }
                     else
                     {
-                        // ── INSERT: first-ever stock for this medicine ───────────────
+                        // ── INSERT: first-ever or new batch for this medicine ───────────────
                         await conn.ExecuteAsync(@"
                             INSERT INTO inventory_batches (
                                 medicine_id, supplier_id, batch_no, quantity_units, 
@@ -178,7 +178,7 @@ namespace DChemist.Repositories
                                 entry_mode, units_per_pack, pack_quantity, purchase_invoice_id
                             )
                             VALUES (
-                                @MedicineId, @supplierId, 'Standard', @totalUnits, 
+                                @MedicineId, @supplierId, @BatchNo, @totalUnits, 
                                 @PurchaseTotal, @unitCost, @SellingPricePerUnit, 
                                 @totalUnits, @ExpiryDate, @invoiceNo, @date,
                                 @EntryMode, @unitsPerPack, @PackQuantity, @invoiceId
@@ -186,6 +186,7 @@ namespace DChemist.Repositories
                             new {
                                 item.MedicineId,
                                 supplierId,
+                                item.BatchNo,
                                 totalUnits,
                                 PurchaseTotal        = item.PurchaseTotalPrice,
                                 unitCost,
@@ -199,7 +200,7 @@ namespace DChemist.Repositories
                                 invoiceId
                             }, transaction);
 
-                        AppLogger.LogInfo($"[StockIn] Created new batch for medicine {item.MedicineId}: {totalUnits} units @ {unitCost:N4}/unit.");
+                        AppLogger.LogInfo($"[StockIn] Created new batch {item.BatchNo} for medicine {item.MedicineId}: {totalUnits} units @ {unitCost:N4}/unit.");
                     }
                 }
 
