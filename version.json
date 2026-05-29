@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.8.0.7",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.7/DChemist_v1.8.7_Release.zip",
-  "ReleaseNotes": "v1.8.7 - Fixed Batch No display column alignment and VM population on Purchase page."
+  "LatestVersion": "1.8.0.8",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.8/DChemist_v1.8.8_Release.zip",
+  "ReleaseNotes": "v1.8.8 - Batch No is now editable on Purchase page. Batch history tracking added for drug inspector traceability — old batch numbers are automatically archived when a new purchase uses a different batch number."
 }

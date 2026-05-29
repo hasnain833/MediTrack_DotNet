@@ -147,11 +147,16 @@
                                         <TextBlock Text="{x:Bind PkgDimension}" FontSize="10" Foreground="#718096"/>
                                     </StackPanel>
 
-                                    <!-- Batch No Display -->
-                                    <TextBlock Grid.Column="1"
-                                               Text="{x:Bind BatchNo, Mode=OneWay}"
-                                               FontSize="13" Foreground="#4A5568"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    <!-- Batch No — editable so users can set/correct the batch number.
+                                         Old batch numbers are automatically saved to batch_history when changed. -->
+                                    <TextBox Grid.Column="1" x:Name="BatchBox"
+                                             Text="{Binding BatchNo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="Batch No"
+                                             TextAlignment="Center" CornerRadius="6"
+                                             Margin="6,0"
+                                             FontSize="12"
+                                             KeyDown="OnRowInputKeyDown"
+                                             Loaded="OnRowControlLoaded"/>
 
                                     <!-- QTY input — label below shows BOX or TABS -->
                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">

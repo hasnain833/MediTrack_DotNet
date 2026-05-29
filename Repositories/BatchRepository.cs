@@ -308,5 +308,128 @@ namespace DChemist.Repositories
                 throw new DataAccessException("Could not update the inventory batch.", ex);
             }
         }
+
+        public async Task SaveBatchHistoryAsync(
+            BatchHistory record,
+            Npgsql.NpgsqlConnection? existingConn = null,
+            Npgsql.NpgsqlTransaction? transaction = null)
+        {
+            try
+            {
+                const string query = @"
+                    INSERT INTO batch_history (
+                        medicine_id, medicine_name, old_batch_no, new_batch_no,
+                        supplier_id, supplier_name, invoice_no, invoice_date,
+                        quantity_units, purchase_total_price, unit_cost,
+                        inventory_batch_id, change_reason
+                    )
+                    VALUES (
+                        @MedicineId, @MedicineName, @OldBatchNo, @NewBatchNo,
+                        @SupplierId, @SupplierName, @InvoiceNo, @InvoiceDate,
+                        @QuantityUnits, @PurchaseTotalPrice, @UnitCost,
+                        @InventoryBatchId, @ChangeReason
+                    )";
+
+                if (existingConn != null)
+                {
+                    await existingConn.ExecuteAsync(query, record, transaction);
+                    return;
+                }
+
+                using var conn = _db.GetConnection();
+                await conn.ExecuteAsync(query, record);
+                AppLogger.LogInfo($"BatchHistory saved: medicine_id={record.MedicineId}, old_batch={record.OldBatchNo}, new_batch={record.NewBatchNo}");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("BatchRepository.SaveBatchHistoryAsync failed", ex);
+                // Non-fatal — do not rethrow so history failure doesn't abort the main save
+            }
+        }
+
+        /// <summary>
+        /// Searches batch history records by batch number, medicine name, or invoice number.
+        /// Returns up to 200 matching records ordered by most recent first.
+        /// </summary>
+        public async Task<List<BatchHistory>> SearchBatchHistoryAsync(string searchTerm)
+        {
+            try
+            {
+                const string query = @"
+                    SELECT
+                        id                    AS Id,
+                        medicine_id           AS MedicineId,
+                        medicine_name         AS MedicineName,
+                        old_batch_no          AS OldBatchNo,
+                        new_batch_no          AS NewBatchNo,
+                        supplier_id           AS SupplierId,
+                        supplier_name         AS SupplierName,
+                        invoice_no            AS InvoiceNo,
+                        invoice_date          AS InvoiceDate,
+                        quantity_units        AS QuantityUnits,
+                        purchase_total_price  AS PurchaseTotalPrice,
+                        unit_cost             AS UnitCost,
+                        inventory_batch_id    AS InventoryBatchId,
+                        change_reason         AS ChangeReason,
+                        created_at            AS CreatedAt
+                    FROM batch_history
+                    WHERE  LOWER(old_batch_no)  LIKE @term
+                        OR LOWER(new_batch_no)  LIKE @term
+                        OR LOWER(medicine_name) LIKE @term
+                        OR LOWER(invoice_no)    LIKE @term
+                        OR LOWER(supplier_name) LIKE @term
+                    ORDER BY created_at DESC
+                    LIMIT 200";
+
+                using var conn = _db.GetConnection();
+                var term = "%" + searchTerm.ToLower() + "%";
+                var rows = await conn.QueryAsync<BatchHistory>(query, new { term });
+                return rows.ToList();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"BatchRepository.SearchBatchHistoryAsync failed for term='{searchTerm}'", ex);
+                return new List<BatchHistory>();
+            }
+        }
+
+        /// <summary>
+        /// Returns all batch history records ordered by most recent first.
+        /// </summary>
+        public async Task<List<BatchHistory>> GetAllBatchHistoryAsync()
+        {
+            try
+            {
+                const string query = @"
+                    SELECT
+                        id                    AS Id,
+                        medicine_id           AS MedicineId,
+                        medicine_name         AS MedicineName,
+                        old_batch_no          AS OldBatchNo,
+                        new_batch_no          AS NewBatchNo,
+                        supplier_id           AS SupplierId,
+                        supplier_name         AS SupplierName,
+                        invoice_no            AS InvoiceNo,
+                        invoice_date          AS InvoiceDate,
+                        quantity_units        AS QuantityUnits,
+                        purchase_total_price  AS PurchaseTotalPrice,
+                        unit_cost             AS UnitCost,
+                        inventory_batch_id    AS InventoryBatchId,
+                        change_reason         AS ChangeReason,
+                        created_at            AS CreatedAt
+                    FROM batch_history
+                    ORDER BY created_at DESC
+                    LIMIT 500";
+
+                using var conn = _db.GetConnection();
+                var rows = await conn.QueryAsync<BatchHistory>(query);
+                return rows.ToList();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("BatchRepository.GetAllBatchHistoryAsync failed", ex);
+                return new List<BatchHistory>();
+            }
+        }
     }
 }

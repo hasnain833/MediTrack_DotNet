@@ -46,12 +46,15 @@ namespace DChemist.Views
         {
             if (sender is TextBox tb)
             {
-                // If this is the quantity box of the first item, focus it
-                var item = tb.DataContext as DChemist.Models.ReceivingItem;
-                if (item != null && ViewModel.ReceivingItems.Count > 0 && item == ViewModel.ReceivingItems[0])
+                // When the first item's BatchBox loads, focus it so the user can type the batch number immediately
+                if (tb.Name == "BatchBox")
                 {
-                    tb.Focus(FocusState.Programmatic);
-                    tb.SelectAll();
+                    var item = tb.DataContext as DChemist.Models.ReceivingItem;
+                    if (item != null && ViewModel.ReceivingItems.Count > 0 && item == ViewModel.ReceivingItems[0])
+                    {
+                        tb.Focus(FocusState.Programmatic);
+                        tb.SelectAll();
+                    }
                 }
             }
         }
@@ -69,10 +72,24 @@ namespace DChemist.Views
 
             if (rowGrid == null) return;
 
-            // Identify which textbox we are in by name
-            if (currentBox.Name == "QtyBox")
+            // Navigation order: BatchBox → QtyBox → PriceBox → MedicineSearchBox
+            if (currentBox.Name == "BatchBox")
             {
-                // Move to the Total Price box (direct child of row Grid, col 2)
+                // Move to the Quantity box
+                var qtyBox = rowGrid.Children
+                    .OfType<StackPanel>()
+                    .SelectMany(sp => sp.Children.OfType<TextBox>())
+                    .FirstOrDefault(tb => tb.Name == "QtyBox");
+                if (qtyBox != null)
+                {
+                    qtyBox.Focus(FocusState.Programmatic);
+                    qtyBox.SelectAll();
+                    e.Handled = true;
+                }
+            }
+            else if (currentBox.Name == "QtyBox")
+            {
+                // Move to the Total Price box
                 var priceBox = rowGrid.Children
                     .OfType<TextBox>()
                     .FirstOrDefault(tb => tb.Name == "PriceBox");
