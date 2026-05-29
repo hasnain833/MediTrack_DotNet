@@ -189,8 +189,72 @@ namespace DChemistUpdater
                 return;
             }
 
+            // ── Step 4b: Patch CurrentVersion in local appsettings.json ──────
+            // appsettings.json is excluded from overwrite to preserve DB creds,
+            // but we still need to bump CurrentVersion so the update check stops.
+            try
+            {
+                string appSettingsPath = Path.Combine(appPath, "appsettings.json");
+                string versionJsonPath = Path.Combine(appPath, "version.json");
+
+                // Read the new version from version.json (extracted by the update)
+                string? newVersion = null;
+                if (File.Exists(versionJsonPath))
+                {
+                    string versionContent = File.ReadAllText(versionJsonPath);
+                    // Simple extraction without System.Text.Json dependency
+                    const string key = "\"LatestVersion\"";
+                    int keyIdx = versionContent.IndexOf(key, StringComparison.OrdinalIgnoreCase);
+                    if (keyIdx >= 0)
+                    {
+                        int colonIdx = versionContent.IndexOf(':', keyIdx + key.Length);
+                        if (colonIdx >= 0)
+                        {
+                            int q1 = versionContent.IndexOf('"', colonIdx + 1);
+                            int q2 = versionContent.IndexOf('"', q1 + 1);
+                            if (q1 >= 0 && q2 > q1)
+                                newVersion = versionContent.Substring(q1 + 1, q2 - q1 - 1);
+                        }
+                    }
+                }
+
+                if (newVersion != null && File.Exists(appSettingsPath))
+                {
+                    string settings = File.ReadAllText(appSettingsPath);
+                    // Replace only the CurrentVersion value, keeping everything else intact
+                    const string cvKey = "\"CurrentVersion\"";
+                    int cvIdx = settings.IndexOf(cvKey, StringComparison.OrdinalIgnoreCase);
+                    if (cvIdx >= 0)
+                    {
+                        int colonIdx = settings.IndexOf(':', cvIdx + cvKey.Length);
+                        if (colonIdx >= 0)
+                        {
+                            int q1 = settings.IndexOf('"', colonIdx + 1);
+                            int q2 = settings.IndexOf('"', q1 + 1);
+                            if (q1 >= 0 && q2 > q1)
+                            {
+                                string oldVersion = settings.Substring(q1 + 1, q2 - q1 - 1);
+                                settings = settings.Remove(q1 + 1, q2 - q1 - 1)
+                                                   .Insert(q1 + 1, newVersion);
+                                File.WriteAllText(appSettingsPath, settings);
+                                Log($"[OK] Patched CurrentVersion: {oldVersion} → {newVersion}");
+                            }
+                        }
+                    }
+                }
+                else if (newVersion == null)
+                {
+                    Log("[WARN] Could not read new version from version.json — CurrentVersion not patched.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log($"[WARN] Could not patch CurrentVersion in appsettings.json: {ex.Message}");
+            }
+
             // ── Step 5: Cleanup & Restart ─────────────────────────────────────
             Log("\n[5/5] Cleaning up and restarting...");
+
 
             SafeDeleteDirectory(backupPath);
 
