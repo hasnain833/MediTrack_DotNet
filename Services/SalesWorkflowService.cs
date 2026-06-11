@@ -51,18 +51,8 @@ namespace DChemist.Services
             if (request.Items == null || request.Items.Count == 0)
                 return new CompleteSaleResult { Success = false, Message = "No cart items to process." };
 
-            foreach (var item in request.Items)
-            {
-                var totalStock = await _batchRepository.GetTotalStockAsync(item.MedicineId);
-                if (totalStock < item.QuantityUnitsForStock)
-                {
-                    return new CompleteSaleResult
-                    {
-                        Success = false,
-                        Message = $"Insufficient total stock for '{item.MedicineName}'. Available: {totalStock} units. Requested: {item.QuantityUnitsForStock} units."
-                    };
-                }
-            }
+            // Stock validation is handled inside SaleRepository.CreateTransactionAsync
+            // with proper FOR UPDATE locks — no need to pre-check here.
 
             int? customerId = null;
             if (!string.IsNullOrWhiteSpace(request.CustomerName))

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using DChemist.Models;
@@ -36,6 +37,7 @@ namespace DChemist.ViewModels
         private bool _isStatusSuccess;
         private bool _isContinuousScanMode = true;
         private bool _isSearching;
+        private CancellationTokenSource? _searchCts;
 
         public bool IsSearching { get => _isSearching; set => SetProperty(ref _isSearching, value); }
 
@@ -54,7 +56,6 @@ namespace DChemist.ViewModels
             _taxRate = 0.0m;
 
             CartItems = new ObservableCollection<SaleItemViewModel>();
-            MedicineResults = new ObservableCollection<Medicine>();
 
             SearchCommand = new AsyncRelayCommand(async _ => await SearchMedicinesAsync());
             AddToCartCommand = new AsyncRelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
@@ -74,13 +75,14 @@ namespace DChemist.ViewModels
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
         public bool IsStatusSuccess { get => _isStatusSuccess; set => SetProperty(ref _isStatusSuccess, value); }
 
+        private readonly BulkObservableCollection<Medicine> _medicineResults = new();
         public ObservableCollection<SaleItemViewModel> CartItems { get; }
-        public ObservableCollection<Medicine> MedicineResults { get; }
+        public ObservableCollection<Medicine> MedicineResults => _medicineResults;
 
         public string SearchMedicineText
         {
             get => _searchMedicineText;
-            set { if (SetProperty(ref _searchMedicineText, value)) _ = SearchMedicinesAsync(); }
+            set { if (SetProperty(ref _searchMedicineText, value)) _ = DebouncedSearchAsync(); }
         }
 
         public Medicine? SelectedMedicine
@@ -128,11 +130,11 @@ namespace DChemist.ViewModels
         public ICommand PrintBillCommand { get; }
         public ICommand ClearCartCommand { get; }
 
-        private async Task SearchMedicinesAsync()
+        public async Task SearchMedicinesAsync(CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(SearchMedicineText))
             {
-                _dispatcher.TryEnqueue(() => MedicineResults.Clear());
+                _dispatcher.TryEnqueue(() => _medicineResults.Clear());
                 return;
             }
 
@@ -140,22 +142,43 @@ namespace DChemist.ViewModels
             try
             {
                 var results = await _medicineRepository.SearchAsync(SearchMedicineText);
-
-                _dispatcher.TryEnqueue(() =>
-                {
-                    MedicineResults.Clear();
-                    foreach (var r in results)
-                        MedicineResults.Add(r);
-                });
+                if (cancellationToken.IsCancellationRequested) return;
+                _dispatcher.TryEnqueue(() => _medicineResults.ReplaceAll(results));
             }
             catch (Exception ex)
             {
+                if (cancellationToken.IsCancellationRequested) return;
                 AppLogger.LogError("SearchMedicinesAsync failed", ex);
             }
             finally
             {
-                _dispatcher.TryEnqueue(() => IsSearching = false);
+                if (!cancellationToken.IsCancellationRequested)
+                    _dispatcher.TryEnqueue(() => IsSearching = false);
             }
+        }
+
+        private async Task DebouncedSearchAsync()
+        {
+            _searchCts?.Cancel();
+
+            if (string.IsNullOrWhiteSpace(SearchMedicineText))
+            {
+                _dispatcher.TryEnqueue(() => _medicineResults.Clear());
+                return;
+            }
+
+            var cts = new CancellationTokenSource();
+            _searchCts = cts;
+
+            try
+            {
+                await Task.Delay(300, cts.Token);
+            }
+            catch (TaskCanceledException) { return; }
+
+            if (cts.Token.IsCancellationRequested) return;
+
+            await SearchMedicinesAsync(cts.Token);
         }
 
         public async Task<bool> ProcessBarcodeAsync(string barcode, bool silentFail = false)

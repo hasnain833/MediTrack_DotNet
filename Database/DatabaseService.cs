@@ -26,7 +26,13 @@ namespace DChemist.Database
                 Database = dbConfig["Database"],
                 Username = dbConfig["User"],
                 Password = dbConfig["Password"],
-                Pooling = true
+                Pooling = true,
+                MinPoolSize = 2,              // Keep 2 connections warm at all times (no cold-start)
+                MaxPoolSize = 20,             // Enough for concurrent POS operations
+                ConnectionIdleLifetime = 60,  // Recycle idle connections after 60s
+                Timeout = 10,                 // Connection timeout 10s (fail fast)
+                CommandTimeout = 30,          // Query timeout 30s
+                KeepAlive = 30                // TCP keepalive every 30s (prevent stale connections)
             };
 
             _connectionString = builder.ToString();

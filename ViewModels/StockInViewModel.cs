@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using DChemist.Models;
@@ -47,7 +48,6 @@ namespace DChemist.ViewModels
             };
 
             Suppliers = new ObservableCollection<Supplier>();
-            SearchSuggestions = new ObservableCollection<Medicine>();
 
             SearchMedicineCommand = new AsyncRelayCommand(async _ => await SearchAsync());
             AddToListCommand = new RelayCommand(_ => AddToList());
@@ -56,9 +56,10 @@ namespace DChemist.ViewModels
             _ = LoadSuppliers();
         }
 
+        private readonly BulkObservableCollection<Medicine> _searchSuggestions = new();
         public ObservableCollection<ReceivingItem> ReceivingItems { get; }
         public ObservableCollection<Supplier> Suppliers { get; }
-        public ObservableCollection<Medicine> SearchSuggestions { get; }
+        public ObservableCollection<Medicine> SearchSuggestions => _searchSuggestions;
 
         public ICommand SearchMedicineCommand { get; }
         public ICommand AddToListCommand { get; }
@@ -126,13 +127,14 @@ namespace DChemist.ViewModels
         }
 
         private string _entryName = string.Empty;
+        private CancellationTokenSource? _searchCts;
         public string EntryName
         {
             get => _entryName;
             set
             {
                 if (SetProperty(ref _entryName, value) && value.Length >= 2)
-                    _ = SearchAsync();
+                    _ = DebouncedSearchAsync();
             }
         }
 
@@ -254,15 +256,32 @@ namespace DChemist.ViewModels
             OnPropertyChanged(nameof(CanAddToList));
         }
 
+        private async Task DebouncedSearchAsync()
+        {
+            _searchCts?.Cancel();
+
+            if (string.IsNullOrWhiteSpace(EntryName) || EntryName.Length < 2) return;
+
+            var cts = new CancellationTokenSource();
+            _searchCts = cts;
+
+            try
+            {
+                await Task.Delay(300, cts.Token);
+            }
+            catch (TaskCanceledException) { return; }
+
+            if (cts.Token.IsCancellationRequested) return;
+
+            await SearchAsync();
+        }
+
         private async Task SearchAsync()
         {
             if (string.IsNullOrWhiteSpace(EntryName) || EntryName.Length < 2) return;
             var results = await _medicineRepo.SearchAsync(EntryName);
             
-            _dispatcher.TryEnqueue(() => {
-                SearchSuggestions.Clear();
-                foreach (var m in results) SearchSuggestions.Add(m);
-            });
+            _dispatcher.TryEnqueue(() => _searchSuggestions.ReplaceAll(results));
         }
 
         private async Task LoadSuppliers()
@@ -278,6 +297,17 @@ namespace DChemist.ViewModels
             IsBusy = true;
             StatusMessage = string.Empty;
             OnPropertyChanged(nameof(CanSave));
+
+            // Pre-save validation
+            var invalidItem = ReceivingItems.FirstOrDefault(i => i.QuantityUnits <= 0 || i.PurchaseTotalPrice <= 0 || string.IsNullOrWhiteSpace(i.BatchNo));
+            if (invalidItem != null)
+            {
+                StatusMessage = $"⚠ Validation failed: '{invalidItem.MedicineName}' has missing quantity, price, or batch number.";
+                IsBusy = false;
+                OnPropertyChanged(nameof(CanSave));
+                return;
+            }
+
             try
             {
                 // Auto-generate a unique invoice number if blank or still the default

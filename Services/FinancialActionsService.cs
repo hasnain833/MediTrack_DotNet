@@ -10,6 +10,7 @@ namespace DChemist.Services
     {
         Task<FinancialActionResult> VoidSaleAsync(string billNo, int currentUserId);
         Task<FinancialActionResult> ReturnItemAsync(int saleItemId, int returnQty, int currentUserId);
+        Task<FinancialActionResult> ReturnCompleteBillAsync(string billNo, int currentUserId);
         Task<FinancialActionResult> ReprintReceiptAsync(string billNo, string customerName);
     }
 
@@ -52,6 +53,45 @@ namespace DChemist.Services
             catch (Exception ex)
             {
                 return new FinancialActionResult { Success = false, Message = ex.Message };
+            }
+        }
+
+        public async Task<FinancialActionResult> ReturnCompleteBillAsync(string billNo, int currentUserId)
+        {
+            try
+            {
+                var fullSale = await _saleRepo.GetSaleWithItemsAsync(billNo);
+                if (fullSale == null)
+                    return new FinancialActionResult { Success = false, Message = "Could not find the sale." };
+
+                if (fullSale.Status == "Voided")
+                    return new FinancialActionResult { Success = false, Message = "This sale is already voided." };
+
+                int totalItemsReturned = 0;
+                int totalUnitsReturned = 0;
+
+                foreach (var item in fullSale.Items)
+                {
+                    int remaining = item.Quantity - item.ReturnedQuantity;
+                    if (remaining <= 0) continue;
+
+                    await _saleRepo.ProcessReturnAsync(item.Id, remaining, currentUserId);
+                    totalItemsReturned++;
+                    totalUnitsReturned += remaining;
+                }
+
+                if (totalItemsReturned == 0)
+                    return new FinancialActionResult { Success = false, Message = "All items in this bill have already been returned." };
+
+                return new FinancialActionResult
+                {
+                    Success = true,
+                    Message = $"Complete bill returned successfully.\n{totalItemsReturned} item(s), {totalUnitsReturned} unit(s) returned. Stock has been restored."
+                };
+            }
+            catch (Exception ex)
+            {
+                return new FinancialActionResult { Success = false, Message = $"Return failed: {ex.Message}" };
             }
         }
 

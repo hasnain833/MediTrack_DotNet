@@ -119,10 +119,26 @@
                     </Grid.RowDefinitions>
 
                     <Border Background="#F9FAFB" Padding="20,16" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <TextBlock Text="Items in Selection" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
-                            <ProgressRing IsActive="{x:Bind ViewModel.IsDetailsLoading, Mode=OneWay}" Width="16" Height="16" Margin="8,0,0,0"/>
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="Items in Selection" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center"/>
+                                <ProgressRing IsActive="{x:Bind ViewModel.IsDetailsLoading, Mode=OneWay}" Width="16" Height="16" Margin="8,0,0,0"/>
+                            </StackPanel>
+
+                            <!-- Return Complete Bill Button -->
+                            <Button Grid.Column="1" Command="{x:Bind ViewModel.ReturnCompleteBillCommand}"
+                                    Background="#FFF3E0" CornerRadius="8" Padding="14,8" BorderThickness="0"
+                                    ToolTipService.ToolTip="Return all remaining items in this bill and restore stock">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE845;" FontSize="14" Foreground="#E65100"/>
+                                    <TextBlock Text="Return Complete Bill" FontSize="12" FontWeight="SemiBold" Foreground="#E65100"/>
+                                </StackPanel>
+                            </Button>
+                        </Grid>
                     </Border>
 
                     <!-- Items List -->

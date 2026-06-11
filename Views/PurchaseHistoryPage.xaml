@@ -45,15 +45,62 @@
             <Border Style="{StaticResource PremiumCardStyle}" Padding="0">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/> <!-- Header -->
+                        <RowDefinition Height="Auto"/> <!-- Search Bar -->
+                        <RowDefinition Height="*"/>    <!-- List -->
                     </Grid.RowDefinitions>
                     
                     <Border Background="#F7FAFC" Padding="16,12" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0">
                         <TextBlock Text="Invoices" FontWeight="Bold" Foreground="#4A5568"/>
                     </Border>
 
-                    <ListView Grid.Row="1"
+                    <!-- Search Bar -->
+                    <Border Grid.Row="1" Padding="12,10" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0" Background="#FAFBFC">
+                        <StackPanel Spacing="8">
+                            <!-- Search Input + Button -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="SearchBox"
+                                         PlaceholderText="Search by invoice # or supplier..."
+                                         Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         FontSize="12" Padding="10,8" CornerRadius="6"
+                                         BorderBrush="#CBD5E0"
+                                         KeyDown="SearchBox_KeyDown"/>
+                                <Button Grid.Column="1" Command="{x:Bind ViewModel.SearchCommand}" 
+                                        Margin="6,0,0,0" VerticalAlignment="Stretch" Padding="10,0"
+                                        Background="{StaticResource AccentAccent}" CornerRadius="6"
+                                        BorderThickness="0">
+                                    <FontIcon Glyph="&#xE721;" FontSize="14" Foreground="White"/>
+                                </Button>
+                            </Grid>
+
+                            <!-- Date Filter -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <CalendarDatePicker PlaceholderText="Filter by date..."
+                                                    Date="{x:Bind ViewModel.SearchDate, Mode=TwoWay}"
+                                                    HorizontalAlignment="Stretch" FontSize="12"
+                                                    DateFormat="{}{day.integer}/{month.integer}/{year.full}"
+                                                    CornerRadius="6" BorderBrush="#CBD5E0"/>
+                                <!-- Clear Search button (only when search is active) -->
+                                <Button Grid.Column="1" Command="{x:Bind ViewModel.ClearSearchCommand}"
+                                        Margin="6,0,0,0" VerticalAlignment="Stretch" Padding="10,0"
+                                        Background="#EDF2F7" CornerRadius="6" BorderThickness="0"
+                                        Visibility="{x:Bind ViewModel.IsSearchActive, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        ToolTipService.ToolTip="Clear search and show all">
+                                    <FontIcon Glyph="&#xE711;" FontSize="12" Foreground="#718096"/>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <ListView Grid.Row="2"
                               ItemsSource="{x:Bind ViewModel.Invoices, Mode=OneWay}"
                               SelectedItem="{x:Bind ViewModel.SelectedInvoice, Mode=TwoWay}"
                               SelectionMode="Single" Padding="0">
@@ -99,14 +146,73 @@
                     </Grid.RowDefinitions>
 
                     <Border Background="#F7FAFC" Padding="20,16" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <TextBlock Text="Invoice Items" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                            <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="16" Height="16"/>
-                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="Invoice Items" FontSize="16" FontWeight="Bold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="16" Height="16"/>
+                            </StackPanel>
+                            
+                            <!-- Normal Mode Buttons (Edit + Delete) -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                        Visibility="{x:Bind ViewModel.IsNotEditMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                
+                                <!-- Edit Button -->
+                                <Button Command="{x:Bind ViewModel.EditInvoiceCommand}"
+                                        Visibility="{x:Bind ViewModel.HasSelectedInvoice, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        Background="#DBEAFE" CornerRadius="8" Padding="14,8" BorderThickness="0"
+                                        ToolTipService.ToolTip="Edit this invoice (batch, qty, cost)">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE70F;" FontSize="14" Foreground="#2563EB"/>
+                                        <TextBlock Text="Edit Invoice" FontSize="12" FontWeight="SemiBold" Foreground="#2563EB"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Delete Button -->
+                                <Button Command="{x:Bind ViewModel.DeleteInvoiceCommand}"
+                                        Visibility="{x:Bind ViewModel.HasSelectedInvoice, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}"
+                                        Background="#FEE2E2" CornerRadius="8" Padding="14,8" BorderThickness="0"
+                                        ToolTipService.ToolTip="Delete this invoice (stock will not be affected)">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="#DC2626"/>
+                                        <TextBlock Text="Delete Invoice" FontSize="12" FontWeight="SemiBold" Foreground="#DC2626"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <!-- Edit Mode Buttons (Save + Cancel) -->
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"
+                                        Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                
+                                <!-- Save Changes -->
+                                <Button Command="{x:Bind ViewModel.SaveEditCommand}"
+                                        Background="#D1FAE5" CornerRadius="8" Padding="14,8" BorderThickness="0"
+                                        ToolTipService.ToolTip="Save all changes to this invoice">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE74E;" FontSize="14" Foreground="#059669"/>
+                                        <TextBlock Text="Save Changes" FontSize="12" FontWeight="SemiBold" Foreground="#059669"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Cancel -->
+                                <Button Command="{x:Bind ViewModel.CancelEditCommand}"
+                                        Background="#F1F5F9" CornerRadius="8" Padding="14,8" BorderThickness="0"
+                                        ToolTipService.ToolTip="Discard changes">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon Glyph="&#xE711;" FontSize="14" Foreground="#64748B"/>
+                                        <TextBlock Text="Cancel" FontSize="12" FontWeight="SemiBold" Foreground="#64748B"/>
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
                     </Border>
 
-                    <!-- Items List -->
-                    <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.InvoiceItems, Mode=OneWay}" Padding="0">
+                    <!-- ===== READ-ONLY Items List (visible when NOT editing) ===== -->
+                    <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.InvoiceItems, Mode=OneWay}" Padding="0"
+                              Visibility="{x:Bind ViewModel.IsNotEditMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <ListView.HeaderTemplate>
                             <DataTemplate>
                                 <Grid Background="#F9FAFB" Padding="20,10" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0">
@@ -148,6 +254,74 @@
                         </ListView.ItemTemplate>
                     </ListView>
 
+                    <!-- ===== EDITABLE Items List (visible when editing) ===== -->
+                    <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.EditableItems, Mode=OneWay}" Padding="0"
+                              SelectionMode="None"
+                              Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <ListView.HeaderTemplate>
+                            <DataTemplate>
+                                <Grid Background="#FFFBEB" Padding="20,10" BorderThickness="0,0,0,1" BorderBrush="#FDE68A">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="100"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Medicine" FontSize="11" FontWeight="Bold" Foreground="#92400E"/>
+                                    <TextBlock Grid.Column="1" Text="Batch" FontSize="11" FontWeight="Bold" Foreground="#92400E" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2" Text="Qty" FontSize="11" FontWeight="Bold" Foreground="#92400E" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Column="3" Text="Total Cost" FontSize="11" FontWeight="Bold" Foreground="#92400E" HorizontalAlignment="Center"/>
+                                    <TextBlock Grid.Column="4" Text="Cost/Unit" FontSize="11" FontWeight="Bold" Foreground="#92400E" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.HeaderTemplate>
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="MinHeight" Value="52"/>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="models:EditableInvoiceItem">
+                                <Grid Padding="20,6" BorderThickness="0,0,0,1" BorderBrush="#FEF3C7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="100"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Medicine Name (read-only) -->
+                                    <TextBlock Text="{x:Bind MedicineName}" VerticalAlignment="Center" FontSize="13" FontWeight="SemiBold"/>
+                                    <!-- Batch No (editable) -->
+                                    <TextBox Grid.Column="1"
+                                             Text="{Binding EditBatchNo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             TextAlignment="Center" CornerRadius="6" Margin="4,0"
+                                             FontSize="12" VerticalAlignment="Center"/>
+                                    <!-- Qty (editable) -->
+                                    <TextBox Grid.Column="2"
+                                             Text="{Binding EditQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             TextAlignment="Center" CornerRadius="6" Margin="4,0"
+                                             FontSize="12" VerticalAlignment="Center"
+                                             PlaceholderText="0"/>
+                                    <!-- Total Cost (editable) -->
+                                    <TextBox Grid.Column="3"
+                                             Text="{Binding EditTotalCostText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             TextAlignment="Right" CornerRadius="6" Margin="4,0"
+                                             FontSize="12" VerticalAlignment="Center"
+                                             PlaceholderText="0.00"/>
+                                    <!-- Unit Cost (auto-calculated, read-only) -->
+                                    <TextBlock Grid.Column="4"
+                                               Text="{Binding EditUnitCost, Converter={StaticResource CurrencyConverter}, Mode=OneWay}"
+                                               VerticalAlignment="Center" FontSize="12" FontWeight="Bold"
+                                               Foreground="{StaticResource AccentAccent}" HorizontalAlignment="Right"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+
                     <!-- Empty State -->
                     <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12"
                                 Visibility="{x:Bind ViewModel.SelectedInvoice, Mode=OneWay, Converter={StaticResource EmptyToVisibilityConverter}}">
@@ -155,12 +329,24 @@
                         <TextBlock Text="Select an invoice to view its items" Foreground="#718096"/>
                     </StackPanel>
 
-                    <!-- Summary -->
-                    <Border Grid.Row="2" Background="#F8FAFC" Padding="24" BorderThickness="0,1,0,0" BorderBrush="#E2E8F0">
+                    <!-- Summary (Read-Only Mode) -->
+                    <Border Grid.Row="2" Background="#F8FAFC" Padding="24" BorderThickness="0,1,0,0" BorderBrush="#E2E8F0"
+                            Visibility="{x:Bind ViewModel.IsNotEditMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
                          <StackPanel HorizontalAlignment="Right" Spacing="8">
                             <StackPanel Orientation="Horizontal" Spacing="40">
                                 <TextBlock Text="Grand Total" FontSize="14" Foreground="#718096"/>
                                 <TextBlock Text="{x:Bind ViewModel.SelectedInvoice.FormattedAmount, Mode=OneWay}" FontSize="20" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
+                            </StackPanel>
+                         </StackPanel>
+                    </Border>
+
+                    <!-- Summary (Edit Mode) -->
+                    <Border Grid.Row="2" Background="#FFFBEB" Padding="24" BorderThickness="0,1,0,0" BorderBrush="#FDE68A"
+                            Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay, Converter={StaticResource BooleanToVisibilityConverter}}">
+                         <StackPanel HorizontalAlignment="Right" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="40">
+                                <TextBlock Text="Edited Total" FontSize="14" Foreground="#92400E"/>
+                                <TextBlock Text="{x:Bind ViewModel.EditTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="20" FontWeight="Bold" Foreground="#D97706"/>
                             </StackPanel>
                          </StackPanel>
                     </Border>

@@ -37,7 +37,7 @@
             </Grid.RowDefinitions>
 
             <!-- 1. Invoice Header Card -->
-            <Border Grid.Row="0" Style="{StaticResource PremiumCardStyle}" Padding="28,20" Background="White" Margin="0,0,0,16">
+            <Border Grid.Row="0" Style="{StaticResource PremiumCardStyle}" Padding="16,12" Background="White" Margin="0,0,0,12">
                 <Grid ColumnSpacing="20">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="2*"/>
@@ -66,9 +66,9 @@
             </Border>
 
             <!-- 2. Search Box -->
-            <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="20,14"
+            <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="16,12"
                     Background="White" BorderBrush="{StaticResource AccentAccent}" BorderThickness="1.5"
-                    Margin="0,0,0,16">
+                    Margin="0,0,0,12">
                 <AutoSuggestBox x:Name="MedicineSearchBox"
                                 PlaceholderText="Search medicine to add to list (press Enter to select)..."
                                 QueryIcon="Find"
@@ -121,8 +121,13 @@
                     </Border>
 
                     <!-- Rows -->
-                    <ListView Grid.Row="1" ItemsSource="{x:Bind ViewModel.ReceivingItems, Mode=OneWay}"
+                    <ListView x:Name="InvoiceList" Grid.Row="1" ItemsSource="{x:Bind ViewModel.ReceivingItems, Mode=OneWay}"
                               SelectionMode="None" Padding="0" Background="Transparent">
+                        <ListView.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Vertical"/>
+                            </ItemsPanelTemplate>
+                        </ListView.ItemsPanel>
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>

@@ -36,8 +36,8 @@ namespace DChemist.ViewModels
                 new NavigationItem { Title = "Dashboard", Icon = "\uE80F", PageType = "DChemist.Views.DashboardPage", RequiresAdmin = false },
                 new NavigationItem { Title = "Items",     Icon = "\uE710", PageType = "DChemist.Views.ItemsPage",     RequiresAdmin = false },
                 new NavigationItem { Title = "Purchase",  Icon = "\uE896", PageType = "DChemist.Views.StockInPage",   RequiresAdmin = true  },
-                new NavigationItem { Title = "Invoices", Icon = "\uE81C", PageType = "DChemist.Views.PurchaseHistoryPage", RequiresAdmin = true },
                 new NavigationItem { Title = "Sales",   Icon = "\uE8A1", PageType = "DChemist.Views.BillingPage",   RequiresAdmin = false },
+                new NavigationItem { Title = "Invoices", Icon = "\uE81C", PageType = "DChemist.Views.PurchaseHistoryPage", RequiresAdmin = true },
                 new NavigationItem { Title = "Bills",  Icon = "\uE990", PageType = "DChemist.Views.FinancialPage", RequiresAdmin = false },
                 new NavigationItem { Title = "Daily Report", Icon = "\uE9D9", PageType = "DChemist.Views.FinancialReportPage", RequiresAdmin = true },
                 new NavigationItem { Title = "Settings", Icon = "\uE713", PageType = "DChemist.Views.SettingsPage", RequiresAdmin = true }

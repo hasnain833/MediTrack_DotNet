@@ -17,13 +17,15 @@ namespace DChemist.Repositories
         private readonly AuthorizationService _auth;
         private readonly InventoryEventBus _eventBus;
         private readonly AuditRepository _auditRepo;
+        private readonly PurchaseInvoiceRepository _invoiceRepo;
 
-        public SaleRepository(DatabaseService db, AuthorizationService auth, InventoryEventBus eventBus, AuditRepository auditRepo)
+        public SaleRepository(DatabaseService db, AuthorizationService auth, InventoryEventBus eventBus, AuditRepository auditRepo, PurchaseInvoiceRepository invoiceRepo)
         {
             _db = db;
             _auth = auth;
             _eventBus = eventBus;
             _auditRepo = auditRepo;
+            _invoiceRepo = invoiceRepo;
         }
 
         public async Task<int> CreateTransactionAsync(string billNo, int userId, int? customerId, List<SaleItem> items,
@@ -119,7 +121,20 @@ namespace DChemist.Repositories
 
                 _eventBus.Publish(InventoryChangeType.StockDeducted);
                 await _auditRepo.InsertLogAsync(userId, "Sale Created", $"Bill No: {billNo}, Total: {grandTotal:F2}");
-                
+
+                // Auto-cleanup: remove invoices whose stock is fully sold out (non-blocking)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _invoiceRepo.CleanupFullySoldInvoicesAsync();
+                    }
+                    catch (Exception cleanupEx)
+                    {
+                        AppLogger.LogError("Invoice auto-cleanup after sale failed", cleanupEx);
+                    }
+                });
+
                 return saleId;
             }
             catch (Exception ex)

@@ -79,6 +79,223 @@ namespace DChemist.Repositories
             }
         }
 
+        public async Task<List<PurchaseInvoice>> SearchAsync(string? invoiceNo, string? supplierName, DateTime? date)
+        {
+            try
+            {
+                var query = @"
+                    SELECT i.*, s.name as SupplierName
+                    FROM purchase_invoices i
+                    LEFT JOIN suppliers s ON s.id = i.supplier_id
+                    WHERE 1=1";
+
+                var parameters = new DynamicParameters();
+
+                if (!string.IsNullOrWhiteSpace(invoiceNo))
+                {
+                    query += " AND i.invoice_no ILIKE @invoiceNo";
+                    parameters.Add("invoiceNo", $"%{invoiceNo}%");
+                }
+                if (!string.IsNullOrWhiteSpace(supplierName))
+                {
+                    query += " AND s.name ILIKE @supplierName";
+                    parameters.Add("supplierName", $"%{supplierName}%");
+                }
+                if (date.HasValue)
+                {
+                    query += " AND i.invoice_date::date = @date";
+                    parameters.Add("date", date.Value.Date);
+                }
+
+                query += " ORDER BY i.invoice_date DESC LIMIT 500";
+
+                using var conn = _db.GetConnection();
+                var rows = await conn.QueryAsync<PurchaseInvoice>(query, parameters);
+                return rows.ToList();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("PurchaseInvoiceRepository.SearchAsync failed", ex);
+                return new List<PurchaseInvoice>();
+            }
+        }
+
+        public async Task<bool> DeleteAsync(int invoiceId)
+        {
+            try
+            {
+                using var conn = _db.GetConnection();
+                await conn.OpenAsync();
+                using var transaction = await conn.BeginTransactionAsync();
+
+                try
+                {
+                    // Unlink batches from this invoice (set purchase_invoice_id to NULL), do NOT delete the batches
+                    await conn.ExecuteAsync(
+                        "UPDATE inventory_batches SET purchase_invoice_id = NULL WHERE purchase_invoice_id = @invoiceId",
+                        new { invoiceId }, transaction);
+
+                    // Delete the invoice record only
+                    var affected = await conn.ExecuteAsync(
+                        "DELETE FROM purchase_invoices WHERE id = @invoiceId",
+                        new { invoiceId }, transaction);
+
+                    await transaction.CommitAsync();
+
+                    AppLogger.LogInfo($"[Invoice] Deleted invoice id={invoiceId}, unlinked batches.");
+                    return affected > 0;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"PurchaseInvoiceRepository.DeleteAsync failed for id={invoiceId}", ex);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Auto-deletes invoices where ALL linked inventory batches have remaining_units = 0 (fully sold out).
+        /// Only the invoice record is deleted; inventory batches are unlinked but preserved.
+        /// </summary>
+        public async Task<int> CleanupFullySoldInvoicesAsync()
+        {
+            try
+            {
+                using var conn = _db.GetConnection();
+                await conn.OpenAsync();
+                using var transaction = await conn.BeginTransactionAsync();
+
+                try
+                {
+                    // Find invoices where ALL linked batches have remaining_units = 0
+                    // An invoice qualifies only if it HAS linked batches and ALL of them are depleted
+                    const string findQuery = @"
+                        SELECT i.id
+                        FROM purchase_invoices i
+                        WHERE EXISTS (
+                            SELECT 1 FROM inventory_batches b WHERE b.purchase_invoice_id = i.id
+                        )
+                        AND NOT EXISTS (
+                            SELECT 1 FROM inventory_batches b 
+                            WHERE b.purchase_invoice_id = i.id AND b.remaining_units > 0
+                        )";
+
+                    var invoiceIds = (await conn.QueryAsync<int>(findQuery, transaction: transaction)).ToList();
+
+                    if (invoiceIds.Count > 0)
+                    {
+                        // Unlink batches first
+                        await conn.ExecuteAsync(
+                            "UPDATE inventory_batches SET purchase_invoice_id = NULL WHERE purchase_invoice_id = ANY(@ids)",
+                            new { ids = invoiceIds.ToArray() }, transaction);
+
+                        // Delete the invoice records
+                        var deleted = await conn.ExecuteAsync(
+                            "DELETE FROM purchase_invoices WHERE id = ANY(@ids)",
+                            new { ids = invoiceIds.ToArray() }, transaction);
+
+                        await transaction.CommitAsync();
+
+                        AppLogger.LogInfo($"[Invoice Auto-Cleanup] Deleted {deleted} fully-sold invoices: [{string.Join(", ", invoiceIds)}]");
+                        return deleted;
+                    }
+
+                    await transaction.CommitAsync();
+                    return 0;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("PurchaseInvoiceRepository.CleanupFullySoldInvoicesAsync failed", ex);
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// Updates individual batch rows for an invoice (batch_no, qty, cost) and recalculates the invoice total.
+        /// All changes happen in a single transaction.
+        /// </summary>
+        public async Task<bool> UpdateInvoiceItemsAsync(int invoiceId, List<Models.EditableInvoiceItem> editedItems)
+        {
+            try
+            {
+                using var conn = _db.GetConnection();
+                await conn.OpenAsync();
+                using var transaction = await conn.BeginTransactionAsync();
+
+                try
+                {
+                    foreach (var item in editedItems)
+                    {
+                        // Calculate the difference in quantity to adjust remaining_units proportionally
+                        int qtyDiff = item.EditTotalUnits - item.OriginalQuantityUnits;
+                        int newRemaining = item.OriginalRemainingUnits + qtyDiff;
+                        if (newRemaining < 0) newRemaining = 0;
+
+                        decimal unitCost = item.EditTotalUnits > 0
+                            ? item.EditTotalCost / item.EditTotalUnits
+                            : 0;
+
+                        await conn.ExecuteAsync(@"
+                            UPDATE inventory_batches
+                            SET batch_no             = @BatchNo,
+                                quantity_units       = @QuantityUnits,
+                                remaining_units      = @RemainingUnits,
+                                purchase_total_price = @TotalCost,
+                                unit_cost            = @UnitCost,
+                                pack_quantity        = @PackQuantity
+                            WHERE id = @BatchId",
+                            new
+                            {
+                                BatchNo = item.EditBatchNo,
+                                QuantityUnits = item.EditTotalUnits,
+                                RemainingUnits = newRemaining,
+                                TotalCost = item.EditTotalCost,
+                                UnitCost = unitCost,
+                                PackQuantity = item.EditPackQuantity,
+                                item.BatchId
+                            }, transaction);
+                    }
+
+                    // Recalculate invoice total from its linked batches
+                    await conn.ExecuteAsync(@"
+                        UPDATE purchase_invoices
+                        SET total_amount = (
+                            SELECT COALESCE(SUM(purchase_total_price), 0)
+                            FROM inventory_batches
+                            WHERE purchase_invoice_id = @invoiceId
+                        )
+                        WHERE id = @invoiceId",
+                        new { invoiceId }, transaction);
+
+                    await transaction.CommitAsync();
+
+                    AppLogger.LogInfo($"[Invoice] Updated {editedItems.Count} item(s) for invoice id={invoiceId}.");
+                    return true;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError($"PurchaseInvoiceRepository.UpdateInvoiceItemsAsync failed for id={invoiceId}", ex);
+                return false;
+            }
+        }
+
         public async Task ProcessStockInAsync(string supplierName, string invoiceNo, DateTime date, List<ReceivingItem> items)
         {
             using var conn = _db.GetConnection();

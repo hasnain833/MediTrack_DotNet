@@ -24,7 +24,7 @@ namespace DChemist.Repositories
             _eventBus = eventBus;
         }
 
-        public async Task<List<Medicine>> GetAllAsync()
+        public async Task<List<Medicine>> GetAllAsync(int page = 0, int pageSize = 200)
         {
             const string query = @"
                 SELECT 
@@ -50,11 +50,12 @@ namespace DChemist.Repositories
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
                 LEFT JOIN inventory_batches b ON m.id = b.medicine_id
                 LEFT JOIN suppliers s ON b.supplier_id = s.id
-                ORDER BY m.name ASC, b.expiry_date ASC";
+                ORDER BY m.name ASC, b.expiry_date ASC
+                LIMIT @pageSize OFFSET @offset";
             try
             {
                 using var conn = _db.GetConnection();
-                var results = await conn.QueryAsync<Medicine>(query);
+                var results = await conn.QueryAsync<Medicine>(query, new { pageSize, offset = page * pageSize });
                 return results.ToList();
             }
             catch (Exception ex)

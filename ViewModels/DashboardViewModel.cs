@@ -23,9 +23,13 @@ namespace DChemist.ViewModels
             _ = LoadRealStatsAsync();
         }
 
-        public ObservableCollection<DashboardMedicineAlert> LowStockList { get; } = new();
-        public ObservableCollection<DashboardMedicineAlert> ExpiringList { get; } = new();
-        public ObservableCollection<RecentSaleItem> RecentSales { get; } = new();
+        private readonly BulkObservableCollection<DashboardMedicineAlert> _lowStockList = new();
+        private readonly BulkObservableCollection<DashboardMedicineAlert> _expiringList = new();
+        private readonly BulkObservableCollection<RecentSaleItem> _recentSales = new();
+
+        public ObservableCollection<DashboardMedicineAlert> LowStockList => _lowStockList;
+        public ObservableCollection<DashboardMedicineAlert> ExpiringList => _expiringList;
+        public ObservableCollection<RecentSaleItem> RecentSales => _recentSales;
         public bool IsAdmin => _auth.IsAdmin;
         public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
 
@@ -38,27 +42,19 @@ namespace DChemist.ViewModels
                 var expiring = await _dashboardRepo.GetExpiringItemsAsync();
                 var recentSales = await _dashboardRepo.GetRecentSalesAsync();
 
+                var recentSaleItems = recentSales.Select(sale => new RecentSaleItem
+                {
+                    Invoice = sale.Invoice,
+                    Date = sale.Date,
+                    Total = sale.Total,
+                    Method = sale.Method
+                }).ToList();
+
                 App.MainRoot?.DispatcherQueue.TryEnqueue(() => 
                 {
-                    LowStockList.Clear();
-                    foreach (var item in lowStock)
-                        LowStockList.Add(item);
-
-                    ExpiringList.Clear();
-                    foreach (var item in expiring)
-                        ExpiringList.Add(item);
-
-                    RecentSales.Clear();
-                    foreach (var sale in recentSales)
-                    {
-                        RecentSales.Add(new RecentSaleItem
-                        {
-                            Invoice = sale.Invoice,
-                            Date = sale.Date,
-                            Total = sale.Total,
-                            Method = sale.Method
-                        });
-                    }
+                    _lowStockList.ReplaceAll(lowStock);
+                    _expiringList.ReplaceAll(expiring);
+                    _recentSales.ReplaceAll(recentSaleItems);
                 });
 
                 AppLogger.LogInfo("DashboardViewModel stats loaded successfully.");

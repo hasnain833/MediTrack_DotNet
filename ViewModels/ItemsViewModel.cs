@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using DChemist.Models;
@@ -25,6 +26,9 @@ namespace DChemist.ViewModels
         private readonly AuthorizationService _auth;
         private readonly IReportingService _reportingService;
         private string _searchText = string.Empty;
+        private CancellationTokenSource? _searchCts;
+        private CancellationTokenSource? _refreshCts;
+        private CancellationTokenSource? _loadCts;
 
         public ItemsViewModel(
             MedicineRepository medicineRepo,
@@ -41,8 +45,6 @@ namespace DChemist.ViewModels
             _reportingService = reportingService;
             _dialogService = dialogService;
             _dispatcher = DispatcherQueue.GetForCurrentThread();
-
-            Medicines = new ObservableCollection<Medicine>();
             
             RefreshCommand = new AsyncRelayCommand(async _ => await RefreshAsync());
             DeleteMedicineCommand = new AsyncRelayCommand(async m => await ExecuteDeleteMedicineAsync(m as Medicine));
@@ -63,14 +65,15 @@ namespace DChemist.ViewModels
             _ = RefreshAsync();
         }
 
+        private readonly BulkObservableCollection<Medicine> _medicines = new();
+        public ObservableCollection<Medicine> Medicines => _medicines;
         public Task LoadAsync() => RefreshAsync();
-        public ObservableCollection<Medicine> Medicines { get; }
         public bool IsAdmin => _auth.IsAdmin;
 
         public string SearchText
         {
             get => _searchText;
-            set { if (SetProperty(ref _searchText, value)) _ = SearchAsync(); }
+            set { if (SetProperty(ref _searchText, value)) _ = DebouncedSearchAsync(); }
         }
 
         public ICommand RefreshCommand { get; }
@@ -84,55 +87,108 @@ namespace DChemist.ViewModels
 
         private void OnInventoryChanged(object? sender, InventoryChangedEventArgs e)
         {
-            _dispatcher.TryEnqueue(async () =>
+            // Debounce inventory change events on a background thread to avoid blocking and overlapping
+            _refreshCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _refreshCts = cts;
+
+            Task.Run(async () =>
             {
-                if (!string.IsNullOrWhiteSpace(_searchText))
-                    await SearchAsync();
-                else
-                    await RefreshAsync();
+                try
+                {
+                    await Task.Delay(500, cts.Token);
+                    if (cts.Token.IsCancellationRequested) return;
+
+                    _dispatcher.TryEnqueue(async () =>
+                    {
+                        if (cts.Token.IsCancellationRequested) return;
+
+                        if (!string.IsNullOrWhiteSpace(_searchText))
+                            await SearchAsync();
+                        else
+                            await RefreshAsync();
+                    });
+                }
+                catch (TaskCanceledException) { }
             });
         }
 
         private async Task RefreshAsync()
         {
+            _loadCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _loadCts = cts;
+
             IsBusy = true;
             try
             {
                 var list = await _medicineRepo.GetAllAsync();
-                Medicines.Clear();
-                foreach (var item in list)
-                {
-                    Medicines.Add(item);
-                }
+                if (cts.Token.IsCancellationRequested) return;
+                _dispatcher.TryEnqueue(() => _medicines.ReplaceAll(list));
             }
             catch (Exception ex)
             {
+                if (cts.Token.IsCancellationRequested) return;
                 StatusMessage = "✘ Failed to load inventory.";
                 AppLogger.LogError("ItemsViewModel.Refresh", ex);
             }
-            finally { IsBusy = false; }
+            finally 
+            {
+                if (!cts.Token.IsCancellationRequested)
+                    IsBusy = false;
+            }
+        }
+
+        private async Task DebouncedSearchAsync()
+        {
+            _searchCts?.Cancel();
+
+            if (string.IsNullOrWhiteSpace(SearchText))
+            {
+                await RefreshAsync();
+                return;
+            }
+
+            var cts = new CancellationTokenSource();
+            _searchCts = cts;
+
+            try
+            {
+                await Task.Delay(300, cts.Token);
+            }
+            catch (TaskCanceledException) { return; }
+
+            if (cts.Token.IsCancellationRequested) return;
+
+            await SearchAsync();
         }
 
         private async Task SearchAsync()
         {
             if (string.IsNullOrWhiteSpace(SearchText)) { await RefreshAsync(); return; }
 
+            _loadCts?.Cancel();
+            var cts = new CancellationTokenSource();
+            _loadCts = cts;
+
             IsBusy = true;
             try
             {
                 var list = await _medicineRepo.SearchAsync(SearchText);
-                Medicines.Clear();
-                foreach (var item in list)
-                {
-                    Medicines.Add(item);
-                }
+                if (cts.Token.IsCancellationRequested) return;
+                _dispatcher.TryEnqueue(() => _medicines.ReplaceAll(list));
             }
             catch (Exception ex)
             {
+                if (cts.Token.IsCancellationRequested) return;
                 StatusMessage = "✘ Search failed.";
                 AppLogger.LogError("ItemsViewModel.Search", ex);
             }
-            finally { IsBusy = false; }
+            finally 
+            {
+                if (!cts.Token.IsCancellationRequested)
+                    IsBusy = false;
+            }
         }
 
         public bool IsBoxMode => SelectedQuantityMode == QuantityInputMode.Box;
@@ -560,7 +616,7 @@ namespace DChemist.ViewModels
             try
             {
                 await _medicineRepo.DeleteAsync(medicine.Id);
-                Medicines.Remove(medicine);
+                _medicines.Remove(medicine);
                 StatusMessage = $"✔ Deleted: {medicine.Name}";
             }
             catch (DataAccessException ex)
@@ -581,7 +637,7 @@ namespace DChemist.ViewModels
             bool confirmed = await _dialogService.ShowConfirmationAsync("Delete Batch", $"Are you sure you want to delete Batch {medicine.BatchNo} for {medicine.Name}?", "Delete", "Cancel");
             if (confirmed)
             {
-                try { await _batchRepo.DeleteAsync(medicine.BatchId.Value); Medicines.Remove(medicine); _eventBus.Publish(InventoryChangeType.MedicineDeleted); }
+                try { await _batchRepo.DeleteAsync(medicine.BatchId.Value); _medicines.Remove(medicine); _eventBus.Publish(InventoryChangeType.MedicineDeleted); }
                 catch (Exception ex) { StatusMessage = "✘ Delete failed."; AppLogger.LogError("Items.DeleteBatch", ex); }
             }
         }

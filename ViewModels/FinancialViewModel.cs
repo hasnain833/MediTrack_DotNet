@@ -52,11 +52,13 @@ namespace DChemist.ViewModels
             ExportCommand = new AsyncRelayCommand(async _ => await _reportingService.ExportSalesToCsvAsync(SalesHistory));
             VoidSaleCommand = new AsyncRelayCommand(ExecuteVoidSaleAsync, CanExecuteSaleAction);
             ReprintReceiptCommand = new AsyncRelayCommand(ExecuteReprintReceiptAsync, CanExecuteSaleAction);
+            ReturnCompleteBillCommand = new AsyncRelayCommand(ExecuteReturnCompleteBillAsync, CanExecuteSaleAction);
             SearchCommand = new AsyncRelayCommand(async _ => await LoadDataAsync());
             ExecuteReturnCommand = new AsyncRelayCommand(item => ExecuteReturnAsync(item as InvoiceItemViewModel));
         }
 
         public ICommand ExecuteReturnCommand { get; }
+        public ICommand ReturnCompleteBillCommand { get; }
 
         public SaleSummary? SelectedSale
         {
@@ -67,6 +69,7 @@ namespace DChemist.ViewModels
                 {
                     ((AsyncRelayCommand)VoidSaleCommand).RaiseCanExecuteChanged();
                     ((AsyncRelayCommand)ReprintReceiptCommand).RaiseCanExecuteChanged();
+                    ((AsyncRelayCommand)ReturnCompleteBillCommand).RaiseCanExecuteChanged();
                     _ = LoadSelectedSaleDetailsAsync();
                 }
             }
@@ -265,6 +268,29 @@ namespace DChemist.ViewModels
 
             int userId = _authService.CurrentUser?.Id ?? 0;
             var result = await _financialActionsService.ReturnItemAsync(item.Id, item.ReturnInputQty, userId);
+            await _dialogService.ShowMessageAsync(result.Success ? "Success" : "Return Failed", result.Message);
+
+            if (result.Success)
+            {
+                await LoadDataAsync();
+                await LoadSelectedSaleDetailsAsync();
+            }
+        }
+
+        private async Task ExecuteReturnCompleteBillAsync(object? _)
+        {
+            if (SelectedSale == null) return;
+
+            bool confirm = await _dialogService.ShowConfirmationAsync(
+                "Return Complete Bill",
+                $"Are you sure you want to return ALL remaining items in Bill # {SelectedSale.BillNo}?\n\nThis will restore all stock for every item in this bill that hasn't already been returned.",
+                "Return All",
+                "Cancel");
+
+            if (!confirm) return;
+
+            int userId = _authService.CurrentUser?.Id ?? 0;
+            var result = await _financialActionsService.ReturnCompleteBillAsync(SelectedSale.BillNo, userId);
             await _dialogService.ShowMessageAsync(result.Success ? "Success" : "Return Failed", result.Message);
 
             if (result.Success)

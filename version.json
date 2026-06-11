@@ -1,5 +1,5 @@
 {
-  "LatestVersion": "1.8.0.8",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.8/DChemist_v1.8.8_Release.zip",
-  "ReleaseNotes": "v1.8.8 - Batch No is now editable on Purchase page. Batch history tracking added for drug inspector traceability — old batch numbers are automatically archived when a new purchase uses a different batch number."
+  "LatestVersion": "1.8.0.9",
+  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.9/DChemist_v1.8.9_Release.zip",
+  "ReleaseNotes": "v1.8.9 - Edit Invoice feature added. You can now edit batch number, quantity, and total cost for any invoice item directly from the Invoices page."
 }
