@@ -366,13 +366,54 @@ namespace DChemistUpdater
         {
             using var archive = ZipFile.OpenRead(zipPath);
 
+            // ── Determine if there is a single root folder in the zip ─────
+            string expectedRootNode = null;
+            bool hasSingleRootFolder = true;
+
+            foreach (var entry in archive.Entries)
+            {
+                var parts = entry.FullName.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length > 0)
+                {
+                    // If the entry has only one part and doesn't end with a slash, it's a file at the root.
+                    if (parts.Length == 1 && !entry.FullName.EndsWith("/") && !entry.FullName.EndsWith("\\"))
+                    {
+                        hasSingleRootFolder = false;
+                        break;
+                    }
+
+                    if (expectedRootNode == null)
+                    {
+                        expectedRootNode = parts[0];
+                    }
+                    else if (!string.Equals(parts[0], expectedRootNode, StringComparison.OrdinalIgnoreCase))
+                    {
+                        hasSingleRootFolder = false;
+                        break;
+                    }
+                }
+            }
+
             foreach (var entry in archive.Entries)
             {
                 // Skip directory-only entries
                 if (string.IsNullOrEmpty(entry.Name)) continue;
 
+                var parts = entry.FullName.Split(new[] { '/', '\\' }, StringSplitOptions.RemoveEmptyEntries);
+                
+                // Strip the single root folder if detected
+                if (hasSingleRootFolder && parts.Length > 0 && string.Equals(parts[0], expectedRootNode, StringComparison.OrdinalIgnoreCase))
+                {
+                    var newParts = new string[parts.Length - 1];
+                    Array.Copy(parts, 1, newParts, 0, parts.Length - 1);
+                    parts = newParts;
+                }
+
+                if (parts.Length == 0) continue;
+
+                string relativePath = string.Join(Path.DirectorySeparatorChar.ToString(), parts);
+
                 // ── Check if the entry lives inside an excluded folder ─────────
-                var parts = entry.FullName.Split('/', '\\');
                 bool inExcludedFolder = false;
                 for (int i = 0; i < parts.Length - 1; i++)
                 {
@@ -384,7 +425,7 @@ namespace DChemistUpdater
                 }
                 if (inExcludedFolder)
                 {
-                    Log($"[SKIP] Excluded folder: {entry.FullName}");
+                    Log($"[SKIP] Excluded folder: {relativePath}");
                     continue;
                 }
 
@@ -398,7 +439,7 @@ namespace DChemistUpdater
                 // ── Build absolute destination path ───────────────────────────
                 string destPath = Path.GetFullPath(
                     Path.Combine(destinationDir,
-                        entry.FullName.Replace('/', Path.DirectorySeparatorChar)));
+                        relativePath.Replace('/', Path.DirectorySeparatorChar)));
 
                 // ── CRITICAL: Never overwrite the currently running updater ───
                 if (IsSameFile(destPath, UpdaterExePath))
