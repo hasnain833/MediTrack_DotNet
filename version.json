@@ -1,5 +1,6 @@
 {
-  "LatestVersion": "1.8.0.9",
-  "DownloadUrl": "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.8.9/DChemist_v1.8.9_Release.zip",
-  "ReleaseNotes": "v1.8.9 - Edit Invoice feature added. You can now edit batch number, quantity, and total cost for any invoice item directly from the Invoices page."
+    "LatestVersion":  "1.9.0.0",
+    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.0.0/DChemist_v1.9.0.0_Release.zip",
+    "ReleaseNotes":  "New design, faster, easier keyboard use",
+    "PackageSha256":  "CEA6CDF203A264D480CB817E3778EBB616CADE4966B5526235E304C2CDE27C28"
 }
