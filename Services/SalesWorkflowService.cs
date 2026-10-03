@@ -113,6 +113,8 @@ namespace DChemist.Services
                     DiscountAmount = request.DiscountAmount,
                     GrandTotal = request.GrandTotal
                 };
+                if (request.SaleDate.HasValue)
+                    receiptVm.Date = request.SaleDate.Value.ToLocalTime().ToString("dd-MMM-yyyy HH:mm");
 
                 foreach (var item in request.Items)
                 {

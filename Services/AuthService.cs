@@ -29,6 +29,7 @@ namespace DChemist.Services
                     if (BCrypt.Net.BCrypt.Verify(password, user.Password))
                     {
                         CurrentUser = user;
+                        Sentry.SentrySdk.ConfigureScope(s => s.User = new Sentry.SentryUser { Username = user.Username });
                         await _auditRepo.InsertLogAsync(user.Id, "Login", $"User {user.Username} logged in successfully.");
                         return true;
                     }
@@ -46,6 +47,7 @@ namespace DChemist.Services
                 await _auditRepo.InsertLogAsync(CurrentUser.Id, "Logout", "User logged out.");
             }
             CurrentUser = null;
+            Sentry.SentrySdk.ConfigureScope(s => s.User = new Sentry.SentryUser());
         }
 
         public async Task<bool> ChangePasswordAsync(string newPassword)

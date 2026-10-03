@@ -82,42 +82,22 @@
                 <GradientStop Color="#3a7bd5" Offset="1.0" />
             </LinearGradientBrush>
 
-            <SolidColorBrush x:Key="GlassCardBrush" Color="#25FFFFFF"/>
-            <SolidColorBrush x:Key="GlassBorderBrush" Color="#40FFFFFF"/>
-            <SolidColorBrush x:Key="GlassInputBrush" Color="#15FFFFFF"/>
-            <SolidColorBrush x:Key="GlassInputBorderBrush" Color="#30FFFFFF"/>
-            <SolidColorBrush x:Key="TextOnGlassBrush" Color="#FFFFFFFF"/>
             <SolidColorBrush x:Key="TextOnGlassSecondaryBrush" Color="#B0D4E8"/>
 
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#111827"/>
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#4B5563"/>
-            <SolidColorBrush x:Key="TextOnAccentBrush" Color="White"/>
-            <SolidColorBrush x:Key="SurfaceBrush" Color="White"/>
             <SolidColorBrush x:Key="AppBackgroundBrush" Color="#F8F9FA"/>
-            <SolidColorBrush x:Key="SidebarBackgroundBrush" Color="#22333B"/>
             <SolidColorBrush x:Key="BorderBrush" Color="#E0E0E0"/>
 
             <!-- 4. Styles (Dependent on Brushes) -->
-            <Style x:Key="GlassBorderStyle" TargetType="Border">
-                <Setter Property="Background" Value="White"/>
-                <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
-                <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="CornerRadius" Value="16"/>
-                <Setter Property="Shadow">
-                    <Setter.Value>
-                        <ThemeShadow />
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
             <!-- Card Styling -->
             <Style x:Key="PremiumCardStyle" TargetType="Border">
                 <Setter Property="Background" Value="White"/>
-                <Setter Property="CornerRadius" Value="12"/>
-                <Setter Property="Padding" Value="20"/>
+                <Setter Property="CornerRadius" Value="8"/>
+                <Setter Property="Padding" Value="12"/>
                 <Setter Property="BorderBrush" Value="#F0F0F0"/>
                 <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="Margin" Value="0,0,16,16"/>
+                <Setter Property="Margin" Value="0,0,8,8"/>
             </Style>
 
             <!-- Premium Button Styling (Solid Gradient) -->
@@ -125,7 +105,7 @@
                 <Setter Property="Background" Value="{StaticResource PremiumAccentBrush}"/>
                 <Setter Property="Foreground" Value="White"/>
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="Padding" Value="24,10"/>
+                <Setter Property="Padding" Value="16,6"/>
                 <Setter Property="BorderThickness" Value="0"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="FontSize" Value="14"/>
@@ -165,6 +145,62 @@
                                                   Padding="{TemplateBinding Padding}"
                                                   HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                   VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Filter chip (Items, Dashboard, Bills, Invoices): bordered pill, blue fill when selected -->
+            <Style x:Key="Chip" TargetType="ToggleButton">
+                <Setter Property="FontSize" Value="13"/>
+                <Setter Property="Padding" Value="14,5"/>
+                <Setter Property="Margin" Value="0"/>
+                <Setter Property="MinHeight" Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Pill" Background="White" BorderBrush="#D9DEE6" BorderThickness="1" CornerRadius="14" Padding="{TemplateBinding Padding}">
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal"/>
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="Pill.Background" Value="#F3F5F8"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Pressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="Pill.Background" Value="#E9EDF2"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="Checked">
+                                            <VisualState.Setters>
+                                                <Setter Target="Pill.Background" Value="#E6F9FF"/>
+                                                <Setter Target="Pill.BorderBrush" Value="#00D2FF"/>
+                                                <Setter Target="Label.Foreground" Value="#0B6E99"/>
+                                                <Setter Target="Label.FontWeight" Value="SemiBold"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="CheckedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="Pill.Background" Value="#D6F4FF"/>
+                                                <Setter Target="Pill.BorderBrush" Value="#00D2FF"/>
+                                                <Setter Target="Label.Foreground" Value="#0B6E99"/>
+                                                <Setter Target="Label.FontWeight" Value="SemiBold"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="CheckedPressed">
+                                            <VisualState.Setters>
+                                                <Setter Target="Pill.Background" Value="#D6F4FF"/>
+                                                <Setter Target="Pill.BorderBrush" Value="#00D2FF"/>
+                                                <Setter Target="Label.Foreground" Value="#0B6E99"/>
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <ContentPresenter x:Name="Label" Content="{TemplateBinding Content}" Foreground="#4B5563"
+                                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
                         </ControlTemplate>
                     </Setter.Value>
@@ -221,7 +257,7 @@
                 <Setter Property="BorderBrush" Value="{StaticResource AccentAccent}"/>
                 <Setter Property="BorderThickness" Value="1"/>
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="Padding" Value="24,10"/>
+                <Setter Property="Padding" Value="16,6"/>
                 <Setter Property="FontWeight" Value="SemiBold"/>
                 <Setter Property="FontSize" Value="14"/>
                 <Setter Property="HorizontalContentAlignment" Value="Center"/>
@@ -269,81 +305,14 @@
             <!-- Default Button Style (Catch-all) -->
             <Style TargetType="Button" BasedOn="{StaticResource PremiumButtonStyle}"/>
 
-            <Style x:Key="SidebarItemStyle" TargetType="ListViewItem">
-                <Setter Property="Background" Value="Transparent"/>
-                <Setter Property="Foreground" Value="#A0AEC0"/>
-                <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="Margin" Value="8,2"/>
-                <Setter Property="Padding" Value="0"/>
-                <Setter Property="MinWidth" Value="44"/>
-                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="ListViewItem">
-                            <Grid x:Name="RootGrid" Background="Transparent" CornerRadius="8">
-                                <VisualStateManager.VisualStateGroups>
-                                    <VisualStateGroup x:Name="CommonStates">
-                                        <VisualState x:Name="Normal"/>
-                                        <VisualState x:Name="PointerOver">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#15FFFFFF"/>
-                                                <Setter Target="ContentPresenter.Foreground" Value="White"/>
-                                            </VisualState.Setters>
-                                        </VisualState>
-                                        <VisualState x:Name="Pressed">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#25FFFFFF"/>
-                                                <Setter Target="ContentPresenter.Foreground" Value="White"/>
-                                            </VisualState.Setters>
-                                        </VisualState>
-                                        <VisualState x:Name="Selected">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#2000D2FF"/>
-                                                <Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
-                                                <Setter Target="ContentPresenter.Foreground" Value="{StaticResource AccentAccent}"/>
-                                            </VisualState.Setters>
-                                        </VisualState>
-                                        <VisualState x:Name="SelectedPointerOver">
-                                            <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#3000D2FF"/>
-                                                <Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
-                                                <Setter Target="ContentPresenter.Foreground" Value="{StaticResource AccentAccent}"/>
-                                            </VisualState.Setters>
-                                        </VisualState>
-                                    </VisualStateGroup>
-                                </VisualStateManager.VisualStateGroups>
-                                
-                                <Grid Height="44">
-                                    <!-- Selection Indicator (Vertical Bar) -->
-                                    <Rectangle x:Name="SelectionIndicator" 
-                                               Width="3" Height="18" 
-                                               Fill="{StaticResource AccentAccent}" 
-                                               HorizontalAlignment="Left" 
-                                               Visibility="Collapsed"
-                                               Margin="0,0,0,0"
-                                               RadiusX="1.5" RadiusY="1.5"/>
-                                    
-                                    <ContentPresenter x:Name="ContentPresenter"
-                                                      ContentTemplate="{TemplateBinding ContentTemplate}"
-                                                      Content="{TemplateBinding Content}"
-                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                      Margin="0"/>
-                                </Grid>
-                            </Grid>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
-
             <Style x:Key="HorizontalNavigationItemStyle" TargetType="ListViewItem">
                 <Setter Property="Background" Value="Transparent"/>
                 <Setter Property="Foreground" Value="#A0AEC0"/>
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="Margin" Value="8,0"/>
-                <Setter Property="Padding" Value="32,12"/>
+                <Setter Property="Margin" Value="2,0"/>
+                <Setter Property="Padding" Value="12,6"/>
                 <Setter Property="Height" Value="Auto"/>
-                <Setter Property="MinHeight" Value="52"/>
+                <Setter Property="MinHeight" Value="34"/>
                 <Setter Property="HorizontalContentAlignment" Value="Center"/>
                 <Setter Property="Template">
                     <Setter.Value>
@@ -354,7 +323,6 @@
                                         <VisualState x:Name="Normal"/>
                                         <VisualState x:Name="PointerOver">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#15FFFFFF"/>
                                                 <Setter Target="ContentPresenter.Foreground" Value="White"/>
                                             </VisualState.Setters>
                                         </VisualState>
@@ -366,13 +334,14 @@
                                         </VisualState>
                                         <VisualState x:Name="Selected">
                                             <VisualState.Setters>
+                                                <Setter Target="RootGrid.Background" Value="#2400D2FF"/>
                                                 <Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
                                                 <Setter Target="ContentPresenter.Foreground" Value="White"/>
                                             </VisualState.Setters>
                                         </VisualState>
                                         <VisualState x:Name="SelectedPointerOver">
                                             <VisualState.Setters>
-                                                <Setter Target="RootGrid.Background" Value="#10FFFFFF"/>
+                                                <Setter Target="RootGrid.Background" Value="#3000D2FF"/>
                                                 <Setter Target="SelectionIndicator.Visibility" Value="Visible"/>
                                                 <Setter Target="ContentPresenter.Foreground" Value="White"/>
                                             </VisualState.Setters>
@@ -386,16 +355,16 @@
                                                       Content="{TemplateBinding Content}"
                                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                       VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
-                                                      Margin="0"/>
+                                                      Margin="{TemplateBinding Padding}"/>
                                     
                                     <!-- Selection Indicator (Sleek Bottom Line) -->
                                     <Rectangle x:Name="SelectionIndicator" 
-                                               Height="3" Width="24" 
+                                               Height="3" Width="20" 
                                                Fill="{StaticResource AccentAccent}" 
                                                HorizontalAlignment="Center" 
                                                VerticalAlignment="Bottom"
                                                Visibility="Collapsed"
-                                               Margin="0,0,0,6"
+                                               Margin="0,0,0,1"
                                                RadiusX="1.5" RadiusY="1.5"/>
                                 </Grid>
                             </Grid>
@@ -432,7 +401,7 @@
                 <Setter Property="Padding" Value="16,0"/>
                 <Setter Property="BorderThickness" Value="0,0,0,1"/>
                 <Setter Property="BorderBrush" Value="#E5E7EB"/>
-                <Setter Property="Height" Value="48"/>
+                <Setter Property="Height" Value="36"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
             </Style>
 
@@ -475,23 +444,15 @@
             </Style>
 
             <!-- Global Input Styles -->
-            <Style x:Key="PremiumInputStyle" TargetType="TextBox">
-                <Setter Property="MinHeight" Value="40"/>
-                <Setter Property="VerticalContentAlignment" Value="Center"/>
-                <Setter Property="Background" Value="#F8FAFC"/>
-                <Setter Property="BorderBrush" Value="#E2E8F0"/>
-                <Setter Property="CornerRadius" Value="8"/>
-            </Style>
-
             <Style TargetType="TextBox">
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="MinHeight" Value="34"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="HorizontalContentAlignment" Value="Left"/>
                 <Setter Property="Background" Value="White"/>
                 <Setter Property="BorderBrush" Value="#D1D5DB"/>
                 <Setter Property="BorderThickness" Value="1"/>
-                <Setter Property="Padding" Value="12,8"/>
+                <Setter Property="Padding" Value="10,5"/>
             </Style>
 
             <Style TargetType="PasswordBox">
@@ -499,14 +460,14 @@
                 <Setter Property="BorderBrush" Value="#D1D5DB"/>
                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="MinHeight" Value="40"/>
-                <Setter Property="Padding" Value="12,8"/>
+                <Setter Property="MinHeight" Value="34"/>
+                <Setter Property="Padding" Value="10,5"/>
                 <Setter Property="PasswordRevealMode" Value="Hidden"/>
             </Style>
 
             <Style TargetType="AutoSuggestBox">
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="MinHeight" Value="34"/>
                 <Setter Property="VerticalContentAlignment" Value="Center"/>
                 <Setter Property="Background" Value="White"/>
                 <Setter Property="BorderBrush" Value="#D1D5DB"/>
@@ -515,7 +476,7 @@
 
             <Style TargetType="ComboBox">
                 <Setter Property="CornerRadius" Value="8"/>
-                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="MinHeight" Value="34"/>
                 <Setter Property="Background" Value="White"/>
                 <Setter Property="BorderBrush" Value="#D1D5DB"/>
                 <Setter Property="BorderThickness" Value="1"/>
@@ -531,12 +492,12 @@
             </Style>
 
             <Style TargetType="CalendarDatePicker">
-                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="MinHeight" Value="34"/>
                 <Setter Property="HorizontalAlignment" Value="Stretch"/>
             </Style>
 
             <Style TargetType="DatePicker">
-                <Setter Property="MinHeight" Value="40"/>
+                <Setter Property="MinHeight" Value="34"/>
                 <Setter Property="HorizontalAlignment" Value="Stretch"/>
             </Style>
 

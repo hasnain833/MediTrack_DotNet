@@ -25,6 +25,19 @@ namespace DChemist.Models
         public int? PurchaseInvoiceId { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
+        // Purchase terms (latest purchase into this batch row)
+        public int BonusUnits { get; set; }
+        public decimal DiscountPercent { get; set; }
+        /// <summary>Total as printed on the supplier invoice; 0 on rows saved before this was recorded.</summary>
+        public decimal InvoiceAmount { get; set; }
+        public bool IsNet { get; set; }
+
+        public decimal InvoiceAmountOrNet => InvoiceAmount > 0 ? InvoiceAmount : PurchaseTotalPrice;
+        public string BonusText => BonusUnits > 0 ? $"{BonusUnits} units" : "—";
+        public string DiscOrPaidText => IsNet ? "net price" : DiscountPercent > 0 ? $"{DiscountPercent:0.##}%" : "—";
+        public string ExpiryText => ExpiryDate.ToString("MM/yy");
+        public bool IsExpiringSoon => ExpiryDate.Date <= DateTime.Today.AddDays(90);
+
         public string FormattedQuantity
         {
             get

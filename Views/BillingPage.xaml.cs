@@ -14,6 +14,8 @@ namespace DChemist.Views
         public BillingPage()
         {
             this.InitializeComponent();
+            // Keep the cart alive when switching pages; cache dies with MainPage's frame on logout.
+            NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
             ViewModel = App.Current.Services.GetRequiredService<BillingViewModel>();
         }
 
@@ -21,7 +23,8 @@ namespace DChemist.Views
         {
             base.OnNavigatedTo(e);
             await ViewModel.InitializeAsync();
-            ViewModel.IsContinuousScanMode = true;
+            // Don't force scan mode: it moves focus to an invisible box and typed names vanish.
+            // The search box handles barcodes too (QuerySubmitted tries the barcode first).
             ContinuousScanToggle.Content = ViewModel.IsContinuousScanMode ? "Stop Scanning" : "Enable Continuous Scanning";
             DispatcherQueue.TryEnqueue(() => SetScannerFocus(ViewModel.IsContinuousScanMode));
         }
@@ -32,54 +35,44 @@ namespace DChemist.Views
             {
                 await ViewModel.ExecuteAddToCartAsync(medicine);
                 sender.Text = string.Empty;
-                FocusLastItemQuantityInput();
+                FocusTouchedItemQuantityInput();
+                return;
             }
-            else if (!string.IsNullOrWhiteSpace(args.QueryText))
-            {
-                var query = args.QueryText.Trim();
-                
-                // 1. Try to find an exact match in the current search results (Name or Barcode)
-                var exactMatch = ViewModel.MedicineResults.FirstOrDefault(m => 
-                    m.Name.Equals(query, StringComparison.OrdinalIgnoreCase) || 
-                    m.Barcode == query);
 
-                if (exactMatch != null)
-                {
-                    await ViewModel.ExecuteAddToCartAsync(exactMatch);
-                    sender.Text = string.Empty;
-                    FocusLastItemQuantityInput();
-                }
-                // 2. If no exact match but there's only one search result, assume that's the one
-                else if (ViewModel.MedicineResults.Count == 1)
-                {
-                    await ViewModel.ExecuteAddToCartAsync(ViewModel.MedicineResults[0]);
-                    sender.Text = string.Empty;
-                    FocusLastItemQuantityInput();
-                }
-                else
-                {
-                    // 3. Try as a barcode directly (silent fail if not found)
-                    bool found = await ViewModel.ProcessBarcodeAsync(query, silentFail: true);
-                    if (found)
-                    {
-                        sender.Text = string.Empty;
-                        FocusLastItemQuantityInput();
-                    }
-                    else
-                    {
-                        // 4. Show appropriate error message based on search results
-                        ViewModel.IsStatusSuccess = false;
-                        if (ViewModel.MedicineResults.Count > 1)
-                        {
-                            ViewModel.StatusMessage = "Multiple medicines found. Please select one from the suggestions list.";
-                        }
-                        else
-                        {
-                            ViewModel.StatusMessage = $"⚠ No medicine found matching '{query}'.";
-                        }
-                    }
-                }
+            var query = args.QueryText?.Trim();
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                // Enter on an empty search = bill is done: go to Cash received (Enter there prints).
+                if (ViewModel.CartItems.Count > 0) { CashBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic); CashBox.SelectAll(); }
+                return;
             }
+
+            // 1. Barcode first (scanner input) — direct DB lookup, never uses stale suggestions
+            if (await ViewModel.ProcessBarcodeAsync(query, silentFail: true))
+            {
+                sender.Text = string.Empty;
+                FocusTouchedItemQuantityInput();
+                return;
+            }
+
+            // 2. Search for exactly what was typed (Enter often comes before the debounced search finishes)
+            var results = await ViewModel.SearchNowAsync(query);
+            var match = results.FirstOrDefault(m => m.Name.Equals(query, StringComparison.OrdinalIgnoreCase))
+                        ?? (results.Count == 1 ? results[0] : null);
+
+            if (match != null)
+            {
+                await ViewModel.ExecuteAddToCartAsync(match);
+                sender.Text = string.Empty;
+                FocusTouchedItemQuantityInput();
+                return;
+            }
+
+            ViewModel.IsStatusSuccess = false;
+            ViewModel.StatusMessage = results.Count > 1
+                ? "Multiple medicines found. Use ↓ to pick one from the list, then Enter."
+                : $"⚠ No medicine found matching '{query}'.";
+            sender.IsSuggestionListOpen = results.Count > 1;
         }
 
         private void ContinueusScanToggle_Checked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -163,10 +156,13 @@ namespace DChemist.Views
                     ViewModel.CompleteSaleInternalCommand.Execute(null);
                 e.Handled = true;
             }
-            else if (e.Key == Windows.System.VirtualKey.Escape)
+            else if (e.Key == Windows.System.VirtualKey.Escape && IsCtrlDown())
             {
+                // Ctrl+Esc, not plain Esc: Esc is also used to close the suggestion list,
+                // and one stray press used to wipe the whole bill.
                 if (ViewModel.ClearCartCommand.CanExecute(null))
                     ViewModel.ClearCartCommand.Execute(null);
+                MedicineSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
                 e.Handled = true;
             }
             else
@@ -217,8 +213,31 @@ namespace DChemist.Views
             }
         }
 
+        // Enter in Cash received prints the bill — the whole sale works with Enter only.
+        private void OnCashKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+            if (ViewModel.CompleteSaleReportedCommand.CanExecute(null))
+                ViewModel.CompleteSaleReportedCommand.Execute(null);
+            MedicineSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+            e.Handled = true;
+        }
+
+        private static bool IsCtrlDown() =>
+            Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+                .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
         private void OnRowInputKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
+            // Ctrl+Del removes this cart line
+            if (e.Key == Windows.System.VirtualKey.Delete && IsCtrlDown() && (sender as Microsoft.UI.Xaml.FrameworkElement)?.DataContext is SaleItemViewModel line)
+            {
+                ViewModel.RemoveFromCartCommand.Execute(line);
+                MedicineSearchBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+
             if (e.Key == Windows.System.VirtualKey.Enter)
             {
                 var textBox = sender as TextBox;
@@ -240,25 +259,23 @@ namespace DChemist.Views
             }
         }
 
-        private void FocusLastItemQuantityInput()
+        /// <summary>
+        /// Focus the Box qty of the row just added/bumped. UpdateLayout realizes the row immediately,
+        /// so there's no fixed delay for fast typists to type into the wrong box.
+        /// </summary>
+        private void FocusTouchedItemQuantityInput()
         {
-            DispatcherQueue.TryEnqueue(async () =>
+            var item = ViewModel.LastTouchedItem;
+            if (item == null) return;
+
+            CartListView.ScrollIntoView(item);
+            CartListView.UpdateLayout();
+            if (CartListView.ContainerFromItem(item) is ListViewItem container)
             {
-                await System.Threading.Tasks.Task.Delay(150);
-                if (ViewModel.CartItems.Count > 0)
-                {
-                    var lastItem = ViewModel.CartItems[ViewModel.CartItems.Count - 1];
-                    var container = CartListView.ContainerFromItem(lastItem) as ListViewItem;
-                    if (container != null)
-                    {
-                        // Always focus BoxInput first
-                        string targetName = "BoxInput";
-                        var box = FindVisualChild<TextBox>(container, targetName);
-                        box?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
-                        box?.SelectAll();
-                    }
-                }
-            });
+                var box = FindVisualChild<TextBox>(container, "BoxInput");
+                box?.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+                box?.SelectAll();
+            }
         }
 
         private T? FindVisualChild<T>(Microsoft.UI.Xaml.DependencyObject obj, string name) where T : Microsoft.UI.Xaml.DependencyObject

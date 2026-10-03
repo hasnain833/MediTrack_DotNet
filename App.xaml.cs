@@ -8,6 +8,7 @@ using DChemist.Database;
 using DChemist.ViewModels;
 using DChemist.Utils;
 using Microsoft.Extensions.Configuration;
+using Sentry;
 
 namespace DChemist
 {
@@ -74,12 +75,35 @@ namespace DChemist
             System.Diagnostics.Debug.WriteLine("[App] Constructor: Services Ready.");
         }
 
+        // Paste the DSN from sentry.io → Project Settings → Client Keys. Safe to commit: it can only send events.
+        private const string SentryDsn = "https://cd66d5128eb1e219251905a8cb2e16c9@o4512193344241664.ingest.de.sentry.io/4512193809023056";
+
         private static IServiceProvider ConfigureServices()
         {
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .Build();
+
+            // Remote error reporting. Empty DSN = disabled (SentrySdk calls become no-ops).
+            // Lives in code, not appsettings, because the updater never overwrites appsettings.json.
+            var sentryDsn = configuration["Sentry:Dsn"] ?? SentryDsn;
+            if (!string.IsNullOrWhiteSpace(sentryDsn))
+            {
+                SentrySdk.Init(o =>
+                {
+                    o.Dsn = sentryDsn;
+                    o.Release = typeof(App).Assembly.GetName().Version?.ToString();
+                    o.ServerName = Environment.MachineName;
+#if DEBUG
+                    o.Environment = "development";   // your PC — filter these out in Sentry
+#else
+                    o.Environment = "production";    // shop PCs (release.ps1 builds Release)
+#endif
+                    o.IsGlobalModeEnabled = true;
+                    o.AutoSessionTracking = true;
+                });
+            }
 
             var services = new ServiceCollection();
             
@@ -99,6 +123,7 @@ namespace DChemist
             services.AddSingleton<AuditRepository>();
             services.AddSingleton<ErrorLogRepository>();
             services.AddSingleton<IDashboardRepository, DashboardRepository>();
+            services.AddSingleton<DashboardStatsRepository>();
             services.AddSingleton<PurchaseInvoiceRepository>();
 
             // Services
@@ -114,7 +139,6 @@ namespace DChemist
             services.AddSingleton<AlertService>();
             services.AddSingleton<BackupService>();
             services.AddSingleton<SettingsService>();
-            services.AddSingleton<SessionService>();
             services.AddSingleton<BarcodeLookupService>();
             services.AddSingleton<ISalesWorkflowService, SalesWorkflowService>();
             services.AddSingleton<IFinancialActionsService, FinancialActionsService>();
@@ -127,9 +151,10 @@ namespace DChemist
             services.AddTransient<FinancialViewModel>();
             services.AddTransient<SettingsViewModel>();
             services.AddTransient<StockInViewModel>();
-            services.AddTransient<ItemsViewModel>();
+            // Singletons: they subscribe to InventoryEventBus; transient copies leaked and all refreshed on every sale.
+            services.AddSingleton<ItemsViewModel>();
             services.AddTransient<FinancialReportViewModel>();
-            services.AddTransient<PurchaseHistoryViewModel>();
+            services.AddSingleton<PurchaseHistoryViewModel>();
 
             return services.BuildServiceProvider();
         }

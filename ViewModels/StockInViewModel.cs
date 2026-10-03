@@ -42,7 +42,7 @@ namespace DChemist.ViewModels
 
             ReceivingItems = new ObservableCollection<ReceivingItem>();
             ReceivingItems.CollectionChanged += (s, e) => {
-                OnPropertyChanged(nameof(TotalSessionCost));
+                OnTotalsChanged();
                 OnPropertyChanged(nameof(CanSave));
                 (SaveAllCommand as AsyncRelayCommand)?.RaiseCanExecuteChanged();
             };
@@ -111,15 +111,17 @@ namespace DChemist.ViewModels
                 QuantityUnits      = 0,
                 PurchaseTotalPrice = 0,
                 UnitCost           = prefillUnitCost,
+                LastUnitCost       = medicine.PurchasePrice,   // real last cost only (0 = never bought)
                 SellingPricePerUnit = medicine.SellingPrice,
-                ExpiryDate         = medicine.ExpiryDate ?? DateTime.Now.AddYears(1)
+                ExpiryDate         = medicine.ExpiryDate,   // last known; blank = must be typed
+                IsNet              = medicine.IsNet
             };
 
             ReceivingItems.Insert(0, newItem);
 
             newItem.PropertyChanged += (s, e) => {
-                if (e.PropertyName == nameof(ReceivingItem.PurchaseTotalPrice))
-                    OnPropertyChanged(nameof(TotalSessionCost));
+                if (e.PropertyName == nameof(ReceivingItem.PurchaseTotalPrice) || e.PropertyName == nameof(ReceivingItem.GrossAmount))
+                    OnTotalsChanged();
             };
 
             EntryName = string.Empty;
@@ -180,6 +182,17 @@ namespace DChemist.ViewModels
         public decimal UnitCost => QuantityUnits > 0 ? PurchaseTotalPrice / QuantityUnits : 0;
 
         public decimal TotalSessionCost => ReceivingItems.Sum(i => i.PurchaseTotalPrice);
+
+        // Footer figures
+        public decimal GrossTotal => ReceivingItems.Sum(i => i.GrossAmount);
+        public decimal SavedTotal => GrossTotal - TotalSessionCost;
+
+        private void OnTotalsChanged()
+        {
+            OnPropertyChanged(nameof(TotalSessionCost));
+            OnPropertyChanged(nameof(GrossTotal));
+            OnPropertyChanged(nameof(SavedTotal));
+        }
         public bool CanSave => ReceivingItems.Count > 0 && !IsBusy;
 
         public string PackQuantityText
@@ -276,6 +289,15 @@ namespace DChemist.ViewModels
             await SearchAsync();
         }
 
+        /// <summary>Search exactly this text now (cancels the pending debounce). Used on Enter.</summary>
+        public async Task<List<Medicine>> SearchNowAsync(string text)
+        {
+            _searchCts?.Cancel();
+            var results = await _medicineRepo.SearchAsync(text);
+            _searchSuggestions.ReplaceAll(results);
+            return results;
+        }
+
         private async Task SearchAsync()
         {
             if (string.IsNullOrWhiteSpace(EntryName) || EntryName.Length < 2) return;
@@ -303,6 +325,23 @@ namespace DChemist.ViewModels
             if (invalidItem != null)
             {
                 StatusMessage = $"⚠ Validation failed: '{invalidItem.MedicineName}' has missing quantity, price, or batch number.";
+                IsBusy = false;
+                OnPropertyChanged(nameof(CanSave));
+                return;
+            }
+
+            var badExpiry = ReceivingItems.FirstOrDefault(i => !i.HasValidExpiry);
+            if (badExpiry != null)
+            {
+                StatusMessage = $"⚠ '{badExpiry.MedicineName}': enter a future expiry like 05/27.";
+                IsBusy = false;
+                OnPropertyChanged(nameof(CanSave));
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(SessionSupplierName))
+            {
+                StatusMessage = "⚠ Select or type the supplier first.";
                 IsBusy = false;
                 OnPropertyChanged(nameof(CanSave));
                 return;

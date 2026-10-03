@@ -27,6 +27,22 @@ namespace DChemist.Views
             }
         }
 
+        public string AppVersion => typeof(App).Assembly.GetName().Version?.ToString() ?? string.Empty;
+
+        protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+        {
+            base.OnNavigatedTo(e);
+            DispatcherQueue.TryEnqueue(() => UsernameBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic));
+        }
+
+        // Enter in Username moves to Password (it used to try to sign in with an empty password).
+        private void OnUsernameKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+            PasswordBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+            e.Handled = true;
+        }
+
         private void OnKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key == Windows.System.VirtualKey.Enter)

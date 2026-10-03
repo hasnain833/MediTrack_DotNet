@@ -23,6 +23,13 @@ namespace DChemist.Services
             _frame = frame;
         }
 
+        /// <summary>
+        /// Ask the main menu to switch page (keeps the highlighted tab in sync).
+        /// MainPage listens; pages and view models call this instead of Navigate.
+        /// </summary>
+        public event Action<string>? PageRequested;
+        public void RequestPage(string pageTypeFullName) => PageRequested?.Invoke(pageTypeFullName);
+
         public void InitializeRoot(Frame rootFrame)
         {
             _rootFrame = rootFrame;

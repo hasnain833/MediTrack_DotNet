@@ -5,235 +5,257 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:models="using:DChemist.Models"
-    xmlns:viewmodels="using:DChemist.ViewModels"
     xmlns:utils="using:DChemist.Utils"
     mc:Ignorable="d"
     Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light">
 
     <Page.Resources>
-        <utils:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
-        <utils:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
         <utils:CurrencyConverter x:Key="CurrencyConverter"/>
-        <utils:DateConverter x:Key="DateConverter"/>
-
-        <DataTemplate x:Key="SmallHeader" x:DataType="x:String">
-            <TextBlock Text="{x:Bind}" FontSize="12" FontWeight="SemiBold" Foreground="#718096" Margin="0,0,0,2"/>
-        </DataTemplate>
+        <Style x:Key="ColHead" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#8A94A6"/>
+            <Setter Property="CharacterSpacing" Value="60"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style x:Key="FootLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#8A94A6"/>
+            <Setter Property="CharacterSpacing" Value="40"/>
+        </Style>
+        <Style x:Key="FootValue" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
     </Page.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Page Body (Header removed) -->
-        <Grid Grid.Row="1" Margin="40,24,40,32">
+        <!-- ============ Invoice header in one line ============ -->
+        <Border Background="White" BorderBrush="#E5E9EF" BorderThickness="0,0,0,1" Padding="16,10">
+            <Grid ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="260"/>
+                    <ColumnDefinition Width="170"/>
+                    <ColumnDefinition Width="130"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="New purchase" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Bottom" Margin="0,0,0,4"/>
+                <ComboBox x:Name="SupplierComboBox" Grid.Column="1" Header="Supplier"
+                          ItemsSource="{x:Bind ViewModel.Suppliers, Mode=OneWay}"
+                          DisplayMemberPath="Name"
+                          SelectedItem="{x:Bind ViewModel.SelectedSupplier, Mode=OneWay}"
+                          Text="{x:Bind ViewModel.SessionSupplierName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                          IsEditable="True" HorizontalAlignment="Stretch"
+                          SelectionChanged="OnSupplierSelectionChanged"
+                          PreviewKeyDown="OnInputKeyDown"/>
+                <TextBox x:Name="InvoiceNoBox" Grid.Column="2" Header="Invoice no."
+                         Text="{x:Bind ViewModel.SessionInvoiceNo, Mode=TwoWay}"
+                         KeyDown="OnInputKeyDown" PlaceholderText="Auto if blank"/>
+                <TextBox x:Name="InvoiceDateBox" Grid.Column="3" Header="Date"
+                         Text="{x:Bind ViewModel.SessionInvoiceDateText, Mode=TwoWay}"
+                         KeyDown="OnInputKeyDown" PlaceholderText="DD/MM/YYYY"/>
+            </Grid>
+        </Border>
+
+        <!-- ============ Search + rows ============ -->
+        <Grid Grid.Row="1" Padding="16,12" RowSpacing="10">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- 1. Invoice Header Card -->
-            <Border Grid.Row="0" Style="{StaticResource PremiumCardStyle}" Padding="16,12" Background="White" Margin="0,0,0,12">
-                <Grid ColumnSpacing="20">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <ComboBox x:Name="SupplierComboBox"
-                              ItemsSource="{x:Bind ViewModel.Suppliers, Mode=OneWay}"
-                              Header="Supplier"
-                              DisplayMemberPath="Name"
-                              SelectedItem="{x:Bind ViewModel.SelectedSupplier, Mode=OneWay}"
-                              Text="{x:Bind ViewModel.SessionSupplierName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                              IsEditable="True" HorizontalAlignment="Stretch" CornerRadius="8"
-                              SelectionChanged="OnSupplierSelectionChanged"
-                              PreviewKeyDown="OnInputKeyDown"/>
-
-                    <TextBox x:Name="InvoiceNoBox" Grid.Column="1" Header="Invoice #"
-                             Text="{x:Bind ViewModel.SessionInvoiceNo, Mode=TwoWay}" CornerRadius="8"
-                             KeyDown="OnInputKeyDown" PlaceholderText="INV-000"/>
-
-                    <TextBox x:Name="InvoiceDateBox" Grid.Column="2" Header="Date"
-                             Text="{x:Bind ViewModel.SessionInvoiceDateText, Mode=TwoWay}" CornerRadius="8"
-                             KeyDown="OnInputKeyDown" PlaceholderText="DD/MM/YYYY"/>
-                </Grid>
-            </Border>
-
-            <!-- 2. Search Box -->
-            <Border Grid.Row="1" Style="{StaticResource PremiumCardStyle}" Padding="16,12"
-                    Background="White" BorderBrush="{StaticResource AccentAccent}" BorderThickness="1.5"
-                    Margin="0,0,0,12">
-                <AutoSuggestBox x:Name="MedicineSearchBox"
-                                PlaceholderText="Search medicine to add to list (press Enter to select)..."
-                                QueryIcon="Find"
-                                TextMemberPath="Name"
+            <Border Background="White" BorderBrush="{StaticResource AccentAccent}" BorderThickness="2" CornerRadius="8" Padding="4,2">
+                <AutoSuggestBox x:Name="MedicineSearchBox" BorderThickness="0" FontSize="16"
+                                PlaceholderText="Medicine name or barcode, Enter adds a row"
+                                QueryIcon="Find" TextMemberPath="Name"
                                 ItemsSource="{x:Bind ViewModel.SearchSuggestions, Mode=OneWay}"
                                 Text="{x:Bind ViewModel.EntryName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                 UpdateTextOnSelect="False"
-                                QuerySubmitted="OnMedicineSearch_QuerySubmitted"
-                                FontSize="16" FontWeight="Medium">
+                                QuerySubmitted="OnMedicineSearch_QuerySubmitted">
                     <AutoSuggestBox.ItemTemplate>
                         <DataTemplate>
-                            <Grid Padding="8,4">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
-                                    <TextBlock Text="{Binding ManufacturerName}" FontSize="11" Foreground="#718096"/>
-                                </StackPanel>
-                            </Grid>
+                            <StackPanel Padding="8,4">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding ManufacturerName}" FontSize="11" Foreground="#8A94A6"/>
+                            </StackPanel>
                         </DataTemplate>
                     </AutoSuggestBox.ItemTemplate>
                 </AutoSuggestBox>
             </Border>
 
-            <!-- 3. Invoice Table (stretches to fill remaining space) -->
-            <Border Grid.Row="2" Style="{StaticResource PremiumCardStyle}" Padding="0"
-                    Background="White" Margin="0,0,0,16">
+            <Border Grid.Row="1" Background="White" BorderBrush="#E5E9EF" BorderThickness="1" CornerRadius="8">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
+                    <Grid Background="#F8F9FA" Padding="12,8" BorderBrush="#E5E9EF" BorderThickness="0,0,0,1" CornerRadius="8,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="76"/>
+                            <ColumnDefinition Width="90"/>
+                            <ColumnDefinition Width="76"/>
+                            <ColumnDefinition Width="110"/>
+                            <ColumnDefinition Width="96"/>
+                            <ColumnDefinition Width="100"/>
+                            <ColumnDefinition Width="120"/>
+                            <ColumnDefinition Width="36"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="MEDICINE" Style="{StaticResource ColHead}"/>
+                        <TextBlock Grid.Column="1" Text="BATCH" Style="{StaticResource ColHead}" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="2" Text="EXPIRY" Style="{StaticResource ColHead}" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="3" Text="QTY" Style="{StaticResource ColHead}" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="4" Text="BONUS" Style="{StaticResource ColHead}" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="5" Text="INVOICE TOTAL" Style="{StaticResource ColHead}" HorizontalAlignment="Right"/>
+                        <TextBlock Grid.Column="6" Text="DISC % / PAID" Style="{StaticResource ColHead}" HorizontalAlignment="Center"/>
+                        <TextBlock Grid.Column="7" Text="NET COST" Style="{StaticResource ColHead}" HorizontalAlignment="Right"/>
+                        <TextBlock Grid.Column="8" Text="COST / TAB" Style="{StaticResource ColHead}" HorizontalAlignment="Right"/>
+                    </Grid>
 
-                    <!-- Column Headers — static labels for fixed columns -->
-                    <Border Background="#F8FAFC" Padding="24,14" BorderThickness="0,0,0,1" BorderBrush="#E2E8F0">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="120"/>
-                                <ColumnDefinition Width="160"/>
-                                <ColumnDefinition Width="150"/>
-                                <ColumnDefinition Width="130"/>
-                                <ColumnDefinition Width="48"/>
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="MEDICINE NAME" FontSize="11" FontWeight="Bold" Foreground="#718096" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="BATCH NO" FontSize="11" FontWeight="Bold" Foreground="#718096" TextAlignment="Center" VerticalAlignment="Center"/>
-                            <!-- QTY header: label changes per row via QtyLabel, so we show a generic "QTY" here -->
-                            <TextBlock Grid.Column="2" Text="QTY" FontSize="11" FontWeight="Bold" Foreground="#718096" TextAlignment="Center" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="3" Text="TOTAL PRICE" FontSize="11" FontWeight="Bold" Foreground="#718096" TextAlignment="Center" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="4" Text="COST / UNIT" FontSize="11" FontWeight="Bold" Foreground="{StaticResource AccentAccent}" TextAlignment="Right" VerticalAlignment="Center"/>
-                        </Grid>
-                    </Border>
-
-                    <!-- Rows -->
-                    <ListView x:Name="InvoiceList" Grid.Row="1" ItemsSource="{x:Bind ViewModel.ReceivingItems, Mode=OneWay}"
-                              SelectionMode="None" Padding="0" Background="Transparent">
-                        <ListView.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Vertical"/>
-                            </ItemsPanelTemplate>
-                        </ListView.ItemsPanel>
+                    <ListView x:Name="InvoiceList" Grid.Row="1" ItemsSource="{x:Bind ViewModel.ReceivingItems, Mode=OneWay}" SelectionMode="None">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                                 <Setter Property="Padding" Value="0"/>
+                                <Setter Property="MinHeight" Value="0"/>
                             </Style>
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="models:ReceivingItem">
-                                <Grid Padding="24,10" BorderThickness="0,0,0,1" BorderBrush="#F1F5F9">
+                                <Grid x:Name="RowRoot" Padding="12,5" BorderThickness="0,0,0,1" BorderBrush="#F1F4F8">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="76"/>
+                                        <ColumnDefinition Width="90"/>
+                                        <ColumnDefinition Width="76"/>
+                                        <ColumnDefinition Width="110"/>
+                                        <ColumnDefinition Width="96"/>
+                                        <ColumnDefinition Width="100"/>
                                         <ColumnDefinition Width="120"/>
-                                        <ColumnDefinition Width="160"/>
-                                        <ColumnDefinition Width="150"/>
-                                        <ColumnDefinition Width="130"/>
-                                        <ColumnDefinition Width="48"/>
+                                        <ColumnDefinition Width="36"/>
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Medicine Name + Pkg Dimension -->
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{x:Bind MedicineName}" FontWeight="SemiBold" FontSize="14" Foreground="#2D3748"/>
-                                        <TextBlock Text="{x:Bind PkgDimension}" FontSize="10" Foreground="#718096"/>
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{x:Bind MedicineName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                                            <Border Background="#FEF3C7" CornerRadius="4" Padding="5,0" VerticalAlignment="Center" Visibility="{x:Bind IsNet}">
+                                                <TextBlock Text="NET" FontSize="10" FontWeight="Bold" Foreground="#92400E"/>
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock FontSize="11" Foreground="#8A94A6"><Run Text="{x:Bind PkgDimension}"/> · <Run Text="{x:Bind QtyLabel}"/></TextBlock>
                                     </StackPanel>
 
-                                    <!-- Batch No — editable so users can set/correct the batch number.
-                                         Old batch numbers are automatically saved to batch_history when changed. -->
-                                    <TextBox Grid.Column="1" x:Name="BatchBox"
+                                    <TextBox Grid.Column="1" x:Name="BatchBox" Margin="3,0" FontSize="12"
                                              Text="{Binding BatchNo, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             PlaceholderText="Batch No"
-                                             TextAlignment="Center" CornerRadius="6"
-                                             Margin="6,0"
-                                             FontSize="12"
-                                             KeyDown="OnRowInputKeyDown"
-                                             Loaded="OnRowControlLoaded"/>
-
-                                    <!-- QTY input — label below shows BOX or TABS -->
-                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                        <TextBox x:Name="QtyBox"
-                                                 Text="{Binding PackQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                 PlaceholderText="0" TextAlignment="Center" CornerRadius="6"
-                                                 Margin="8,0"
-                                                 KeyDown="OnRowInputKeyDown" Loaded="OnRowControlLoaded"/>
-                                        <TextBlock Text="{x:Bind QtyLabel}" FontSize="9" Foreground="#94A3B8"
-                                                   TextAlignment="Center" Margin="8,2,8,0"/>
-                                    </StackPanel>
-
-                                    <!-- TOTAL PRICE input (total amount paid, not per-pack) -->
-                                    <TextBox Grid.Column="3" x:Name="PriceBox"
+                                             PlaceholderText="Batch" TextAlignment="Center"
+                                             KeyDown="OnRowInputKeyDown" Loaded="OnRowControlLoaded"/>
+                                    <TextBox Grid.Column="2" x:Name="ExpiryBox" Margin="3,0" FontSize="12"
+                                             Text="{Binding ExpiryText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="MM/YY" TextAlignment="Center"
+                                             KeyDown="OnRowInputKeyDown"/>
+                                    <TextBox Grid.Column="3" x:Name="QtyBox" Margin="3,0"
+                                             Text="{Binding PackQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="0" TextAlignment="Center"
+                                             KeyDown="OnRowInputKeyDown" Loaded="OnRowControlLoaded"/>
+                                    <TextBox Grid.Column="4" x:Name="BonusBox" Margin="3,0"
+                                             Text="{Binding BonusQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             PlaceholderText="0" TextAlignment="Center"
+                                             KeyDown="OnRowInputKeyDown"/>
+                                    <TextBox Grid.Column="5" x:Name="PriceBox" Margin="3,0"
                                              Text="{Binding PackPriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                             PlaceholderText="Total paid" TextAlignment="Right" CornerRadius="6"
-                                             Margin="8,2"
+                                             PlaceholderText="Total" TextAlignment="Right"
+                                             KeyDown="OnRowInputKeyDown"/>
+                                    <!-- Disc % for normal items; Paid for Net items (invoice price ≠ real price) -->
+                                    <TextBox Grid.Column="6" x:Name="DiscBox" Margin="3,0"
+                                             Text="{Binding DiscountPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Visibility="{x:Bind CanDiscount}" PlaceholderText="0 %" TextAlignment="Center"
+                                             KeyDown="OnRowInputKeyDown"/>
+                                    <TextBox Grid.Column="6" x:Name="ActualPaidBox" Margin="3,0"
+                                             Text="{Binding ActualPaidText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                             Visibility="{x:Bind IsNet}" PlaceholderText="Paid" TextAlignment="Right"
+                                             Background="#FFF6E5" BorderBrush="#F8D899"
                                              KeyDown="OnRowInputKeyDown"/>
 
-                                    <!-- COST / UNIT — calculated: TotalPrice ÷ TotalTablets -->
-                                    <TextBlock Grid.Column="4"
-                                               Text="{Binding UnitCost, Converter={StaticResource CurrencyConverter}}"
-                                               VerticalAlignment="Center" TextAlignment="Right"
-                                               FontWeight="Bold" FontSize="14" Foreground="{StaticResource AccentAccent}"/>
+                                    <TextBlock Grid.Column="7" Text="{Binding PurchaseTotalPrice, Converter={StaticResource CurrencyConverter}}"
+                                               FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center"/>
 
-                                    <Button Grid.Column="5" Click="OnRemoveItem_Click" Tag="{x:Bind}"
-                                            Background="Transparent" BorderThickness="0" Padding="8"
-                                            HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <FontIcon Glyph="&#xE74D;" FontSize="14" Foreground="#EF4444"/>
+                                    <StackPanel Grid.Column="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding UnitCost, Converter={StaticResource CurrencyConverter}}"
+                                                   FontWeight="SemiBold" Foreground="#0B6E99" HorizontalAlignment="Right"/>
+                                        <TextBlock Text="{Binding CostTrendText}" FontSize="11" HorizontalAlignment="Right"
+                                                   Foreground="{Binding IsCostOk, Converter={StaticResource StatusFgConverter}}"/>
+                                    </StackPanel>
+
+                                    <Button Grid.Column="9" Click="OnRemoveItem_Click" Tag="{x:Bind}" Style="{StaticResource TextBlockButtonStyle}"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center" ToolTipService.ToolTip="Remove row (Ctrl+Del)">
+                                        <FontIcon Glyph="&#xE711;" FontSize="12" Foreground="#8A94A6"/>
                                     </Button>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+
+                    <TextBlock Grid.Row="1" Text="Pick the supplier, then search a medicine above to add the first row."
+                               Foreground="#8A94A6" HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{x:Bind ViewModel.ReceivingItems.Count, Mode=OneWay, Converter={StaticResource EmptyToVisibilityConverter}}"/>
                 </Grid>
             </Border>
 
-
-
-            <!-- 4. Summary & Save Card -->
-            <Border Grid.Row="3" Style="{StaticResource PremiumCardStyle}" Padding="28,20" Background="White">
-                <Grid>
-                    <StackPanel Orientation="Horizontal" Spacing="48" VerticalAlignment="Center">
-                        <StackPanel>
-                            <TextBlock Text="Total Items" FontSize="12" Foreground="#718096" Margin="0,0,0,4"/>
-                            <TextBlock Text="{x:Bind ViewModel.ReceivingItems.Count, Mode=OneWay}"
-                                       FontSize="30" FontWeight="Bold" Foreground="#2D3748"/>
-                        </StackPanel>
-                        <StackPanel>
-                            <TextBlock Text="Grand Total Cost" FontSize="12" Foreground="#718096" Margin="0,0,0,4"/>
-                            <TextBlock Text="{x:Bind ViewModel.TotalSessionCost, Mode=OneWay, Converter={StaticResource CurrencyConverter}}"
-                                       FontSize="30" FontWeight="Bold" Foreground="{StaticResource AccentAccent}"/>
-                        </StackPanel>
-                    </StackPanel>
-
-                    <Button Command="{x:Bind ViewModel.SaveAllCommand}"
-                            HorizontalAlignment="Right" Height="56" Width="240"
-                            Style="{StaticResource PremiumButtonStyle}"
-                            IsEnabled="{x:Bind ViewModel.CanSave, Mode=OneWay}"
-                            VerticalAlignment="Center"
-                            CornerRadius="14">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <FontIcon Glyph="&#xE74E;" Foreground="White" FontSize="18"/>
-                            <TextBlock Text="Complete Purchase" Foreground="White" FontWeight="Bold" FontSize="15"/>
-                        </StackPanel>
-                    </Button>
-                </Grid>
-            </Border>
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="18">
+                <TextBlock FontSize="12" Foreground="#8A94A6"><Run Text="Enter" FontWeight="SemiBold"/> next field · last field → back to search</TextBlock>
+                <TextBlock FontSize="12" Foreground="#8A94A6">When all rows are in, press <Run Text="Enter" FontWeight="SemiBold"/> on the empty search box to complete the purchase</TextBlock>
+                <TextBlock FontSize="12" Foreground="#8A94A6">Expiry: <Run Text="05/27" FontWeight="SemiBold"/> = end of May 2027</TextBlock>
+            </StackPanel>
         </Grid>
 
-        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="64" Height="64"
-                      Grid.RowSpan="2" HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Foreground="{StaticResource AccentAccent}"/>
+        <!-- ============ Footer: the money ============ -->
+        <Border Grid.Row="2" Background="White" BorderBrush="#E5E9EF" BorderThickness="0,1,0,0" Padding="16,10">
+            <Grid ColumnSpacing="28">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="ROWS" Style="{StaticResource FootLabel}"/>
+                    <TextBlock Text="{x:Bind ViewModel.ReceivingItems.Count, Mode=OneWay}" Style="{StaticResource FootValue}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1">
+                    <TextBlock Text="INVOICE TOTAL" Style="{StaticResource FootLabel}"/>
+                    <TextBlock Text="{x:Bind ViewModel.GrossTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" Style="{StaticResource FootValue}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="SAVED (BONUS · DISC · NET)" Style="{StaticResource FootLabel}"/>
+                    <TextBlock Text="{x:Bind ViewModel.SavedTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" Style="{StaticResource FootValue}" Foreground="#047857"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3">
+                    <TextBlock Text="NET COST" Style="{StaticResource FootLabel}"/>
+                    <TextBlock Text="{x:Bind ViewModel.TotalSessionCost, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" Style="{StaticResource FootValue}" FontSize="20" Foreground="#0B6E99"/>
+                </StackPanel>
+                <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="12" HorizontalAlignment="Right">
+                    <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" TextWrapping="Wrap" MaxWidth="320"
+                               VerticalAlignment="Center" FontSize="12" Foreground="#4B5563"/>
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="20" Height="20" Foreground="{StaticResource AccentAccent}"/>
+                    <Button Command="{x:Bind ViewModel.SaveAllCommand}" IsEnabled="{x:Bind ViewModel.CanSave, Mode=OneWay}"
+                            Style="{StaticResource PremiumButtonStyle}" Height="42" FontSize="15" FontWeight="SemiBold"
+                            Content="Complete purchase"/>
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Page>

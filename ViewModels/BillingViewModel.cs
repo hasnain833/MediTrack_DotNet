@@ -114,6 +114,30 @@ namespace DChemist.ViewModels
             }
         }
         public decimal GrandTotal { get => _grandTotal; set => SetProperty(ref _grandTotal, value); }
+
+        public string ItemCountText => CartItems.Count == 1 ? "1 item" : $"{CartItems.Count} items";
+
+        // Cash handed over by the customer → change to return. Display only; not saved with the sale.
+        private string _cashReceivedText = string.Empty;
+        public string CashReceivedText
+        {
+            get => _cashReceivedText;
+            set
+            {
+                if (SetProperty(ref _cashReceivedText, value))
+                {
+                    OnPropertyChanged(nameof(ChangeText));
+                    OnPropertyChanged(nameof(IsChangeShort));
+                    OnPropertyChanged(nameof(IsChangeOk));
+                }
+            }
+        }
+        private decimal? CashReceived => decimal.TryParse(CashReceivedText.Replace(",", "").Trim(), out var c) && c > 0 ? c : null;
+        public bool IsChangeShort => CashReceived is decimal c && c < Math.Round(GrandTotal);
+        public bool IsChangeOk => !IsChangeShort;
+        public string ChangeText => CashReceived is not decimal c ? "—"
+            : c >= Math.Round(GrandTotal) ? $"PKR {c - Math.Round(GrandTotal):N0}"
+            : $"PKR {Math.Round(GrandTotal) - c:N0} short";
         public string BarcodeText
         {
             get => _barcodeText;
@@ -155,6 +179,18 @@ namespace DChemist.ViewModels
                 if (!cancellationToken.IsCancellationRequested)
                     _dispatcher.TryEnqueue(() => IsSearching = false);
             }
+        }
+
+        /// <summary>
+        /// Search right now for exactly this text (cancels the pending debounce). Used on Enter,
+        /// so the decision is never made on results from earlier, shorter text.
+        /// </summary>
+        public async Task<List<Medicine>> SearchNowAsync(string text)
+        {
+            _searchCts?.Cancel();
+            var results = await _medicineRepository.SearchAsync(text);
+            _medicineResults.ReplaceAll(results);
+            return results;
         }
 
         private async Task DebouncedSearchAsync()
@@ -205,9 +241,14 @@ namespace DChemist.ViewModels
             return true;
         }
 
+        /// <summary>Cart row last added or bumped; the page focuses its quantity box.</summary>
+        public SaleItemViewModel? LastTouchedItem { get; private set; }
+
+        /// <summary>Adds the medicine (or bumps its qty) and sets LastTouchedItem.</summary>
         public async Task ExecuteAddToCartAsync(Medicine? medicine = null)
         {
             var med = medicine ?? SelectedMedicine;
+            LastTouchedItem = null;
             if (med == null) return;
 
             var batches = await _batchRepository.GetByMedicineIdAsync(med.Id);
@@ -226,9 +267,11 @@ namespace DChemist.ViewModels
 
             var bestBatch = activeBatches.First();
             var existing = CartItems.FirstOrDefault(i => i.MedicineId == med.Id && i.BatchId == bestBatch.Id);
+            SaleItemViewModel touched;
             if (existing != null)
             {
                 existing.Quantity++;
+                touched = existing;
             }
             else
             {
@@ -238,17 +281,20 @@ namespace DChemist.ViewModels
                     BatchId = bestBatch.Id,
                     MedicineName = med.Name,
                     BaseUnitPrice = bestBatch.SellingPrice,
+                    StockUnits = activeBatches.Sum(b => b.RemainingUnits),
                     UnitsPerBox = (med.PacketsPerBox > 0 ? med.PacketsPerBox : 1) * (med.UnitsPerPack > 0 ? med.UnitsPerPack : 1),
                     QuantityBoxText = string.Empty, // Start blank
                     QuantityTabletText = string.Empty // Start blank
                 };
                 newItem.PropertyChanged += OnItemPropertyChanged;
                 CartItems.Add(newItem);
+                touched = newItem;
             }
 
             UpdateTotals();
             ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
             ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
+            LastTouchedItem = touched;
         }
 
         private void ExecuteRemoveFromCart(SaleItemViewModel? item)
@@ -267,6 +313,7 @@ namespace DChemist.ViewModels
             UpdateTotals();
             CustomerName = string.Empty;
             CustomerPhone = string.Empty;
+            CashReceivedText = string.Empty;
             ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
             ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
             ((RelayCommand)ClearCartCommand).RaiseCanExecuteChanged();
@@ -284,6 +331,10 @@ namespace DChemist.ViewModels
             TaxAmount = TotalAmount * _taxRate;
             DiscountAmount = TotalAmount * (_discountPercentage / 100m);
             GrandTotal = TotalAmount + TaxAmount - DiscountAmount;
+            OnPropertyChanged(nameof(ChangeText));
+            OnPropertyChanged(nameof(IsChangeShort));
+            OnPropertyChanged(nameof(IsChangeOk));
+            OnPropertyChanged(nameof(ItemCountText));
         }
 
         private async Task ExecutePrintBillAsync()
@@ -402,6 +453,9 @@ namespace DChemist.ViewModels
         public string MedicineName { get; set; } = string.Empty;
         public int UnitsPerBox { get; set; } = 1;
         public decimal BaseUnitPrice { get; set; }
+        /// <summary>Sellable (unexpired) units in stock when added — shown under the name.</summary>
+        public int StockUnits { get; set; }
+        public string StockHint => UnitsPerBox > 1 ? $"{StockUnits} tabs in stock · {UnitsPerBox}/box" : $"{StockUnits} in stock";
 
         private int _quantityBox = 0;
         public int QuantityBox

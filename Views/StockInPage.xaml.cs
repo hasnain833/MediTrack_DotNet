@@ -15,10 +15,13 @@ namespace DChemist.Views
         public StockInPage()
         {
             this.InitializeComponent();
+            // Keep the half-entered invoice alive when switching pages.
+            NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
             ViewModel = App.Current.Services.GetRequiredService<StockInViewModel>();
             this.DataContext = ViewModel;
             
             this.Loaded += (s, e) => MedicineSearchBox.Focus(FocusState.Programmatic);
+            this.KeyDown += OnPageKeyDown;
         }
 
         private void OnSuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs qualification)
@@ -30,15 +33,47 @@ namespace DChemist.Views
             }
         }
 
-        private void OnMedicineSearch_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+        private async void OnMedicineSearch_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
         {
             if (args.ChosenSuggestion is DChemist.Models.Medicine med)
             {
                 ViewModel.SelectMedicine(med);
+                return;
             }
-            else if (ViewModel.SearchSuggestions.Count > 0)
+
+            var query = args.QueryText?.Trim();
+            if (string.IsNullOrWhiteSpace(query))
             {
-                ViewModel.SelectMedicine(ViewModel.SearchSuggestions[0]);
+                // Enter on an empty search = invoice is done: complete the purchase (save validates every row).
+                if (ViewModel.SaveAllCommand.CanExecute(null)) ViewModel.SaveAllCommand.Execute(null);
+                return;
+            }
+
+            // Search exactly what was typed — Enter often arrives before the debounced search,
+            // and picking suggestion[0] from the previous text added the wrong medicine.
+            var results = await ViewModel.SearchNowAsync(query);
+            var match = results.FirstOrDefault(m => m.Name.Equals(query, StringComparison.OrdinalIgnoreCase)
+                                                    || m.Barcode == query)
+                        ?? (results.Count == 1 ? results[0] : null);
+
+            if (match != null)
+                ViewModel.SelectMedicine(match);
+            else
+            {
+                ViewModel.StatusMessage = results.Count > 1
+                    ? "Several medicines match — use ↓ to pick one, then Enter."
+                    : $"⚠ No medicine found matching '{query}'. Add it on the Items page first.";
+                sender.IsSuggestionListOpen = results.Count > 1;
+            }
+        }
+
+        // F8 = save purchase (same key as Save on Billing). Works from any field.
+        private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
+        {
+            if (e.Key == Windows.System.VirtualKey.F8 && ViewModel.SaveAllCommand.CanExecute(null))
+            {
+                ViewModel.SaveAllCommand.Execute(null);
+                e.Handled = true;
             }
         }
 
@@ -61,51 +96,58 @@ namespace DChemist.Views
 
         private void OnRowInputKeyDown(object sender, KeyRoutedEventArgs e)
         {
+            if (sender is not TextBox currentBox) return;
+
+            // Ctrl+Delete removes this row and goes back to search
+            bool ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+                        .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            if (ctrl && e.Key == Windows.System.VirtualKey.Delete && currentBox.DataContext is DChemist.Models.ReceivingItem row)
+            {
+                ViewModel.ReceivingItems.Remove(row);
+                MedicineSearchBox.Focus(FocusState.Programmatic);
+                e.Handled = true;
+                return;
+            }
+
             if (e.Key != Windows.System.VirtualKey.Enter) return;
 
-            var currentBox = sender as TextBox;
-            if (currentBox == null) return;
+            // Walk up to the row root (the DataTemplate's Grid)
+            DependencyObject? node = currentBox;
+            while (node != null && (node as FrameworkElement)?.Name != "RowRoot")
+                node = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetParent(node);
+            if (node == null) return;
 
-            // Walk up to find the row Grid (the DataTemplate root)
-            var rowGrid = currentBox.Parent as Grid        // direct child
-                       ?? (currentBox.Parent as FrameworkElement)?.Parent as Grid; // inside StackPanel
+            // Enter moves along the row; hidden boxes (Disc % on Net rows, Paid on normal rows) are skipped.
+            var next = RowFieldOrder
+                .SkipWhile(n => n != currentBox.Name).Skip(1)
+                .Select(n => FindByName(node, n))
+                .FirstOrDefault(tb => tb != null && tb.IsEnabled && tb.Visibility == Visibility.Visible);
 
-            if (rowGrid == null) return;
-
-            // Navigation order: BatchBox → QtyBox → PriceBox → MedicineSearchBox
-            if (currentBox.Name == "BatchBox")
+            if (next != null)
             {
-                // Move to the Quantity box
-                var qtyBox = rowGrid.Children
-                    .OfType<StackPanel>()
-                    .SelectMany(sp => sp.Children.OfType<TextBox>())
-                    .FirstOrDefault(tb => tb.Name == "QtyBox");
-                if (qtyBox != null)
-                {
-                    qtyBox.Focus(FocusState.Programmatic);
-                    qtyBox.SelectAll();
-                    e.Handled = true;
-                }
+                next.Focus(FocusState.Programmatic);
+                next.SelectAll();
             }
-            else if (currentBox.Name == "QtyBox")
-            {
-                // Move to the Total Price box
-                var priceBox = rowGrid.Children
-                    .OfType<TextBox>()
-                    .FirstOrDefault(tb => tb.Name == "PriceBox");
-                if (priceBox != null)
-                {
-                    priceBox.Focus(FocusState.Programmatic);
-                    priceBox.SelectAll();
-                    e.Handled = true;
-                }
-            }
-            else if (currentBox.Name == "PriceBox")
+            else
             {
                 // Done with this row — go back to medicine search
                 MedicineSearchBox.Focus(FocusState.Programmatic);
-                e.Handled = true;
             }
+            e.Handled = true;
+        }
+
+        private static readonly string[] RowFieldOrder = { "BatchBox", "ExpiryBox", "QtyBox", "BonusBox", "PriceBox", "DiscBox", "ActualPaidBox" };
+
+        private static TextBox? FindByName(DependencyObject root, string name)
+        {
+            int count = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+                if (child is TextBox tb && tb.Name == name) return tb;
+                if (FindByName(child, name) is TextBox found) return found;
+            }
+            return null;
         }
 
         private void OnInputKeyDown(object sender, KeyRoutedEventArgs e)

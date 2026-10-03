@@ -122,7 +122,8 @@ namespace DChemist.ViewModels
             IsBusy = true;
             try
             {
-                var list = await _medicineRepo.GetAllAsync();
+                // ponytail: filters run in memory over the loaded rows; with a filter on we load up to 5000 so it covers the whole shop.
+                var list = ApplyFilter(await _medicineRepo.GetAllAsync(pageSize: Filter == "all" ? 200 : 5000));
                 if (cts.Token.IsCancellationRequested) return;
                 _dispatcher.TryEnqueue(() => _medicines.ReplaceAll(list));
             }
@@ -163,6 +164,43 @@ namespace DChemist.ViewModels
             await SearchAsync();
         }
 
+        // Filter chips: all / low / exp / net
+        private string _filter = "all";
+        public string Filter
+        {
+            get => _filter;
+            set
+            {
+                if (SetProperty(ref _filter, value))
+                    _ = string.IsNullOrWhiteSpace(SearchText) ? RefreshAsync() : SearchAsync();
+            }
+        }
+
+        private List<Medicine> ApplyFilter(List<Medicine> list) => Filter switch
+        {
+            "low" => list.Where(m => m.IsLowStock).ToList(),
+            "exp" => list.Where(m => m.IsExpiringSoon).ToList(),
+            "net" => list.Where(m => m.IsNet).ToList(),
+            _ => list
+        };
+
+        /// <summary>Ctrl+N / New medicine: empty form, open drawer.</summary>
+        public void StartNew()
+        {
+            ClearEntry();
+            IsFormExpanded = true;
+        }
+
+        /// <summary>Enter in the list search: search this exact text now, return the top match.</summary>
+        public async Task<Medicine?> SearchNowAsync()
+        {
+            _searchCts?.Cancel();
+            if (string.IsNullOrWhiteSpace(SearchText)) return null;
+            var list = ApplyFilter(await _medicineRepo.SearchAsync(SearchText));
+            _medicines.ReplaceAll(list);
+            return list.FirstOrDefault();
+        }
+
         private async Task SearchAsync()
         {
             if (string.IsNullOrWhiteSpace(SearchText)) { await RefreshAsync(); return; }
@@ -174,7 +212,7 @@ namespace DChemist.ViewModels
             IsBusy = true;
             try
             {
-                var list = await _medicineRepo.SearchAsync(SearchText);
+                var list = ApplyFilter(await _medicineRepo.SearchAsync(SearchText));
                 if (cts.Token.IsCancellationRequested) return;
                 _dispatcher.TryEnqueue(() => _medicines.ReplaceAll(list));
             }
@@ -368,39 +406,13 @@ namespace DChemist.ViewModels
 
         public void FormatExpiryDate()
         {
-            if (string.IsNullOrWhiteSpace(ExpiryDateText)) return;
-            string input = new string(ExpiryDateText.Where(char.IsDigit).ToArray());
-            DateTimeOffset? result = null;
-            try
+            var parsed = ExpiryParser.Parse(ExpiryDateText);
+            if (parsed.HasValue)
             {
-                if (input.Length == 4)
-                {
-                    int month = int.Parse(input.Substring(0, 2));
-                    int year = int.Parse("20" + input.Substring(2, 2));
-                    result = new DateTimeOffset(new DateTime(year, month, DateTime.DaysInMonth(year, month)));
-                }
-                else if (input.Length == 6)
-                {
-                    int month = int.Parse(input.Substring(0, 2));
-                    int year = int.Parse(input.Substring(2, 4));
-                    result = new DateTimeOffset(new DateTime(year, month, DateTime.DaysInMonth(year, month)));
-                }
-                else if (input.Length == 8)
-                {
-                    int day = int.Parse(input.Substring(0, 2));
-                    int month = int.Parse(input.Substring(2, 2));
-                    int year = int.Parse(input.Substring(4, 4));
-                    result = new DateTimeOffset(new DateTime(year, month, day));
-                }
-
-                if (result.HasValue)
-                {
-                    ExpiryDate = result;
-                    _expiryDateText = input.Length == 8 ? result.Value.ToString("dd/MM/yyyy") : result.Value.ToString("MM/yyyy");
-                    OnPropertyChanged(nameof(ExpiryDateText));
-                }
+                ExpiryDate = new DateTimeOffset(parsed.Value);
+                _expiryDateText = ExpiryParser.Format(parsed.Value, ExpiryParser.HasDay(ExpiryDateText));
+                OnPropertyChanged(nameof(ExpiryDateText));
             }
-            catch { }
         }
 
         private async Task ExecuteLookupBarcodeAsync()
@@ -427,6 +439,10 @@ namespace DChemist.ViewModels
             catch (Exception ex) { StatusMessage = "✘ Lookup failed."; AppLogger.LogError("Items.Lookup", ex); }
         }
 
+        // Net item: actual paid price differs from the supplier invoice price.
+        private bool _isNetItem;
+        public bool IsNetItem { get => _isNetItem; set => SetProperty(ref _isNetItem, value); }
+
         private async Task ExecuteSaveAsync()
         {
             FormatExpiryDate();
@@ -450,6 +466,7 @@ namespace DChemist.ViewModels
                     med.UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1;
                     med.PacketsPerBox = PacketsPerBox > 0 ? PacketsPerBox : 1;
                     med.DefaultEntryMode = SelectedQuantityMode.ToString();
+                    med.IsNet = IsNetItem;
 
                     // Apply edit-mode extra fields if in edit mode
                     if (IsEditMode)
@@ -477,10 +494,11 @@ namespace DChemist.ViewModels
                         { 
                             Name = EntryName, 
                             Barcode = string.IsNullOrWhiteSpace(BarcodeText) ? null : BarcodeText.Trim(), 
-                            CategoryName = "General", 
+                            CategoryName = string.IsNullOrWhiteSpace(EditCategory) ? "General" : EditCategory.Trim(),
                             ManufacturerName = "General",
                             DefaultEntryMode = SelectedQuantityMode.ToString(),
                             UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1,
+                            IsNet = IsNetItem,
                             PacketsPerBox = PacketsPerBox > 0 ? PacketsPerBox : 1
                         };
                         med = await _medicineRepo.AddAsync(med);
@@ -488,6 +506,7 @@ namespace DChemist.ViewModels
                     else
                     {
                         med.DefaultEntryMode = SelectedQuantityMode.ToString();
+                        med.IsNet = IsNetItem;
                         med.UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1;
                         med.PacketsPerBox = PacketsPerBox > 0 ? PacketsPerBox : 1;
                         await _medicineRepo.UpdateAsync(med);
@@ -577,6 +596,7 @@ namespace DChemist.ViewModels
 
             PacketsPerBox = medicine.PacketsPerBox;
             UnitsPerPacket = medicine.UnitsPerPack;
+            IsNetItem = medicine.IsNet;
             
             // For price, if it's stored as price-per-tablet, we might want to convert it back to price-per-box if that's the default
             bool isBox = medicine.DefaultEntryMode == "Box";
@@ -661,6 +681,7 @@ namespace DChemist.ViewModels
             PackQuantity = 0;
             PacketsPerBox = 0;
             UnitsPerPacket = 0;
+            IsNetItem = false;
             QuantityUnits = 0;
             SellingPrice = 0;
             // Reset edit-mode extra fields and revert to normal entry mode

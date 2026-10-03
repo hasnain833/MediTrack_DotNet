@@ -39,6 +39,17 @@ namespace DChemist.Utils
 
             System.Diagnostics.Debug.WriteLine(line);
 
+            // Errors go to Sentry; info/warnings ride along as breadcrumbs ("what happened before").
+            if (level == "ERROR")
+            {
+                if (ex != null) Sentry.SentrySdk.CaptureException(ex, s => s.SetExtra("message", message));
+                else Sentry.SentrySdk.CaptureMessage(message, Sentry.SentryLevel.Error);
+            }
+            else
+            {
+                Sentry.SentrySdk.AddBreadcrumb(message, level: level == "WARN " ? Sentry.BreadcrumbLevel.Warning : Sentry.BreadcrumbLevel.Info);
+            }
+
             try
             {
                 lock (_lock)

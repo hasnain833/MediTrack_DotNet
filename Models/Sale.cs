@@ -8,6 +8,7 @@ namespace DChemist.Models
         public int Id { get; set; }
         public string BillNo { get; set; } = string.Empty;
         public int UserId { get; set; }
+        public string? CashierName { get; set; }
         public int? CustomerId { get; set; }
         public decimal TotalAmount { get; set; }
         public decimal TaxAmount { get; set; }

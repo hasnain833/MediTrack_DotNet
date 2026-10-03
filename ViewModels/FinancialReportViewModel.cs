@@ -23,6 +23,8 @@ namespace DChemist.ViewModels
             _reportingService = reportingService;
 
             LoadReportCommand = new AsyncRelayCommand(LoadReportAsync);
+            PrevDayCommand = new RelayCommand(_ => ReportDate = ReportDate.AddDays(-1));
+            NextDayCommand = new RelayCommand(_ => ReportDate = ReportDate.AddDays(1));
             ExportCsvCommand = new AsyncRelayCommand(ExportCsvAsync, _ => Report != null);
             
             _ = LoadReportAsync();
@@ -31,7 +33,7 @@ namespace DChemist.ViewModels
         public DateTimeOffset ReportDate
         {
             get => _reportDate;
-            set { if (SetProperty(ref _reportDate, value)) _ = LoadReportAsync(); }
+            set { if (SetProperty(ref _reportDate, value)) { OnPropertyChanged(nameof(ReportDateText)); _ = LoadReportAsync(); } }
         }
 
         public FinancialReport? Report
@@ -70,6 +72,9 @@ namespace DChemist.ViewModels
         }
 
         public ICommand LoadReportCommand { get; }
+        public ICommand PrevDayCommand { get; }
+        public ICommand NextDayCommand { get; }
+        public string ReportDateText => ReportDate.Date == DateTime.Today ? $"Today, {ReportDate:d MMM yyyy}" : ReportDate.ToString("dddd, d MMM yyyy");
         public ICommand ExportCsvCommand { get; }
 
         private async Task LoadReportAsync()

@@ -64,7 +64,7 @@ namespace DChemist.Repositories
             try
             {
                 const string query = @"
-                    SELECT b.*, m.name as MedicineName, m.packets_per_box as PacketsPerBox
+                    SELECT b.*, m.name as MedicineName, m.packets_per_box as PacketsPerBox, m.is_net as IsNet
                     FROM inventory_batches b
                     JOIN medicines m ON m.id = b.medicine_id
                     WHERE b.purchase_invoice_id = @invoiceId";
@@ -79,7 +79,8 @@ namespace DChemist.Repositories
             }
         }
 
-        public async Task<List<PurchaseInvoice>> SearchAsync(string? invoiceNo, string? supplierName, DateTime? date)
+        /// <summary>Invoices page: one term (invoice no. or supplier) within [from, to). Null = no limit.</summary>
+        public async Task<List<PurchaseInvoice>> SearchAsync(string? term, DateTime? from, DateTime? to)
         {
             try
             {
@@ -91,21 +92,13 @@ namespace DChemist.Repositories
 
                 var parameters = new DynamicParameters();
 
-                if (!string.IsNullOrWhiteSpace(invoiceNo))
+                if (!string.IsNullOrWhiteSpace(term))
                 {
-                    query += " AND i.invoice_no ILIKE @invoiceNo";
-                    parameters.Add("invoiceNo", $"%{invoiceNo}%");
+                    query += " AND (i.invoice_no ILIKE @term OR s.name ILIKE @term)";
+                    parameters.Add("term", $"%{term.Trim()}%");
                 }
-                if (!string.IsNullOrWhiteSpace(supplierName))
-                {
-                    query += " AND s.name ILIKE @supplierName";
-                    parameters.Add("supplierName", $"%{supplierName}%");
-                }
-                if (date.HasValue)
-                {
-                    query += " AND i.invoice_date::date = @date";
-                    parameters.Add("date", date.Value.Date);
-                }
+                if (from.HasValue) { query += " AND i.invoice_date >= @from"; parameters.Add("from", from.Value); }
+                if (to.HasValue) { query += " AND i.invoice_date < @to"; parameters.Add("to", to.Value); }
 
                 query += " ORDER BY i.invoice_date DESC LIMIT 500";
 
@@ -336,9 +329,11 @@ namespace DChemist.Repositories
                     int    unitsPerPack  = (int)(med?.units_per_pack  ?? 1);
                     string medicineName  = (string)(med?.name ?? item.MedicineName);
 
-                    int totalUnits = item.EntryMode == "Box"
-                        ? item.PackQuantity * packetsPerBox * unitsPerPack
-                        : item.PackQuantity;
+                    // Stock includes free bonus units; cost is the net (after-discount) total.
+                    int qtyWithBonus = item.PackQuantity + item.BonusQuantity;
+                    int unitsPerQty  = item.EntryMode == "Box" ? packetsPerBox * unitsPerPack : 1;
+                    int totalUnits   = qtyWithBonus * unitsPerQty;
+                    int bonusUnits   = item.BonusQuantity * unitsPerQty;
 
                     decimal unitCost = totalUnits > 0 ? item.PurchaseTotalPrice / totalUnits : 0;
 
@@ -360,13 +355,15 @@ namespace DChemist.Repositories
                                 medicine_id, supplier_id, batch_no, quantity_units,
                                 purchase_total_price, unit_cost, selling_price,
                                 remaining_units, expiry_date, invoice_no, invoice_date,
-                                entry_mode, units_per_pack, pack_quantity, purchase_invoice_id
+                                entry_mode, units_per_pack, pack_quantity, purchase_invoice_id,
+                                bonus_units, discount_percent, invoice_amount
                             )
                             VALUES (
                                 @MedicineId, @supplierId, @BatchNo, @totalUnits,
                                 @PurchaseTotal, @unitCost, @SellingPricePerUnit,
                                 @totalUnits, @ExpiryDate, @invoiceNo, @date,
-                                @EntryMode, @unitsPerPack, @PackQuantity, @invoiceId
+                                @EntryMode, @unitsPerPack, @packQty, @invoiceId,
+                                @bonusUnits, @DiscountPercent, @GrossAmount
                             )",
                             new
                             {
@@ -382,8 +379,11 @@ namespace DChemist.Repositories
                                 date,
                                 item.EntryMode,
                                 unitsPerPack,
-                                item.PackQuantity,
-                                invoiceId
+                                packQty = qtyWithBonus,
+                                invoiceId,
+                                bonusUnits,
+                                item.DiscountPercent,
+                                item.GrossAmount
                             }, transaction);
 
                         AppLogger.LogInfo($"[StockIn] PATH A — New batch '{item.BatchNo}' inserted for medicine {item.MedicineId}: {totalUnits} units.");
@@ -426,6 +426,9 @@ namespace DChemist.Repositories
                                     unit_cost            = @unitCost,
                                     selling_price        = @SellingPrice,
                                     pack_quantity        = pack_quantity + @packQty,
+                                    bonus_units          = @bonusUnits,
+                                    discount_percent     = @DiscountPercent,
+                                    invoice_amount       = @GrossAmount,
                                     entry_mode           = @EntryMode,
                                     units_per_pack       = @unitsPerPack,
                                     purchase_invoice_id  = @invoiceId,
@@ -440,7 +443,10 @@ namespace DChemist.Repositories
                                     PurchaseTotal = item.PurchaseTotalPrice,
                                     unitCost,
                                     SellingPrice  = item.SellingPricePerUnit,
-                                    packQty       = item.PackQuantity,
+                                    packQty       = qtyWithBonus,
+                                    bonusUnits,
+                                    item.DiscountPercent,
+                                    item.GrossAmount,
                                     item.EntryMode,
                                     unitsPerPack,
                                     invoiceId,
@@ -463,6 +469,9 @@ namespace DChemist.Repositories
                                     unit_cost            = @unitCost,
                                     selling_price        = @SellingPrice,
                                     pack_quantity        = pack_quantity + @packQty,
+                                    bonus_units          = @bonusUnits,
+                                    discount_percent     = @DiscountPercent,
+                                    invoice_amount       = @GrossAmount,
                                     entry_mode           = @EntryMode,
                                     units_per_pack       = @unitsPerPack,
                                     purchase_invoice_id  = @invoiceId,
@@ -474,7 +483,10 @@ namespace DChemist.Repositories
                                     PurchaseTotal = item.PurchaseTotalPrice,
                                     unitCost,
                                     SellingPrice  = item.SellingPricePerUnit,
-                                    packQty       = item.PackQuantity,
+                                    packQty       = qtyWithBonus,
+                                    bonusUnits,
+                                    item.DiscountPercent,
+                                    item.GrossAmount,
                                     item.EntryMode,
                                     unitsPerPack,
                                     invoiceId,

@@ -4,103 +4,184 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:DChemist.ViewModels"
     xmlns:repo="using:DChemist.Repositories"
+    xmlns:utils="using:DChemist.Utils"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     RequestedTheme="Light">
 
-    <Grid Background="#F8F9FA">
-        <ScrollViewer Padding="0,0,0,32">
-            <StackPanel Spacing="32">
+    <Page.Resources>
+        <utils:BoolToBrushConverter x:Key="UrgencyBrushConverter" TrueBrush="#B91C1C" FalseBrush="#B45309"/>
+        <utils:BoolToBrushConverter x:Key="TodayBarBrushConverter" TrueBrush="#3a7bd5" FalseBrush="#B9EEFB"/>
+        <Style x:Key="KpiLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="#8A94A6"/>
+            <Setter Property="CharacterSpacing" Value="60"/>
+        </Style>
+        <Style x:Key="Kpi" TargetType="Border">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#E5E9EF"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="14,12"/>
+        </Style>
+    </Page.Resources>
 
-                <!-- Main Content Area (Header removed) -->
-                <StackPanel Padding="60,32,60,0" Spacing="40">
-                    <Grid ColumnSpacing="24">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
+    <Grid Background="{ThemeResource AppBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
 
-                        <!-- Low Stock Items List -->
-                        <Border Style="{StaticResource PremiumCardStyle}" Padding="24" Grid.Column="0">
-                            <StackPanel Spacing="16">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE7BA;" Foreground="#D93025" FontSize="18"/>
-                                    <TextBlock Text="Low Stock Items" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                </StackPanel>
-                                <ListView ItemsSource="{x:Bind ViewModel.LowStockList, Mode=OneWay}" SelectionMode="None">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate x:DataType="repo:DashboardMedicineAlert">
-                                            <StackPanel Padding="0,8" BorderBrush="#F1F5F9" BorderThickness="0,0,0,1">
-                                                <TextBlock Text="{x:Bind Name}" FontWeight="Medium" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                                <TextBlock Text="{x:Bind SubText}" FontSize="12" Foreground="#D93025"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                                <TextBlock Text="All items well stocked." FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,32,0,0"
-                                           Visibility="{x:Bind ViewModel.LowStockList.Count, Converter={StaticResource EmptyToVisibilityConverter}}"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Expiring Soon List -->
-                        <Border Style="{StaticResource PremiumCardStyle}" Padding="24" Grid.Column="1">
-                            <StackPanel Spacing="16">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE916;" Foreground="#F9AB00" FontSize="18"/>
-                                    <TextBlock Text="Expiring Soon" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                </StackPanel>
-                                <ListView ItemsSource="{x:Bind ViewModel.ExpiringList, Mode=OneWay}" SelectionMode="None">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate x:DataType="repo:DashboardMedicineAlert">
-                                            <StackPanel Padding="0,8" BorderBrush="#F1F5F9" BorderThickness="0,0,0,1">
-                                                <TextBlock Text="{x:Bind Name}" FontWeight="Medium" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                                <TextBlock Text="{x:Bind SubText}" FontSize="12" Foreground="#F9AB00"/>
-                                            </StackPanel>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                                <TextBlock Text="No imminent expiries." FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,32,0,0"
-                                           Visibility="{x:Bind ViewModel.ExpiringList.Count, Converter={StaticResource EmptyToVisibilityConverter}}"/>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Recent Sales List -->
-                        <Border Style="{StaticResource PremiumCardStyle}" Padding="24" Grid.Column="2">
-                            <StackPanel Spacing="16">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon Glyph="&#xE94C;" Foreground="#1E8E3E" FontSize="18"/>
-                                    <TextBlock Text="Recent Sales" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                </StackPanel>
-                                <ListView ItemsSource="{x:Bind ViewModel.RecentSales, Mode=OneWay}" SelectionMode="None">
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:RecentSaleItem">
-                                            <Grid Padding="0,8" BorderBrush="#F1F5F9" BorderThickness="0,0,0,1">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*"/>
-                                                    <ColumnDefinition Width="Auto"/>
-                                                </Grid.ColumnDefinitions>
-                                                <StackPanel Grid.Column="0">
-                                                    <TextBlock Text="{x:Bind Invoice}" FontWeight="Medium" Foreground="{StaticResource TextPrimaryBrush}"/>
-                                                    <TextBlock Text="{x:Bind Date, Converter={StaticResource DateConverter}}" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
-                                                </StackPanel>
-                                                <TextBlock Grid.Column="1" Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}}" FontWeight="Bold" Foreground="#1E8E3E" VerticalAlignment="Center"/>
-                                            </Grid>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
-                                <TextBlock Text="No recent sales to display." FontSize="14" Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,32,0,0"
-                                           Visibility="{x:Bind ViewModel.RecentSales.Count, Converter={StaticResource EmptyToVisibilityConverter}}"/>
-                            </StackPanel>
-                        </Border>
-                    </Grid>
+        <!-- ============ Greeting + shortcuts ============ -->
+        <Border Background="White" BorderBrush="#E5E9EF" BorderThickness="0,0,0,1" Padding="16,10">
+            <Grid>
+                <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                    <TextBlock Text="{x:Bind ViewModel.Greeting, Mode=OneWay}" FontSize="20" FontWeight="SemiBold"/>
+                    <TextBlock Text="{x:Bind ViewModel.TodayText, Mode=OneWay}" Foreground="#4B5563" VerticalAlignment="Center"/>
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="16" Height="16"/>
                 </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                    <Button Click="OnNewSaleClick" Style="{StaticResource PremiumButtonStyle}" Content="New sale"/>
+                    <Button Click="OnNewPurchaseClick" Style="{StaticResource SecondaryButtonStyle}" Content="New purchase"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Padding="16" Spacing="16">
+
+                <!-- ============ Today's numbers ============ -->
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                        <ColumnDefinition/>
+                    </Grid.ColumnDefinitions>
+                    <Border Style="{StaticResource Kpi}">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="SALES TODAY" Style="{StaticResource KpiLabel}"/>
+                            <TextBlock Text="{x:Bind ViewModel.SalesToday, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="24" FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Bind ViewModel.VsLastWeekText, Mode=OneWay}" FontSize="12"
+                                       Foreground="{x:Bind ViewModel.IsUpVsLastWeek, Mode=OneWay, Converter={StaticResource StatusFgConverter}}"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Style="{StaticResource Kpi}">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="BILLS TODAY" Style="{StaticResource KpiLabel}"/>
+                            <TextBlock Text="{x:Bind ViewModel.BillsToday, Mode=OneWay}" FontSize="24" FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Bind ViewModel.LastBillText, Mode=OneWay}" FontSize="12" Foreground="#4B5563"/>
+                        </StackPanel>
+                    </Border>
+                    <!-- Profit reveals cost prices, so admins only -->
+                    <Border Grid.Column="2" Style="{StaticResource Kpi}" Visibility="{x:Bind ViewModel.IsAdmin}">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="PROFIT TODAY" Style="{StaticResource KpiLabel}"/>
+                            <TextBlock Text="{x:Bind ViewModel.ProfitToday, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="24" FontWeight="SemiBold"/>
+                            <TextBlock Text="{x:Bind ViewModel.MarginText, Mode=OneWay}" FontSize="12" Foreground="#4B5563"/>
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="3" Style="{StaticResource Kpi}" Background="#FFF6E5" BorderBrush="#F8D899">
+                        <StackPanel Spacing="2">
+                            <TextBlock Text="NEEDS ATTENTION" Style="{StaticResource KpiLabel}" Foreground="#B45309"/>
+                            <TextBlock Text="{x:Bind ViewModel.AttentionCount, Mode=OneWay}" FontSize="24" FontWeight="SemiBold" Foreground="#B45309"/>
+                            <TextBlock Text="{x:Bind ViewModel.AttentionSummary, Mode=OneWay}" FontSize="12" Foreground="#B45309"/>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.4*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ============ Needs attention ============ -->
+                    <Border Background="White" BorderBrush="#E5E9EF" BorderThickness="1" CornerRadius="8" VerticalAlignment="Top">
+                        <StackPanel>
+                            <Grid Padding="14,10">
+                                <TextBlock Text="Needs attention" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right">
+                                    <ToggleButton x:Name="AttnAll" Content="{x:Bind ViewModel.AllChipText, Mode=OneWay}" Tag="all" IsChecked="True" Click="OnAttentionFilterClick" Style="{StaticResource Chip}"/>
+                                    <ToggleButton x:Name="AttnExp" Content="{x:Bind ViewModel.ExpiryChipText, Mode=OneWay}" Tag="exp" Click="OnAttentionFilterClick" Style="{StaticResource Chip}"/>
+                                    <ToggleButton x:Name="AttnLow" Content="{x:Bind ViewModel.LowChipText, Mode=OneWay}" Tag="low" Click="OnAttentionFilterClick" Style="{StaticResource Chip}"/>
+                                </StackPanel>
+                            </Grid>
+                            <ListView ItemsSource="{x:Bind ViewModel.Attention, Mode=OneWay}" SelectionMode="None" MaxHeight="420">
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="MinHeight" Value="0"/>
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="repo:AttentionItem">
+                                        <Grid Padding="14,7" BorderBrush="#F1F4F8" BorderThickness="0,1,0,0">
+                                            <StackPanel>
+                                                <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold"/>
+                                                <TextBlock Text="{x:Bind Info}" FontSize="11" Foreground="#8A94A6"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{x:Bind Tag}" FontWeight="Bold" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                       Foreground="{x:Bind IsUrgent, Converter={StaticResource UrgencyBrushConverter}}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                            <TextBlock Text="Nothing needs attention. Stock and expiries look fine." Margin="14,4,14,14" Foreground="#047857"
+                                       Visibility="{x:Bind ViewModel.AttentionCount, Mode=OneWay, Converter={StaticResource EmptyToVisibilityConverter}}"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ============ This week + recent bills ============ -->
+                    <Border Grid.Column="1" Background="White" BorderBrush="#E5E9EF" BorderThickness="1" CornerRadius="8" VerticalAlignment="Top">
+                        <StackPanel>
+                            <Grid Padding="14,10">
+                                <TextBlock Text="Sales this week" FontSize="15" FontWeight="SemiBold"/>
+                                <TextBlock Text="{x:Bind ViewModel.WeekTotal, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" Foreground="#4B5563" HorizontalAlignment="Right"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.WeekBars, Mode=OneWay}" Margin="14,0,14,10" Height="140">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" Spacing="10"/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:DayBar">
+                                        <Grid Width="34" ToolTipService.ToolTip="{x:Bind Tooltip}">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            <Border Height="{x:Bind BarHeight}" VerticalAlignment="Bottom" CornerRadius="3,3,0,0"
+                                                    Background="{x:Bind IsToday, Converter={StaticResource TodayBarBrushConverter}}"/>
+                                            <TextBlock Grid.Row="1" Text="{x:Bind Day}" FontSize="11" Foreground="#8A94A6" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <Grid Padding="14,10" BorderBrush="#E5E9EF" BorderThickness="0,1,0,0">
+                                <TextBlock Text="Recent bills" FontSize="15" FontWeight="SemiBold"/>
+                                <HyperlinkButton Content="All bills →" Click="OnAllBillsClick" HorizontalAlignment="Right" Padding="0"/>
+                            </Grid>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.RecentSales, Mode=OneWay}" Margin="0,0,0,8">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:RecentSaleItem">
+                                        <Grid Padding="14,6" BorderBrush="#F1F4F8" BorderThickness="0,1,0,0">
+                                            <TextBlock Text="{x:Bind Invoice}" FontFamily="Cascadia Mono, Consolas" FontSize="13"/>
+                                            <TextBlock Text="{x:Bind TimeText}" Foreground="#8A94A6" HorizontalAlignment="Center"/>
+                                            <TextBlock Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}}" FontWeight="SemiBold" HorizontalAlignment="Right"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </Grid>
             </StackPanel>
         </ScrollViewer>
-        <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                      HorizontalAlignment="Center" VerticalAlignment="Center"
-                      Width="60" Height="60" Foreground="{StaticResource AccentAccent}"
-                      Canvas.ZIndex="100"/>
     </Grid>
 </Page>

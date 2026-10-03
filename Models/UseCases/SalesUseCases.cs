@@ -37,6 +37,8 @@ namespace DChemist.Models.UseCases
     public class PrintReceiptRequest
     {
         public string BillNo { get; set; } = string.Empty;
+        /// <summary>Original sale time for reprints; null = now.</summary>
+        public DateTime? SaleDate { get; set; }
         public string? FbrInvoiceNo { get; set; }
         public string? CustomerName { get; set; }
         public string? CustomerPhone { get; set; }

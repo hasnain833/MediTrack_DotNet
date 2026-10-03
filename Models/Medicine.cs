@@ -18,6 +18,8 @@ namespace DChemist.Models
         public int UnitsPerPack { get; set; } = 1;
         public int PacketsPerBox { get; set; } = 1;
         public string DefaultEntryMode { get; set; } = "Tablet";
+        /// <summary>Net item: actual amount paid differs from the invoice price; cost uses the actual amount.</summary>
+        public bool IsNet { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         // Batch-specific properties for Inventory Page
@@ -129,10 +131,18 @@ namespace DChemist.Models
         public bool IsPurchasePriceVisible 
         { 
             get => _isPurchasePriceVisible; 
-            set { if (SetProperty(ref _isPurchasePriceVisible, value)) OnPropertyChanged(nameof(FormattedPurchasePrice)); } 
+            set { if (SetProperty(ref _isPurchasePriceVisible, value)) { OnPropertyChanged(nameof(FormattedPurchasePrice)); OnPropertyChanged(nameof(MarginText)); } } 
         }
 
         public string FormattedPurchasePrice => IsPurchasePriceVisible ? $"PKR {PurchasePrice:N2}" : "PKR ****";
+
+        /// <summary>Margin on the selling price; hidden with the cost so it can't be used to work the cost out.</summary>
+        public string MarginText => !IsPurchasePriceVisible ? "••"
+            : SellingPrice > 0 && PurchasePrice > 0 ? $"{(SellingPrice - PurchasePrice) / SellingPrice * 100:0}%" : "—";
+
+        // Items page filters. Low = under one box (or ≤10 units for loose items).
+        public bool IsLowStock => StockQty < Math.Max(10, Math.Max(1, PacketsPerBox) * Math.Max(1, UnitsPerPack));
+        public bool IsExpiringSoon => ExpiryDate.HasValue && ExpiryDate.Value.Date <= DateTime.Today.AddDays(90);
 
         public decimal Price { get => SellingPrice; set => SellingPrice = value; }
 

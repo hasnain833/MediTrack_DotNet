@@ -17,9 +17,12 @@ namespace DChemist.Views
         public ItemsPage()
         {
             this.InitializeComponent();
+            // Cached: switching back is instant; data refreshes via events / OnNavigatedTo.
+            NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
             ViewModel = App.Current.Services.GetRequiredService<ItemsViewModel>();
             ViewModel.RequestFocus += OnViewModelRequestFocus;
-            this.Loaded += (s, e) => BarcodeBox.Focus(FocusState.Programmatic);
+            this.Loaded += (s, e) => (ViewModel.IsFormExpanded ? (Control)BarcodeBox : ListSearchBox).Focus(FocusState.Programmatic);
+            this.KeyDown += OnPageKeyDown;
         }
 
         private void OnViewModelRequestFocus(object? sender, string target)
@@ -36,9 +39,71 @@ namespace DChemist.Views
             control?.Focus(FocusState.Programmatic);
         }
 
-        private void ToggleForm_Click(object sender, RoutedEventArgs e)
+        // F2 = search · Ctrl+N = new medicine · F8 = save · Esc = close the form
+        private void OnPageKeyDown(object sender, KeyRoutedEventArgs e)
         {
-            ViewModel.IsFormExpanded = !ViewModel.IsFormExpanded;
+            bool ctrl = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control)
+                        .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+            switch (e.Key)
+            {
+                case Windows.System.VirtualKey.F2:
+                    ListSearchBox.Focus(FocusState.Programmatic);
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.N when ctrl:
+                    OnNewClick(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.F8 when ViewModel.IsFormExpanded:
+                    OnSaveClick(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+                case Windows.System.VirtualKey.Escape when ViewModel.IsFormExpanded:
+                    OnCloseFormClick(this, new RoutedEventArgs());
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        // Enter in the list search opens the top match in the form, ready to edit by keyboard.
+        private async void OnListSearchSubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+        {
+            var top = await ViewModel.SearchNowAsync();
+            if (top == null) return;
+            OpenForEdit(top);
+        }
+
+        private void OnItemClick(object sender, ItemClickEventArgs e)
+        {
+            if (e.ClickedItem is DChemist.Models.Medicine medicine) OpenForEdit(medicine);
+        }
+
+        private void OpenForEdit(DChemist.Models.Medicine medicine)
+        {
+            ViewModel.EditInFormCommand.Execute(medicine);
+            ViewModel.IsFormExpanded = true;
+            DispatcherQueue.TryEnqueue(() => { MedicineNameBox.Focus(FocusState.Programmatic); MedicineNameBox.SelectAll(); });
+        }
+
+        private void OnNewClick(object sender, RoutedEventArgs e)
+        {
+            ViewModel.StartNew();
+            DispatcherQueue.TryEnqueue(() => BarcodeBox.Focus(FocusState.Programmatic));
+        }
+
+        private void OnCloseFormClick(object sender, RoutedEventArgs e)
+        {
+            ViewModel.ClearEntryCommand.Execute(null);
+            ViewModel.IsFormExpanded = false;
+            ListSearchBox.Focus(FocusState.Programmatic);
+        }
+
+        private void OnFilterClick(object sender, RoutedEventArgs e)
+        {
+            if (sender is not ToggleButton chip) return;
+            foreach (var c in new[] { FilterAll, FilterLow, FilterExp, FilterNet })
+                c.IsChecked = c == chip;
+            ViewModel.Filter = (string)chip.Tag;
         }
 
         private void OnBarcodeKeyDown(object sender, KeyRoutedEventArgs e)
@@ -65,60 +130,38 @@ namespace DChemist.Views
                     OnSaveClick(this, new RoutedEventArgs());
                     return;
                 }
-                MoveToNext(current);
+                Move(current, +1);
             }
-            else if (e.Key == Windows.System.VirtualKey.Down) { e.Handled = true; MoveToNext(current); }
-            else if (e.Key == Windows.System.VirtualKey.Up) { e.Handled = true; MoveToPrevious(current); }
+            else if (e.Key == Windows.System.VirtualKey.Down) { e.Handled = true; Move(current, +1); }
+            else if (e.Key == Windows.System.VirtualKey.Up) { e.Handled = true; Move(current, -1); }
         }
 
-        private void MoveToNext(Control current)
+        // Form order top to bottom; Box/Tablet count as one stop.
+        private Control[] FieldOrder => new Control[]
         {
-            Control[] sequence = { 
-                BarcodeBox, MedicineNameBox, BatchNumberBox, ExpiryDateBox, 
-                BoxModeBtn, TabletModeBtn, 
-                PackQuantityBox, PacketsPerBoxBox, UnitsPerPacketBox, QuantityBox,
-                SellingPriceBox 
-            };
-            int idx = Array.IndexOf(sequence, current);
-            if (idx >= 0)
-            {
-                int searchStart = idx + 1;
-                if (current == BoxModeBtn || current == TabletModeBtn)
-                {
-                    searchStart = Array.IndexOf(sequence, PackQuantityBox);
-                }
+            BarcodeBox, MedicineNameBox, CategoryBox, NetCheckBox,
+            BoxModeBtn, TabletModeBtn, PacketsPerBoxBox, UnitsPerPacketBox,
+            BatchNumberBox, ExpiryDateBox, PackQuantityBox, QuantityBox,
+            SellingPriceBox
+        };
 
-                for (int i = searchStart; i < sequence.Length; i++)
-                {
-                    if (sequence[i].Visibility == Visibility.Visible)
-                    {
-                        sequence[i].Focus(FocusState.Programmatic);
-                        if (sequence[i] is TextBox tb) tb.SelectAll();
-                        break;
-                    }
-                }
-            }
-        }
-
-        private void MoveToPrevious(Control current)
+        /// <summary>
+        /// Focus the next/previous field that can take focus. Focus() returns false for fields inside
+        /// a collapsed group (e.g. packs/box in Tablet mode), so those are skipped instead of trapping Enter.
+        /// </summary>
+        private void Move(Control current, int step)
         {
-            Control[] sequence = { 
-                BarcodeBox, MedicineNameBox, BatchNumberBox, ExpiryDateBox, 
-                BoxModeBtn, TabletModeBtn, 
-                PackQuantityBox, PacketsPerBoxBox, UnitsPerPacketBox, QuantityBox,
-                SellingPriceBox 
-            };
-            int idx = Array.IndexOf(sequence, current);
-            if (idx > 0)
+            var seq = FieldOrder;
+            int i = Array.IndexOf(seq, current);
+            if (i < 0) return;
+            if (step > 0 && (current == BoxModeBtn || current == TabletModeBtn)) i = Array.IndexOf(seq, TabletModeBtn);
+
+            for (i += step; i >= 0 && i < seq.Length; i += step)
             {
-                for (int i = idx - 1; i >= 0; i--)
+                if (seq[i].Visibility == Visibility.Visible && seq[i].Focus(FocusState.Programmatic))
                 {
-                    if (sequence[i].Visibility == Visibility.Visible)
-                    {
-                        sequence[i].Focus(FocusState.Programmatic);
-                        if (sequence[i] is TextBox tb) tb.SelectAll();
-                        break;
-                    }
+                    if (seq[i] is TextBox tb) tb.SelectAll();
+                    return;
                 }
             }
         }
@@ -136,7 +179,7 @@ namespace DChemist.Views
         {
             if (e.Key == Windows.System.VirtualKey.Enter)
             {
-                if (sender is Control focused) MoveToNext(focused);
+                if (sender is Control focused) Move(focused, +1);
                 e.Handled = true;
             }
             else if (e.Key == Windows.System.VirtualKey.Left)
@@ -156,14 +199,6 @@ namespace DChemist.Views
         private async void OnSaveClick(object sender, RoutedEventArgs e)
         {
             await (ViewModel.SaveCommand as AsyncRelayCommand)!.ExecuteAsync(null);
-        }
-
-        private void OnEditClick(object sender, RoutedEventArgs e)
-        {
-            if (sender is Button btn && btn.Tag is DChemist.Models.Medicine medicine)
-            {
-                ViewModel.EditInFormCommand.Execute(medicine);
-            }
         }
 
         private async void OnDeleteClick(object sender, RoutedEventArgs e)

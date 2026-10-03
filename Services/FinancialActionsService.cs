@@ -10,7 +10,6 @@ namespace DChemist.Services
     {
         Task<FinancialActionResult> VoidSaleAsync(string billNo, int currentUserId);
         Task<FinancialActionResult> ReturnItemAsync(int saleItemId, int returnQty, int currentUserId);
-        Task<FinancialActionResult> ReturnCompleteBillAsync(string billNo, int currentUserId);
         Task<FinancialActionResult> ReprintReceiptAsync(string billNo, string customerName);
     }
 
@@ -56,45 +55,6 @@ namespace DChemist.Services
             }
         }
 
-        public async Task<FinancialActionResult> ReturnCompleteBillAsync(string billNo, int currentUserId)
-        {
-            try
-            {
-                var fullSale = await _saleRepo.GetSaleWithItemsAsync(billNo);
-                if (fullSale == null)
-                    return new FinancialActionResult { Success = false, Message = "Could not find the sale." };
-
-                if (fullSale.Status == "Voided")
-                    return new FinancialActionResult { Success = false, Message = "This sale is already voided." };
-
-                int totalItemsReturned = 0;
-                int totalUnitsReturned = 0;
-
-                foreach (var item in fullSale.Items)
-                {
-                    int remaining = item.Quantity - item.ReturnedQuantity;
-                    if (remaining <= 0) continue;
-
-                    await _saleRepo.ProcessReturnAsync(item.Id, remaining, currentUserId);
-                    totalItemsReturned++;
-                    totalUnitsReturned += remaining;
-                }
-
-                if (totalItemsReturned == 0)
-                    return new FinancialActionResult { Success = false, Message = "All items in this bill have already been returned." };
-
-                return new FinancialActionResult
-                {
-                    Success = true,
-                    Message = $"Complete bill returned successfully.\n{totalItemsReturned} item(s), {totalUnitsReturned} unit(s) returned. Stock has been restored."
-                };
-            }
-            catch (Exception ex)
-            {
-                return new FinancialActionResult { Success = false, Message = $"Return failed: {ex.Message}" };
-            }
-        }
-
         public async Task<FinancialActionResult> ReprintReceiptAsync(string billNo, string customerName)
         {
             try
@@ -117,30 +77,37 @@ namespace DChemist.Services
             }
         }
 
+        /// <summary>
+        /// Builds the bill as it stands now: returned units are taken off, fully returned lines are dropped.
+        /// sales.total_amount/grand_total are already reduced by returns, so the totals match the lines.
+        /// </summary>
         private sealed class CompleteToPrintRequestBuilder
         {
             public PrintReceiptRequest Build(DChemist.Models.Sale sale, string customerName, decimal taxRate)
             {
                 return new PrintReceiptRequest
                 {
-                    BillNo = sale.BillNo,
+                    BillNo = sale.BillNo + " (Reprint)",
+                    SaleDate = sale.SaleDate,
                     CustomerName = customerName,
                     TotalAmount = sale.TotalAmount,
                     TaxAmount = sale.TaxAmount,
                     DiscountAmount = sale.DiscountAmount,
                     GrandTotal = sale.GrandTotal,
-                    FbrInvoiceNo = sale.Status == "Voided" ? "VOIDED - DO NOT USE" : "SIM-FBR-" + sale.BillNo,
+                    FbrInvoiceNo = sale.Status == "Voided" ? "VOIDED - DO NOT USE" : null,
                     TaxRate = taxRate,
-                    Items = sale.Items.Select(item => new SaleLineItemDto
-                    {
-                        MedicineId = item.MedicineId ?? 0,
-                        BatchId = item.BatchId ?? 0,
-                        MedicineName = item.MedicineName,
-                        QuantityForReceipt = item.Quantity,
-                        QuantityUnitsForStock = item.Quantity,
-                        UnitPrice = item.UnitPrice,
-                        Subtotal = item.Subtotal
-                    }).ToList()
+                    Items = sale.Items
+                        .Where(item => item.Quantity - item.ReturnedQuantity > 0)
+                        .Select(item => new SaleLineItemDto
+                        {
+                            MedicineId = item.MedicineId ?? 0,
+                            BatchId = item.BatchId ?? 0,
+                            MedicineName = item.MedicineName,
+                            QuantityForReceipt = item.Quantity - item.ReturnedQuantity,
+                            QuantityUnitsForStock = item.Quantity - item.ReturnedQuantity,
+                            UnitPrice = item.UnitPrice,
+                            Subtotal = (item.Quantity - item.ReturnedQuantity) * item.UnitPrice
+                        }).ToList()
                 };
             }
         }

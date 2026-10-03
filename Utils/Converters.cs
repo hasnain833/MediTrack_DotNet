@@ -15,17 +15,6 @@ namespace DChemist.Utils
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 
-    public class BooleanToDoubleConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            double falseValue = 0.5;
-            if (parameter is string s && double.TryParse(s, out double p)) falseValue = p;
-            return (value is bool b && b) ? 1.0 : falseValue;
-        }
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
-    }
-
     public class InverseBooleanToVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
@@ -319,16 +308,6 @@ namespace DChemist.Utils
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 
-    public class StringFormatConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, string language)
-        {
-            string? format = parameter as string;
-            return string.IsNullOrEmpty(format) ? (value?.ToString() ?? string.Empty) : string.Format(format, value);
-        }
-        public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
-    }
-
     public class StockLevelColorConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
@@ -356,7 +335,7 @@ namespace DChemist.Utils
     public class EditModeToButtonTextConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, string language)
-            => (value is bool b && b) ? "Update Medicine" : "Add to List";
+            => (value is bool b && b) ? "Save changes" : "Save medicine";
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
     }
 
@@ -372,5 +351,17 @@ namespace DChemist.Utils
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, string language) => throw new NotImplementedException();
+    }
+}
+
+namespace DChemist.Utils
+{
+    /// <summary>bool → one of two brushes, set per use in XAML (e.g. urgent red vs amber).</summary>
+    public class BoolToBrushConverter : Microsoft.UI.Xaml.Data.IValueConverter
+    {
+        public Microsoft.UI.Xaml.Media.Brush? TrueBrush { get; set; }
+        public Microsoft.UI.Xaml.Media.Brush? FalseBrush { get; set; }
+        public object? Convert(object value, System.Type targetType, object parameter, string language) => value is true ? TrueBrush : FalseBrush;
+        public object ConvertBack(object value, System.Type targetType, object parameter, string language) => throw new System.NotImplementedException();
     }
 }

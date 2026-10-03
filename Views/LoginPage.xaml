@@ -5,213 +5,60 @@
     xmlns:local="using:DChemist.Views"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    mc:Ignorable="d">
+    mc:Ignorable="d"
+    RequestedTheme="Light">
 
-    <Grid>
-        <!-- Deep dark blue gradient background -->
-        <Grid.Background>
-            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#0A1628" Offset="0.0" />
-                <GradientStop Color="#0D2137" Offset="0.4" />
-                <GradientStop Color="#0A2A4A" Offset="0.75" />
-                <GradientStop Color="#0D3347" Offset="1.0" />
-            </LinearGradientBrush>
-        </Grid.Background>
+    <!-- Layout: brand panel in the app's nav colour on the left, sign-in form on the right. -->
+    <Grid Background="{ThemeResource AppBackgroundBrush}">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="5*" MaxWidth="560"/>
+            <ColumnDefinition Width="7*"/>
+        </Grid.ColumnDefinitions>
 
-        <!-- Decorative Accent Orbs -->
-        <Ellipse Width="500" Height="500"
-                 HorizontalAlignment="Left" VerticalAlignment="Top"
-                 Margin="-150,-150,0,0" Opacity="0.07">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#00D2FF" Offset="0"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-        <Ellipse Width="400" Height="400"
-                 HorizontalAlignment="Right" VerticalAlignment="Bottom"
-                 Margin="0,0,-100,-100" Opacity="0.1">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#3a7bd5" Offset="0"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
-        <Ellipse Width="250" Height="250"
-                 HorizontalAlignment="Center" VerticalAlignment="Top"
-                 Margin="200,-80,0,0" Opacity="0.06">
-            <Ellipse.Fill>
-                <RadialGradientBrush>
-                    <GradientStop Color="#00D2FF" Offset="0"/>
-                    <GradientStop Color="Transparent" Offset="1"/>
-                </RadialGradientBrush>
-            </Ellipse.Fill>
-        </Ellipse>
+        <!-- ============ Brand panel ============ -->
+        <Grid Background="{StaticResource PremiumBackgroundBrush}" Padding="48">
+            <StackPanel VerticalAlignment="Center" Spacing="10">
+                <Rectangle Width="40" Height="4" RadiusX="2" RadiusY="2" Fill="{StaticResource AccentAccent}" HorizontalAlignment="Left"/>
+                <TextBlock FontSize="40" FontWeight="Bold" FontFamily="Segoe UI Variable Display" Foreground="White">
+                    D.<Run Text=" Chemist" Foreground="{StaticResource AccentAccent}"/>
+                </TextBlock>
+                <TextBlock Text="Billing, stock and purchases for the pharmacy counter." Foreground="#A7B0C0" FontSize="15" TextWrapping="Wrap" MaxWidth="340" HorizontalAlignment="Left"/>
+            </StackPanel>
+            <TextBlock VerticalAlignment="Bottom" Foreground="#6B7686" FontSize="12">
+                Version <Run Text="{x:Bind AppVersion}"/>
+            </TextBlock>
+        </Grid>
 
-        <!-- Glass Panel Container -->
-        <Border Width="440"
-                VerticalAlignment="Center"
-                HorizontalAlignment="Center"
-                CornerRadius="28"
-                BorderThickness="1"
-                Margin="24">
-            <Border.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0.5,1">
-                    <GradientStop Color="#30FFFFFF" Offset="0.0"/>
-                    <GradientStop Color="#12FFFFFF" Offset="1.0"/>
-                </LinearGradientBrush>
-            </Border.Background>
-            <Border.BorderBrush>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                    <GradientStop Color="#60FFFFFF" Offset="0.0"/>
-                    <GradientStop Color="#15FFFFFF" Offset="1.0"/>
-                </LinearGradientBrush>
-            </Border.BorderBrush>
-            <Border.Shadow>
-                <ThemeShadow />
-            </Border.Shadow>
+        <!-- ============ Sign-in form ============ -->
+        <Border Grid.Column="1" Background="White" BorderBrush="#E5E9EF" BorderThickness="1" CornerRadius="10"
+                Width="380" Padding="32,28" VerticalAlignment="Center" HorizontalAlignment="Center">
+            <StackPanel Spacing="14">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="Sign in" FontSize="24" FontWeight="SemiBold"/>
+                    <TextBlock Text="Use your counter account." Foreground="#4B5563"/>
+                </StackPanel>
 
-            <StackPanel Padding="48,44" Spacing="0">
-                <StackPanel.ChildrenTransitions>
-                    <TransitionCollection>
-                        <EntranceThemeTransition FromVerticalOffset="40" IsStaggeringEnabled="True"/>
-                    </TransitionCollection>
-                </StackPanel.ChildrenTransitions>
+                <TextBox x:Name="UsernameBox" Header="Username" PlaceholderText="e.g. admin"
+                         Text="{x:Bind ViewModel.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         KeyDown="OnUsernameKeyDown"/>
 
+                <PasswordBox x:Name="PasswordBox" Header="Password" PasswordRevealMode="Peek"
+                             Password="{x:Bind ViewModel.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             KeyDown="OnKeyDown"/>
 
-                <!-- Branding -->
-                <TextBlock Text="D. Chemist"
-                           FontSize="36"
-                           FontWeight="Bold"
-                           HorizontalAlignment="Center"
-                           Foreground="White"
-                           FontFamily="Segoe UI Variable Display"
-                           Margin="0,0,0,6"/>
-                <TextBlock Text="PREMIUM MEDICAL MANAGEMENT"
-                           FontSize="10.5"
-                           FontWeight="SemiBold"
-                           CharacterSpacing="180"
-                           Foreground="{StaticResource TextOnGlassSecondaryBrush}"
-                           HorizontalAlignment="Center"
-                           Opacity="0.9"
-                           Margin="0,0,0,36"/>
-
-                <!-- Divider -->
-                <Border Height="1" Margin="0,0,0,32">
-                    <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="Transparent" Offset="0.0"/>
-                            <GradientStop Color="#30FFFFFF" Offset="0.5"/>
-                            <GradientStop Color="Transparent" Offset="1.0"/>
-                        </LinearGradientBrush>
-                    </Border.Background>
+                <Border Background="#FDECEC" CornerRadius="6" Padding="10,8"
+                        Visibility="{x:Bind ViewModel.ErrorMessage, Converter={StaticResource StringToVisibilityConverter}, Mode=OneWay}">
+                    <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}" Foreground="#B91C1C" TextWrapping="Wrap" FontSize="13"/>
                 </Border>
 
-                <!-- Username Field -->
-                <StackPanel Spacing="8" Margin="0,0,0,20">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="&#xE77B;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="13"
-                                   Foreground="{StaticResource AccentAccent}"
-                                   VerticalAlignment="Center"/>
-                        <TextBlock Text="Username"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextOnGlassSecondaryBrush}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <TextBox PlaceholderText="Enter your username"
-                             Text="{x:Bind ViewModel.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                             KeyDown="OnKeyDown"
-                             Height="46"
-                             FontSize="14">
-                        <TextBox.Style>
-                            <Style TargetType="TextBox">
-                                <Setter Property="Background" Value="#18FFFFFF"/>
-                                <Setter Property="BorderBrush" Value="#35FFFFFF"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="PlaceholderForeground" Value="#60FFFFFF"/>
-                                <Setter Property="CornerRadius" Value="10"/>
-                                <Setter Property="BorderThickness" Value="1"/>
-                                <Setter Property="Padding" Value="14,12"/>
-                                <Setter Property="VerticalContentAlignment" Value="Center"/>
-                            </Style>
-                        </TextBox.Style>
-                    </TextBox>
-                </StackPanel>
+                <Grid>
+                    <Button Command="{x:Bind ViewModel.LoginCommand}" Style="{StaticResource PremiumButtonStyle}"
+                            HorizontalAlignment="Stretch" Height="44" FontSize="15" FontWeight="SemiBold" Content="Sign in"/>
+                    <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}" Width="20" Height="20"
+                                  Foreground="White" HorizontalAlignment="Right" Margin="0,0,14,0"/>
+                </Grid>
 
-                <!-- Password Field -->
-                <StackPanel Spacing="8" Margin="0,0,0,28">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="&#xE72E;"
-                                   FontFamily="Segoe MDL2 Assets"
-                                   FontSize="13"
-                                   Foreground="{StaticResource AccentAccent}"
-                                   VerticalAlignment="Center"/>
-                        <TextBlock Text="Password"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Foreground="{StaticResource TextOnGlassSecondaryBrush}"
-                                   VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <PasswordBox PlaceholderText="Enter your password"
-                                 Password="{x:Bind ViewModel.Password, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                 KeyDown="OnKeyDown"
-                                 Height="46"
-                                 FontSize="14">
-                        <PasswordBox.Style>
-                            <Style TargetType="PasswordBox">
-                                <Setter Property="Background" Value="#18FFFFFF"/>
-                                <Setter Property="BorderBrush" Value="#35FFFFFF"/>
-                                <Setter Property="Foreground" Value="White"/>
-                                <Setter Property="CornerRadius" Value="10"/>
-                                <Setter Property="BorderThickness" Value="1"/>
-                                <Setter Property="Padding" Value="14,12"/>
-                                <Setter Property="VerticalContentAlignment" Value="Center"/>
-                                <Setter Property="PasswordRevealMode" Value="Hidden"/>
-                            </Style>
-                        </PasswordBox.Style>
-                    </PasswordBox>
-                </StackPanel>
-
-                <!-- Error Message -->
-                <TextBlock Text="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
-                           Foreground="#FF6B7A"
-                           FontSize="12.5"
-                           Visibility="{x:Bind ViewModel.ErrorMessage, Converter={StaticResource StringToVisibilityConverter}, Mode=OneWay}"
-                           TextWrapping="Wrap"
-                           HorizontalAlignment="Center"
-                           FontWeight="Medium"
-                           Margin="0,0,0,16"/>
-
-                <!-- Sign In Button -->
-                <Button Content="SIGN IN"
-                        Command="{x:Bind ViewModel.LoginCommand}"
-                        Height="50"
-                        CornerRadius="12"
-                        FontSize="13"
-                        FontWeight="Bold"
-                        CharacterSpacing="80"
-                        HorizontalAlignment="Stretch"
-                        Foreground="White"
-                        BorderThickness="0"
-                        Margin="0,0,0,16">
-                    <Button.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                            <GradientStop Color="#00D2FF" Offset="0.0" />
-                            <GradientStop Color="#3a7bd5" Offset="1.0" />
-                        </LinearGradientBrush>
-                    </Button.Background>
-                </Button>
-
-                <!-- Loading Indicator -->
-                <ProgressRing IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
-                              Foreground="{StaticResource AccentAccent}"
-                              HorizontalAlignment="Center"
-                              Width="26" Height="26"/>
+                <TextBlock Text="Enter moves to the next field and signs in." FontSize="12" Foreground="#8A94A6" HorizontalAlignment="Center"/>
             </StackPanel>
         </Border>
     </Grid>

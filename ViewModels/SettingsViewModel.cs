@@ -34,7 +34,8 @@ namespace DChemist.ViewModels
             AuthorizationService auth,
             SettingsService settings,
             UpdateService updateService,
-            SaleRepository saleRepo)
+            SaleRepository saleRepo,
+            ISalesWorkflowService salesWorkflow)
         {
             _backupService  = backupService;
             _dialogService  = dialogService;
@@ -42,8 +43,10 @@ namespace DChemist.ViewModels
             _settings       = settings;
             _updateService  = updateService;
             _saleRepo       = saleRepo;
+            _salesWorkflow  = salesWorkflow;
 
-            BackupCommand              = new AsyncRelayCommand(async _ => await _backupService.RunBackupAsync());
+            BackupCommand              = new AsyncRelayCommand(async _ => { await _backupService.RunBackupAsync(); OnPropertyChanged(nameof(LastBackupText)); });
+            TestPrintCommand           = new AsyncRelayCommand(ExecuteTestPrintAsync);
             RestoreCommand             = new AsyncRelayCommand(async _ => await _backupService.RestoreDatabaseAsync());
             ShowFiscalSettingsCommand  = new AsyncRelayCommand(async _ => await _dialogService.ShowFiscalSettingsDialogAsync());
             SavePharmacyDetailsCommand = new AsyncRelayCommand(ExecuteSavePharmacyDetailsAsync);
@@ -154,6 +157,50 @@ namespace DChemist.ViewModels
             await _dialogService.ShowMessageAsync("Success", "Pharmacy details updated successfully.");
         }
 
+        private readonly ISalesWorkflowService _salesWorkflow;
+        public ICommand TestPrintCommand { get; }
+
+        /// <summary>Prints a tiny sample receipt with the printer settings currently on screen.</summary>
+        private async Task ExecuteTestPrintAsync(object? _)
+        {
+            await _settings.SaveSettingAsync("printer_name", PrinterName);
+            await _settings.SaveSettingAsync("silent_print_enabled", IsSilentPrintEnabled.ToString().ToLower());
+            var result = await _salesWorkflow.PrintReceiptAsync(new DChemist.Models.UseCases.PrintReceiptRequest
+            {
+                BillNo = "TEST PRINT",
+                CustomerName = "Printer test",
+                TotalAmount = 10, GrandTotal = 10,
+                Items = { new DChemist.Models.UseCases.SaleLineItemDto { MedicineName = "Test line", QuantityForReceipt = 1, UnitPrice = 10, Subtotal = 10 } }
+            });
+            await _dialogService.ShowMessageAsync(result.Success ? "Test sent" : "Test failed",
+                result.Success ? "A test receipt was sent to the printer." : result.Message);
+        }
+
+        /// <summary>Newest file in the automatic backup folder.</summary>
+        public string LastBackupText
+        {
+            get
+            {
+                try
+                {
+                    var dir = new System.IO.DirectoryInfo(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Backups"));
+                    var last = dir.Exists ? dir.GetFiles("backup_*.sql").OrderByDescending(f => f.LastWriteTime).FirstOrDefault() : null;
+                    return last == null ? "No backup has been made yet."
+                        : $"✓ Last backup {last.LastWriteTime:d MMM yyyy, HH:mm} · {last.Name} ({last.Length / 1024.0 / 1024.0:0.0} MB)";
+                }
+                catch { return "Backup folder could not be read."; }
+            }
+        }
+
+        // Danger zone: Clear sales data only unlocks after typing CLEAR.
+        private string _clearConfirmText = string.Empty;
+        public string ClearConfirmText
+        {
+            get => _clearConfirmText;
+            set { if (SetProperty(ref _clearConfirmText, value)) OnPropertyChanged(nameof(CanClearSales)); }
+        }
+        public bool CanClearSales => ClearConfirmText == "CLEAR";
+
         private async Task ExecuteSavePrintingSettingsAsync(object? _)
         {
             await _settings.SaveSettingAsync("printer_name",          PrinterName);
@@ -176,6 +223,7 @@ namespace DChemist.ViewModels
             try
             {
                 await _saleRepo.PurgeSalesDataAsync();
+                ClearConfirmText = string.Empty;
                 await _dialogService.ShowMessageAsync("Success", "All sales data has been cleared.");
             }
             catch (System.Exception ex)

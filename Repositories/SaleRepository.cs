@@ -161,6 +161,7 @@ namespace DChemist.Repositories
                     COALESCE(c.customer_name, 'Walking Customer') as Customer, 
                     s.grand_total as Amount, 
                     to_char(s.sale_date, 'DD Mon YYYY HH24:MI') as Date,
+                    s.sale_date as SaleDate,
                     s.status as Status,
                     s.fbr_reported as FbrReported
                 FROM sales s
@@ -173,38 +174,33 @@ namespace DChemist.Repositories
             return summaries.ToList();
         }
 
-        public async Task<List<SaleSummary>> SearchInvoicesAsync(string? billNo, DateTime? date, string? customer)
+        /// <summary>Bills page: one search term (bill no. or customer) within [from, to). Null bounds = open.</summary>
+        public async Task<List<SaleSummary>> SearchInvoicesAsync(string? term, DateTime? from, DateTime? to)
         {
             var query = @"
-                SELECT 
-                    s.bill_no as BillNo, 
-                    COALESCE(c.customer_name, 'Walking Customer') as Customer, 
-                    s.grand_total as Amount, 
+                SELECT
+                    s.bill_no as BillNo,
+                    COALESCE(c.customer_name, 'Walking Customer') as Customer,
+                    s.grand_total as Amount,
                     to_char(s.sale_date, 'DD Mon YYYY HH24:MI') as Date,
+                    s.sale_date as SaleDate,
                     s.status as Status,
                     s.fbr_reported as FbrReported
                 FROM sales s
                 LEFT JOIN customers c ON s.customer_id = c.id
                 WHERE 1=1";
-            
+
             var parameters = new DynamicParameters();
-            if (!string.IsNullOrWhiteSpace(billNo))
+            if (!string.IsNullOrWhiteSpace(term))
             {
-                query += " AND s.bill_no ILIKE @billNo";
-                parameters.Add("billNo", $"%{billNo}%");
+                query += " AND (s.bill_no ILIKE @term OR c.customer_name ILIKE @term OR c.phone ILIKE @term)";
+                parameters.Add("term", $"%{term.Trim()}%");
             }
-            if (date.HasValue)
-            {
-                query += " AND s.sale_date::date = @date";
-                parameters.Add("date", date.Value.Date);
-            }
-            if (!string.IsNullOrWhiteSpace(customer))
-            {
-                query += " AND c.customer_name ILIKE @customer";
-                parameters.Add("customer", $"%{customer}%");
-            }
-            
-            query += " ORDER BY s.sale_date DESC LIMIT 100";
+            // Range (not ::date) so idx_sales_date_desc can be used
+            if (from.HasValue) { query += " AND s.sale_date >= @from"; parameters.Add("from", from.Value); }
+            if (to.HasValue) { query += " AND s.sale_date < @to"; parameters.Add("to", to.Value); }
+
+            query += " ORDER BY s.sale_date DESC LIMIT 500";
             
             using var conn = _db.GetConnection();
             var results = await conn.QueryAsync<SaleSummary>(query, parameters);
@@ -261,7 +257,8 @@ namespace DChemist.Repositories
                     id, bill_no as BillNo, user_id as UserId, customer_id as CustomerId, 
                     total_amount as TotalAmount, tax_amount as TaxAmount, 
                     discount_amount as DiscountAmount, grand_total as GrandTotal, 
-                    sale_date as SaleDate, status as Status
+                    sale_date as SaleDate, status as Status,
+                    (SELECT username FROM users WHERE users.id = sales.user_id) as CashierName
                 FROM sales WHERE bill_no = @billNo";
 
             var sale = await conn.QuerySingleOrDefaultAsync<Sale>(saleQuery, new { billNo }, transaction);
@@ -428,6 +425,7 @@ namespace DChemist.Repositories
                     COALESCE(c.customer_name, 'Walking Customer') as Customer, 
                     s.grand_total as Amount, 
                     to_char(s.sale_date, 'DD Mon YYYY HH24:MI') as Date,
+                    s.sale_date as SaleDate,
                     s.status as Status,
                     s.fbr_reported as FbrReported
                 FROM sales s
@@ -461,5 +459,7 @@ namespace DChemist.Repositories
         public string Status { get; set; } = string.Empty;
         public bool FbrReported { get; set; }
         public string FbrStatus => FbrReported ? "Sent" : "Not Sent";
+        public DateTime SaleDate { get; set; }
+        public string TimeText => SaleDate.ToLocalTime().ToString("HH:mm");
     }
 }

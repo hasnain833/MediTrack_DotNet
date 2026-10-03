@@ -187,8 +187,8 @@ namespace DChemist.Repositories
  
                 // 2. Insert Medicine
                 const string medQuery = @"
-                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode, gst_percent, units_per_pack, packets_per_box, default_entry_mode)
-                    VALUES (@Name, @GenericName, @CategoryId, @ManufacturerId, @DosageForm, @Strength, @Barcode, @GstPercent, @UnitsPerPack, @PacketsPerBox, @DefaultEntryMode)
+                    INSERT INTO medicines (name, generic_name, category_id, manufacturer_id, dosage_form, strength, barcode, gst_percent, units_per_pack, packets_per_box, default_entry_mode, is_net)
+                    VALUES (@Name, @GenericName, @CategoryId, @ManufacturerId, @DosageForm, @Strength, @Barcode, @GstPercent, @UnitsPerPack, @PacketsPerBox, @DefaultEntryMode, @IsNet)
                     RETURNING id;";
 
                 int medId = await connection.ExecuteScalarAsync<int>(medQuery, medicine, transaction);
@@ -298,7 +298,7 @@ namespace DChemist.Repositories
                     UPDATE medicines 
                     SET name = @Name, generic_name = @GenericName, category_id = @CategoryId, 
                         manufacturer_id = @ManufacturerId, dosage_form = @DosageForm, strength = @Strength, barcode = @Barcode, gst_percent = @GstPercent,
-                        units_per_pack = @UnitsPerPack, packets_per_box = @PacketsPerBox, default_entry_mode = @DefaultEntryMode
+                        units_per_pack = @UnitsPerPack, packets_per_box = @PacketsPerBox, default_entry_mode = @DefaultEntryMode, is_net = @IsNet
                     WHERE id = @Id";
                 
                 await connection.ExecuteAsync(medQuery, medicine, transaction);

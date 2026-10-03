@@ -24,6 +24,9 @@
     <SelfContained>true</SelfContained>
     <UseRidGraph>true</UseRidGraph>
     <EnableMsixTooling>true</EnableMsixTooling>
+    <!-- Prevent GetLatestMSVCVersion task from failing when Visual C++ tools are not installed
+         Set VCToolsInstallDir to an existing folder so the task's condition is false. -->
+    <VCToolsInstallDir Condition=" '$(VCToolsInstallDir)' == '' ">C:\\Windows</VCToolsInstallDir>
     
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -32,7 +35,6 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.5.241001000" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
     <PackageReference Include="CommunityToolkit.WinUI.UI.Controls.DataGrid" Version="7.1.2" />
     <PackageReference Include="Npgsql" Version="8.0.3" />
@@ -41,6 +43,7 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
     <PackageReference Include="QRCoder" Version="1.7.0" />
     <PackageReference Include="Dapper" Version="2.1.72" />
+    <PackageReference Include="Sentry" Version="6.12.0" />
   </ItemGroup>
 
   <ItemGroup>
