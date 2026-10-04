@@ -1,6 +1,6 @@
 {
-    "LatestVersion":  "1.9.0.0",
-    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.0.0/DChemist_v1.9.0.0_Release.zip",
-    "ReleaseNotes":  "New design, faster, easier keyboard use",
-    "PackageSha256":  "CEA6CDF203A264D480CB817E3778EBB616CADE4966B5526235E304C2CDE27C28"
+    "LatestVersion":  "1.9.1.0",
+    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.1.0/DChemist_v1.9.1.0_Release.zip",
+    "ReleaseNotes":  "Updates now continue after internet drops; receipt preview in Settings; faster medicine search; new app icon",
+    "PackageSha256":  "B27C2B815CABF2C0CCC6FF64DABD843BBF94668C201C9C9F3214AC03157E5399"
 }
