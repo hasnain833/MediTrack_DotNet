@@ -161,6 +161,7 @@ namespace DChemist.Database
                 CREATE INDEX IF NOT EXISTS idx_medicines_name_lower ON medicines(lower(name));
                 CREATE INDEX IF NOT EXISTS idx_medicines_generic_lower ON medicines(lower(generic_name));
                 CREATE INDEX IF NOT EXISTS idx_batches_medicine_id ON inventory_batches(medicine_id);
+                CREATE INDEX IF NOT EXISTS idx_medicines_manufacturer_id ON medicines(manufacturer_id);
                 CREATE INDEX IF NOT EXISTS idx_sales_date_desc ON sales(sale_date DESC);
                 CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
 
@@ -185,6 +186,22 @@ namespace DChemist.Database
 
             using var command = new NpgsqlCommand(schema, connection);
             await command.ExecuteNonQueryAsync();
+
+            // Trigram indexes so medicine search (ILIKE '%text%') doesn't scan the whole table.
+            // Optional: if the DB user can't create the extension, search still works, just slower.
+            try
+            {
+                using var trgm = new NpgsqlCommand(@"
+                    CREATE EXTENSION IF NOT EXISTS pg_trgm;
+                    CREATE INDEX IF NOT EXISTS idx_medicines_name_trgm ON medicines USING gin (name gin_trgm_ops);
+                    CREATE INDEX IF NOT EXISTS idx_medicines_generic_trgm ON medicines USING gin (generic_name gin_trgm_ops);
+                    CREATE INDEX IF NOT EXISTS idx_manufacturers_name_trgm ON manufacturers USING gin (name gin_trgm_ops);", connection);
+                await trgm.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("DatabaseService: pg_trgm search indexes not created", ex);
+            }
 
             // Ensure columns exist for existing databases
             const string migrationsSql = @"

@@ -5,36 +5,64 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
-    Title="New Version Available"
-    PrimaryButtonText="Update Now"
-    SecondaryButtonText="Not Now"
+    PrimaryButtonText="Update now"
+    SecondaryButtonText="Later"
     DefaultButton="Primary"
     PrimaryButtonStyle="{StaticResource PremiumButtonStyle}"
     SecondaryButtonStyle="{StaticResource SecondaryButtonStyle}"
-    CornerRadius="16">
+    CornerRadius="12">
 
-    <StackPanel Spacing="20" Width="400" Margin="0,10,0,0">
-        <StackPanel Spacing="4">
-            <TextBlock Text="A new version of D. Chemist is ready to install!" 
-                       FontSize="16" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
-            <TextBlock x:Name="VersionText" Text="Version 1.1.0" 
-                       FontSize="14" Foreground="{StaticResource AccentAccent}" FontWeight="Bold"/>
-        </StackPanel>
+    <StackPanel Spacing="16" Width="420">
 
-        <Border Background="#F9F9F9" CornerRadius="8" Padding="12" BorderBrush="#EEEEEE" BorderThickness="1">
-            <StackPanel Spacing="8">
-                <TextBlock Text="What's New:" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
-                <TextBlock x:Name="ReleaseNotesText" TextWrapping="Wrap" FontSize="13" 
-                           Foreground="{StaticResource TextPrimaryBrush}" Height="120"/>
+        <!-- Header: logo + title + version change -->
+        <Grid ColumnSpacing="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Width="52" Height="52" CornerRadius="12" Background="White" BorderBrush="#E5E7EB" BorderThickness="1" Padding="8">
+                <Image x:Name="LogoImage" Stretch="Uniform"/>
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                <TextBlock Text="Update available" FontSize="20" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <Border Background="#F3F4F6" CornerRadius="10" Padding="8,2">
+                        <TextBlock x:Name="CurrentVersionText" Text="v1.0" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </Border>
+                    <FontIcon Glyph="&#xE72A;" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"/>
+                    <Border Background="#E0F7FF" CornerRadius="10" Padding="8,2">
+                        <TextBlock x:Name="VersionText" Text="v1.1" FontSize="12" FontWeight="SemiBold" Foreground="#0369A1"/>
+                    </Border>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+
+        <!-- What's new -->
+        <Border Background="#F9FAFB" CornerRadius="8" BorderBrush="#E5E7EB" BorderThickness="1" Padding="14,12">
+            <StackPanel Spacing="6">
+                <TextBlock Text="WHAT'S NEW" FontSize="11" FontWeight="SemiBold" CharacterSpacing="60" Foreground="{StaticResource TextSecondaryBrush}"/>
+                <ScrollViewer MaxHeight="140" VerticalScrollBarVisibility="Auto">
+                    <TextBlock x:Name="ReleaseNotesText" TextWrapping="Wrap" FontSize="14" LineHeight="20" Foreground="{StaticResource TextPrimaryBrush}"/>
+                </ScrollViewer>
             </StackPanel>
         </Border>
 
-        <StackPanel x:Name="ProgressContainer" Visibility="Collapsed" Spacing="10">
-            <TextBlock Text="Downloading update..." FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"/>
-            <ProgressBar x:Name="UpdateProgressBar" Height="8" Minimum="0" Maximum="100" Value="0"/>
-            <TextBlock x:Name="ProgressText" Text="0%" HorizontalAlignment="Right" FontSize="10" Foreground="{StaticResource AccentAccent}"/>
-        </StackPanel>
+        <!-- Before starting: what to expect -->
+        <TextBlock x:Name="HintText" FontSize="12" TextWrapping="Wrap" Foreground="{StaticResource TextSecondaryBrush}"
+                   Text="The app will close, install the update, and reopen by itself. Your data is not affected."/>
 
-        <TextBlock x:Name="ErrorText" Foreground="#E53E3E" FontSize="12" Visibility="Collapsed" TextWrapping="Wrap"/>
+        <!-- Progress -->
+        <Border x:Name="ProgressContainer" Visibility="Collapsed" CornerRadius="8" BorderBrush="#E5E7EB" BorderThickness="1" Padding="14,12">
+            <StackPanel Spacing="8">
+                <Grid>
+                    <TextBlock x:Name="StatusText" Text="Downloading…" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"/>
+                    <TextBlock x:Name="PercentText" Text="0%" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="#0369A1"/>
+                </Grid>
+                <ProgressBar x:Name="UpdateProgressBar" Height="6" CornerRadius="3" Minimum="0" Maximum="100" Value="0"/>
+                <TextBlock x:Name="ProgressText" Text=" " FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <InfoBar x:Name="ErrorBar" Severity="Error" IsClosable="False" IsOpen="False" Title="Update didn't finish"/>
     </StackPanel>
 </ContentDialog>

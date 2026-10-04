@@ -67,8 +67,10 @@ namespace DChemist.Repositories
 
         public async Task<List<Medicine>> SearchAsync(string text)
         {
-            // Update: Group by medicine and get the best batch info (soonest expiry)
+            // One row per medicine, showing its next sellable batch (in stock, not expired, soonest expiry).
+            // Results are ranked: barcode match, then names starting with the text, then the rest.
             const string query = @"
+                SELECT * FROM (
                 SELECT DISTINCT ON (m.id)
                     m.*, 
                     c.name as CategoryName, 
@@ -95,14 +97,18 @@ namespace DChemist.Repositories
                 WHERE (m.name ILIKE @text 
                    OR m.generic_name ILIKE @text 
                    OR m.barcode = @exact
-                   OR man.name ILIKE @text)
-                ORDER BY m.id, b.expiry_date ASC
+                   OR m.manufacturer_id IN (SELECT id FROM manufacturers WHERE name ILIKE @text))
+                ORDER BY m.id,
+                         (b.remaining_units > 0 AND b.expiry_date > CURRENT_DATE) DESC NULLS LAST,
+                         b.expiry_date ASC
+                ) r
+                ORDER BY (r.barcode = @exact) DESC NULLS LAST, (r.name ILIKE @prefix) DESC, r.name
                 LIMIT 50";
-            
+
             try
             {
                 using var conn = _db.GetConnection();
-                var results = await conn.QueryAsync<Medicine>(query, new { text = $"%{text}%", exact = text });
+                var results = await conn.QueryAsync<Medicine>(query, new { text = $"%{text}%", prefix = $"{text}%", exact = text });
                 return results.ToList();
             }
             catch (Exception ex)

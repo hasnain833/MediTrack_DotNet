@@ -8,11 +8,58 @@
     RequestedTheme="Light">
 
     <Page.Resources>
-        <Style x:Key="NavButton" TargetType="ToggleButton" BasedOn="{StaticResource SegmentedButtonStyle}">
+        <Style x:Key="NavButton" TargetType="ToggleButton">
             <Setter Property="HorizontalAlignment" Value="Stretch"/>
-            <Setter Property="HorizontalContentAlignment" Value="Left"/>
-            <Setter Property="Padding" Value="12,8"/>
-            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Foreground" Value="#374151"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid x:Name="Root" Background="Transparent" CornerRadius="6" Padding="12,9">
+                            <Border x:Name="Pill" Width="3" Height="16" CornerRadius="2" Margin="-12,0,0,0"
+                                    HorizontalAlignment="Left" Background="{StaticResource AccentAccent}" Visibility="Collapsed"/>
+                            <ContentPresenter x:Name="Text" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                              Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"/>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal"/>
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.Background" Value="#F1F5F9"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.Background" Value="#E2E8F0"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Checked">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.Background" Value="#EEF4FB"/>
+                                            <Setter Target="Pill.Visibility" Value="Visible"/>
+                                            <Setter Target="Text.FontWeight" Value="SemiBold"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="CheckedPointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.Background" Value="#E3EDF8"/>
+                                            <Setter Target="Pill.Visibility" Value="Visible"/>
+                                            <Setter Target="Text.FontWeight" Value="SemiBold"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="CheckedPressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Root.Background" Value="#E3EDF8"/>
+                                            <Setter Target="Pill.Visibility" Value="Visible"/>
+                                            <Setter Target="Text.FontWeight" Value="SemiBold"/>
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="SectionTitle" TargetType="TextBlock">
             <Setter Property="FontSize" Value="20"/>
@@ -32,6 +79,7 @@
                 <TextBlock Text="Settings" FontSize="20" FontWeight="SemiBold" Margin="12,0,0,10"/>
                 <ToggleButton x:Name="NavPharmacy" Content="Pharmacy details" Tag="SecPharmacy" IsChecked="True" Click="OnSectionClick" Style="{StaticResource NavButton}"/>
                 <ToggleButton x:Name="NavPrinter" Content="Receipt printer" Tag="SecPrinter" Click="OnSectionClick" Style="{StaticResource NavButton}"/>
+                <ToggleButton x:Name="NavPreview" Content="Receipt preview" Tag="SecPreview" Click="OnSectionClick" Style="{StaticResource NavButton}"/>
                 <ToggleButton x:Name="NavBackup" Content="Backup &amp; restore" Tag="SecBackup" Click="OnSectionClick" Style="{StaticResource NavButton}"/>
                 <ToggleButton x:Name="NavUpdates" Content="Updates" Tag="SecUpdates" Click="OnSectionClick" Style="{StaticResource NavButton}"/>
                 <ToggleButton x:Name="NavDanger" Content="Danger zone" Tag="SecDanger" Click="OnSectionClick" Style="{StaticResource NavButton}"
@@ -88,6 +136,26 @@
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Save printer" Command="{x:Bind ViewModel.SavePrintingSettingsCommand}" Style="{StaticResource PremiumButtonStyle}"/>
                         <Button Content="Print test receipt" Command="{x:Bind ViewModel.TestPrintCommand}" Style="{StaticResource SecondaryButtonStyle}"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ============ Receipt preview ============ -->
+                <StackPanel x:Name="SecPreview" Spacing="14" Visibility="Collapsed">
+                    <TextBlock Text="Receipt preview" Style="{StaticResource SectionTitle}"/>
+                    <TextBlock Text="A sample bill using your saved pharmacy details. Save changes first to see them here." Foreground="#4B5563" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="24">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Silent print (thermal, 80mm)" FontWeight="SemiBold"/>
+                            <Border BorderBrush="#CBD5E0" BorderThickness="1" Background="White" Padding="10">
+                                <StackPanel x:Name="ThermalPreview" Width="320"/>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Windows print dialog" FontWeight="SemiBold"/>
+                            <Border BorderBrush="#CBD5E0" BorderThickness="1" Background="White">
+                                <ContentControl x:Name="DialogPreview"/>
+                            </Border>
+                        </StackPanel>
                     </StackPanel>
                 </StackPanel>
 

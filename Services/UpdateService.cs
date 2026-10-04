@@ -132,7 +132,7 @@ namespace DChemist.Services
         /// Downloads the update zip to a local temp folder with progress reporting.
         /// Returns the local zip path on success, or null on failure.
         /// </summary>
-        public async Task<string?> DownloadUpdateAsync(string downloadUrl, Action<double> progressCallback, string? expectedSha256 = null)
+        public async Task<string?> DownloadUpdateAsync(string downloadUrl, Action<double, long, long> progressCallback, string? expectedSha256 = null)
         {
             try
             {
@@ -148,29 +148,27 @@ namespace DChemist.Services
 
                 AppLogger.LogInfo($"UpdateService: Downloading update from {downloadUrl}");
 
-                using var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead);
-                response.EnsureSuccessStatusCode();
-
-                var totalBytes = response.Content.Headers.ContentLength ?? -1L;
-                await using var contentStream = await response.Content.ReadAsStreamAsync();
-                await using var fileStream    = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true);
-
-                var buffer    = new byte[8192];
-                var totalRead = 0L;
-                int read;
-
-                while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length)) != 0)
+                // Weak shop connections drop mid-download. HttpClient.Timeout doesn't cover body reads,
+                // so a dead connection used to hang forever. Now: a read stalled for 30 s aborts the attempt,
+                // and the next attempt resumes from the bytes already on disk (HTTP Range).
+                const int maxAttempts = 8;
+                for (int attempt = 1; ; attempt++)
                 {
-                    await fileStream.WriteAsync(buffer, 0, read);
-                    totalRead += read;
-
-                    if (totalBytes > 0)
-                        progressCallback((double)totalRead / totalBytes * 100);
+                    try
+                    {
+                        await DownloadAttemptAsync(downloadUrl, filePath, progressCallback);
+                        break;
+                    }
+                    catch (Exception ex) when (attempt < maxAttempts && ex is IOException or HttpRequestException or OperationCanceledException)
+                    {
+                        AppLogger.LogWarning($"UpdateService: Download attempt {attempt} interrupted ({ex.Message}); resuming in 3 s.");
+                        await Task.Delay(3000);
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(expectedSha256))
                 {
-                    var actualSha256 = ComputeFileSha256(filePath);
+                    var actualSha256 = await Task.Run(() => ComputeFileSha256(filePath)); // 70+ MB: keep UI responsive
                     if (!actualSha256.Equals(expectedSha256.Trim(), StringComparison.OrdinalIgnoreCase))
                     {
                         try { File.Delete(filePath); } catch { /* best effort cleanup */ }
@@ -258,6 +256,56 @@ namespace DChemist.Services
                 AppLogger.LogError("UpdateService: Failed to launch updater", ex);
                 return false;
             }
+        }
+
+        /// <summary>One download try; appends to an existing partial file when the server supports Range.</summary>
+        private async Task DownloadAttemptAsync(string downloadUrl, string filePath, Action<double, long, long> progressCallback)
+        {
+            long existing = File.Exists(filePath) ? new FileInfo(filePath).Length : 0;
+
+            using var request = new HttpRequestMessage(HttpMethod.Get, downloadUrl);
+            if (existing > 0)
+                request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(existing, null);
+
+            using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
+
+            // 416 = we already have the whole file (e.g. a previous run finished but hash/launch failed).
+            if (response.StatusCode == System.Net.HttpStatusCode.RequestedRangeNotSatisfiable) return;
+            response.EnsureSuccessStatusCode();
+
+            // Server ignored Range (200 instead of 206) → start over.
+            bool resuming = existing > 0 && response.StatusCode == System.Net.HttpStatusCode.PartialContent;
+            if (!resuming) existing = 0;
+
+            long totalBytes = response.Content.Headers.ContentLength is long len ? len + existing : -1L;
+
+            await using var contentStream = await response.Content.ReadAsStreamAsync();
+            await using var fileStream = new FileStream(filePath, resuming ? FileMode.Append : FileMode.Create,
+                                                        FileAccess.Write, FileShare.None, 81920, true);
+
+            var buffer = new byte[81920];
+            long totalRead = existing;
+            int lastPercent = -1;
+            using var stall = new System.Threading.CancellationTokenSource();
+
+            while (true)
+            {
+                stall.CancelAfter(TimeSpan.FromSeconds(30));
+                int read = await contentStream.ReadAsync(buffer.AsMemory(), stall.Token);
+                if (read == 0) break;
+                await fileStream.WriteAsync(buffer.AsMemory(0, read));
+                totalRead += read;
+
+                int percent = totalBytes > 0 ? (int)(totalRead * 100 / totalBytes) : 0;
+                if (percent != lastPercent || totalRead % (1024 * 1024) < read)
+                {
+                    lastPercent = percent;
+                    progressCallback(percent, totalRead, totalBytes);
+                }
+            }
+
+            if (totalBytes > 0 && totalRead < totalBytes)
+                throw new IOException($"Connection closed early ({totalRead} of {totalBytes} bytes).");
         }
 
         private static string ComputeFileSha256(string filePath)

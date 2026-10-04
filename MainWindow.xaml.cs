@@ -8,8 +8,9 @@ namespace DChemist
         {
             this.InitializeComponent();
             
-            // Set window custom title bar or icon if needed in future
             this.Title = "D. Chemist - Premium Medical Management System";
+            // Title bar + taskbar icon (the .exe icon comes from ApplicationIcon in the csproj).
+            AppWindow.SetIcon(System.IO.Path.Combine(System.AppContext.BaseDirectory, "Assets", "app.ico"));
         }
     }
 }
