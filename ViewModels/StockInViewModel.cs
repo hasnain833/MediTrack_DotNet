@@ -347,6 +347,20 @@ namespace DChemist.ViewModels
                 return;
             }
 
+            // Cost above sale price almost always means QTY was typed in boxes/strips while the column is TABS
+            // (cost per tab then comes out 10-100x too high and the Daily Report shows a loss).
+            var lossItem = ReceivingItems.FirstOrDefault(i => i.SellingPricePerUnit > 0 && i.UnitCost > i.SellingPricePerUnit);
+            if (lossItem != null && !await _dialogService.ShowConfirmationAsync(
+                    "Cost is higher than sale price",
+                    $"'{lossItem.MedicineName}': cost per tab {lossItem.UnitCost:N2} > sale price per tab {lossItem.SellingPricePerUnit:N2}.\n\n" +
+                    $"Check that {lossItem.QtyLabel} is right ({lossItem.QuantityUnits} tabs for PKR {lossItem.PurchaseTotalPrice:N2}).",
+                    "Save anyway", "Go back"))
+            {
+                IsBusy = false;
+                OnPropertyChanged(nameof(CanSave));
+                return;
+            }
+
             try
             {
                 // Auto-generate a unique invoice number if blank or still the default
