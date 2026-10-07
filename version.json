@@ -1,6 +1,6 @@
 {
-    "LatestVersion":  "1.9.1.0",
-    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.1.0/DChemist_v1.9.1.0_Release.zip",
-    "ReleaseNotes":  "Updates now continue after internet drops; receipt preview in Settings; faster medicine search; new app icon",
-    "PackageSha256":  "B27C2B815CABF2C0CCC6FF64DABD843BBF94668C201C9C9F3214AC03157E5399"
+    "LatestVersion":  "1.9.2.0",
+    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.2.0/DChemist_v1.9.2.0_Release.zip",
+    "ReleaseNotes":  "Purchase now warns when cost per tab is higher than sale price (prevents wrong cost / negative profit in Daily Report)",
+    "PackageSha256":  "34C62B1C7094DDEE09D20BF403B70F1DAAA87A0B03FD7721301841709C0B012A"
 }
