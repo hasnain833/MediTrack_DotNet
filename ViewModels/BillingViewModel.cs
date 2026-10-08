@@ -27,7 +27,7 @@ namespace DChemist.ViewModels
         private decimal _totalAmount;
         private decimal _taxAmount;
         private decimal _discountAmount;
-        private decimal _discountPercentage;
+        private decimal _discountRupees;
         private string _discountText = "0";
         private decimal _grandTotal;
         private Medicine? _selectedMedicine;
@@ -105,9 +105,9 @@ namespace DChemist.ViewModels
                 if (SetProperty(ref _discountText, value))
                 {
                     if (decimal.TryParse(value, out var d))
-                        _discountPercentage = d;
+                        _discountRupees = d;
                     else if (string.IsNullOrWhiteSpace(value))
-                        _discountPercentage = 0;
+                        _discountRupees = 0;
 
                     UpdateTotals();
                 }
@@ -314,6 +314,7 @@ namespace DChemist.ViewModels
             CustomerName = string.Empty;
             CustomerPhone = string.Empty;
             CashReceivedText = string.Empty;
+            DiscountText = "0";
             ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
             ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
             ((RelayCommand)ClearCartCommand).RaiseCanExecuteChanged();
@@ -329,7 +330,7 @@ namespace DChemist.ViewModels
         {
             TotalAmount = CartItems.Sum(i => i.Subtotal);
             TaxAmount = TotalAmount * _taxRate;
-            DiscountAmount = TotalAmount * (_discountPercentage / 100m);
+            DiscountAmount = Math.Clamp(_discountRupees, 0, TotalAmount + TaxAmount);
             GrandTotal = TotalAmount + TaxAmount - DiscountAmount;
             OnPropertyChanged(nameof(ChangeText));
             OnPropertyChanged(nameof(IsChangeShort));
@@ -361,6 +362,7 @@ namespace DChemist.ViewModels
                 DiscountAmount = DiscountAmount,
                 GrandTotal = GrandTotal,
                 TaxRate = _taxRate,
+                CashReceived = CashReceived,
                 Items = CartItems.Select(i => new SaleLineItemDto
                 {
                     MedicineId = i.MedicineId,

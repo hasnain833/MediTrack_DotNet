@@ -146,7 +146,7 @@
             <!-- Keyboard hints -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="18">
                 <TextBlock FontSize="12" Foreground="#8A94A6"><Run Text="Enter" FontWeight="SemiBold"/> add / next box</TextBlock>
-                <TextBlock FontSize="12" Foreground="#8A94A6">Type the cash received and press <Run Text="Enter" FontWeight="SemiBold"/> to print the bill</TextBlock>
+                <TextBlock FontSize="12" Foreground="#8A94A6">Press <Run Text="Enter" FontWeight="SemiBold"/> to move through Discount, Cash, Name, Phone; Enter on Phone prints the bill</TextBlock>
             </StackPanel>
         </Grid>
 
@@ -180,8 +180,8 @@
                             <TextBlock Text="{x:Bind ViewModel.TaxAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" HorizontalAlignment="Right"/>
                         </Grid>
                         <Grid>
-                            <TextBlock Text="Discount %" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <TextBox Text="{x:Bind ViewModel.DiscountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBlock Text="Discount (Rs)" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                            <TextBox x:Name="DiscountBox" KeyDown="OnEnterNext" Text="{x:Bind ViewModel.DiscountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PlaceholderText="0" Width="96" HorizontalAlignment="Right" TextAlignment="Right"/>
                         </Grid>
                         <Grid>
@@ -193,7 +193,7 @@
 
                         <Grid>
                             <TextBlock Text="Cash received" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <TextBox x:Name="CashBox" KeyDown="OnCashKeyDown" Text="{x:Bind ViewModel.CashReceivedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBox x:Name="CashBox" KeyDown="OnEnterNext" Text="{x:Bind ViewModel.CashReceivedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      PlaceholderText="0" Width="96" HorizontalAlignment="Right" TextAlignment="Right"/>
                         </Grid>
                         <Grid>
@@ -202,10 +202,10 @@
                                        Foreground="{x:Bind ViewModel.IsChangeOk, Mode=OneWay, Converter={StaticResource StatusFgConverter}}"/>
                         </Grid>
 
-                        <Expander Header="Customer (optional)" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <Expander x:Name="CustomerExpander" Header="Customer (optional)" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                             <StackPanel Spacing="8">
-                                <TextBox Header="Name" Text="{x:Bind ViewModel.CustomerName, Mode=TwoWay}" PlaceholderText="Walk-in customer"/>
-                                <TextBox Header="Phone" Text="{x:Bind ViewModel.CustomerPhone, Mode=TwoWay}" PlaceholderText="03xx-xxxxxxx"/>
+                                <TextBox x:Name="CustomerNameBox" KeyDown="OnEnterNext" Header="Name" Text="{x:Bind ViewModel.CustomerName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Walk-in customer"/>
+                                <TextBox x:Name="CustomerPhoneBox" KeyDown="OnPrintKeyDown" Header="Phone" Text="{x:Bind ViewModel.CustomerPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="03xx-xxxxxxx"/>
                             </StackPanel>
                         </Expander>
 

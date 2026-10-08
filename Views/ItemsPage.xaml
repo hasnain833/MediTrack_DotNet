@@ -48,6 +48,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="Items" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
                 <AutoSuggestBox x:Name="ListSearchBox" Grid.Column="1" MaxWidth="460" HorizontalAlignment="Left"
@@ -60,7 +61,9 @@
                     <ToggleButton x:Name="FilterExp" Content="Expiring" Tag="exp" Click="OnFilterClick" Style="{StaticResource Chip}"/>
                     <ToggleButton x:Name="FilterNet" Content="Net items" Tag="net" Click="OnFilterClick" Style="{StaticResource Chip}"/>
                 </StackPanel>
-                <Button Grid.Column="3" Click="OnNewClick" Style="{StaticResource PremiumButtonStyle}" Content="+ New medicine"/>
+                <Button x:Name="ExportExpiryButton" Grid.Column="3" Click="OnExportExpiryClick" Style="{StaticResource SecondaryButtonStyle}"
+                        Content="Export for supplier" Visibility="Collapsed" ToolTipService.ToolTip="Print / save as PDF the expiring stock of one supplier"/>
+                <Button Grid.Column="4" Click="OnNewClick" Style="{StaticResource PremiumButtonStyle}" Content="+ New medicine"/>
             </Grid>
         </Border>
 

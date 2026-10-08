@@ -188,7 +188,7 @@ namespace DChemist.Repositories
                     s.fbr_reported as FbrReported
                 FROM sales s
                 LEFT JOIN customers c ON s.customer_id = c.id
-                WHERE 1=1";
+                WHERE s.status <> 'Voided'";
 
             var parameters = new DynamicParameters();
             if (!string.IsNullOrWhiteSpace(term))
@@ -304,10 +304,12 @@ namespace DChemist.Repositories
                 // 2. Restore Inventory Stock
                 foreach (var item in sale.Items)
                 {
+                    int qty = item.Quantity - item.ReturnedQuantity; // returned units are already back in stock
+                    if (qty <= 0) continue;
                     if (item.BatchId.HasValue)
                     {
                         await connection.ExecuteAsync("UPDATE inventory_batches SET remaining_units = remaining_units + @qty WHERE id = @batchId", 
-                            new { qty = item.Quantity, batchId = item.BatchId.Value }, transaction);
+                            new { qty, batchId = item.BatchId.Value }, transaction);
                     }
                     else if (item.MedicineId.HasValue)
                     {
@@ -319,7 +321,7 @@ namespace DChemist.Repositories
                                 WHERE medicine_id = @medId 
                                 ORDER BY expiry_date DESC LIMIT 1
                             )";
-                        await connection.ExecuteAsync(restoreFallbackQuery, new { qty = item.Quantity, medId = item.MedicineId.Value }, transaction);
+                        await connection.ExecuteAsync(restoreFallbackQuery, new { qty, medId = item.MedicineId.Value }, transaction);
                     }
                 }
 
@@ -371,6 +373,12 @@ namespace DChemist.Repositories
                         status = 'Returned'
                     WHERE id = @saleId", 
                     new { deduction, saleId = (int)item.sale_id }, transaction);
+
+                // Everything on the bill came back: the sale no longer exists, so it drops off the Bills list.
+                await connection.ExecuteAsync(@"
+                    UPDATE sales SET status = 'Voided'
+                    WHERE id = @saleId AND NOT EXISTS (SELECT 1 FROM sale_items WHERE sale_id = @saleId AND returned_qty < quantity)",
+                    new { saleId = (int)item.sale_id }, transaction);
 
                 // 5. Audit Log
                 string medName = await connection.ExecuteScalarAsync<string>("SELECT name FROM medicines WHERE id = @id", new { id = (int)item.medicine_id }, transaction) ?? "Unknown Medicine";

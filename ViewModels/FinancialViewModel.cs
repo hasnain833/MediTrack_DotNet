@@ -265,6 +265,7 @@ namespace DChemist.ViewModels
             }
 
             string billNo = SelectedSale.BillNo, customer = SelectedSale.Customer;
+            bool returnsAll = SelectedInvoiceItems.All(i => i.ReturnInputQty >= i.RemainingQuantity);
             int userId = _authService.CurrentUser?.Id ?? 0;
             foreach (var line in lines)
             {
@@ -272,6 +273,7 @@ namespace DChemist.ViewModels
                 if (!result.Success)
                 {
                     await _dialogService.ShowMessageAsync("Return Failed", $"{line.MedicineName}: {result.Message}");
+                    returnsAll = false;
                     break;
                 }
             }
@@ -279,8 +281,10 @@ namespace DChemist.ViewModels
             _isReturnMode = false;
             OnPropertyChanged(nameof(IsReturnMode));
             OnPropertyChanged(nameof(IsNotReturnMode));
+            if (returnsAll) SelectedSale = null; // the bill is voided and leaves the list
             await LoadDataAsync();
             await LoadSelectedSaleDetailsAsync();
+            if (returnsAll) { StatusMessage = $"✔ Everything returned. Bill {billNo} removed and stock restored."; return; }
 
             // The customer needs the corrected bill.
             var print = await _financialActionsService.ReprintReceiptAsync(billNo, customer);
@@ -304,7 +308,7 @@ namespace DChemist.ViewModels
 
             bool confirm = await _dialogService.ShowConfirmationAsync(
                 "Void Sale",
-                $"Void bill {SelectedSale.BillNo}? Stock is restored and the bill is marked Voided.",
+                $"Void bill {SelectedSale.BillNo}? Stock is restored and the bill is removed from the list.",
                 "Void",
                 "Cancel");
             if (!confirm) return;

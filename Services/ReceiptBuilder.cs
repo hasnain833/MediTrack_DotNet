@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using DChemist.ViewModels;
 
@@ -6,99 +8,113 @@ namespace DChemist.Services
 {
     public static class ReceiptBuilder
     {
+        private const int Width = 48; // 80mm thermal printer = 48 characters
+        private static readonly string Thin = new('-', Width);
+        private static readonly string Thick = new('=', Width);
+
+        // ESC/POS
+        private const string Left = "\x1B" + "a\x00", Center = "\x1B" + "a\x01";
+        private const string Large = "\x1B" + "!\x30", Bold = "\x1B" + "!\x08", Normal = "\x1B" + "!\x00";
+        private const string Cut = "\x1D" + "VB\x00";
+
+        // Item table: # (3) + Item (21) + Qty (5) + Rate (9) + Amount (10) = 48
+        private const int NameWidth = 21;
+
         public static string BuildReceiptString(ReceiptViewModel receipt)
         {
             var sb = new StringBuilder();
-            const int width = 48; // 80mm thermal printer = 48 characters
-            const string separator = "------------------------------------------------"; // 48 dashes
-            
-            // --- HEADER (Centered) ---
-            sb.Append((char)27).Append((char)97).Append((char)1); // Center
-            
-            // Pharmacy Name: Large Text (+ Double Height/Width)
-            sb.Append((char)27).Append((char)33).Append((char)48); 
-            sb.AppendLine(receipt.PharmacyName);
-            sb.Append((char)27).Append((char)33).Append((char)0); // Normal size
-            
-            sb.AppendLine();
-            sb.AppendLine(receipt.PharmacyAddress);
-            sb.AppendLine($"Phone: {receipt.PharmacyPhone}");
-            sb.AppendLine($"License: {receipt.PharmacyLicense}");
-            sb.AppendLine($"NTN: {receipt.PharmacyNtn}");
-            sb.AppendLine(separator);
-            
-            // --- INFO (Justified Left/Right) ---
-            sb.Append((char)27).Append((char)97).Append((char)0); // Left align
-            sb.AppendLine(JustifyLine("Bill No:", receipt.BillNo, width));
-            sb.AppendLine(JustifyLine("Date:", receipt.Date, width));
-            
-            string customer = (!string.IsNullOrWhiteSpace(receipt.CustomerName) && receipt.CustomerName != "Walk-in Customer")
-                ? receipt.CustomerName
-                : "Walk-in Customer";
-            sb.AppendLine(JustifyLine("Customer:", customer, width));
 
-            if (!string.IsNullOrWhiteSpace(receipt.CustomerPhone))
+            // --- HEADER ---
+            sb.Append(Center).Append(Large).AppendLine(receipt.PharmacyName).Append(Normal);
+            foreach (var line in Wrap(receipt.PharmacyAddress, Width)) sb.AppendLine(line);
+            if (!string.IsNullOrWhiteSpace(receipt.PharmacyPhone)) sb.AppendLine($"Ph: {receipt.PharmacyPhone}");
+            var ids = string.Join("   ", new[]
             {
-                sb.AppendLine(JustifyLine("Phone:", receipt.CustomerPhone, width));
-            }
+                string.IsNullOrWhiteSpace(receipt.PharmacyLicense) ? null : $"Lic: {receipt.PharmacyLicense}",
+                string.IsNullOrWhiteSpace(receipt.PharmacyNtn) ? null : $"NTN: {receipt.PharmacyNtn}"
+            }.Where(s => s != null));
+            if (ids.Length > 0) sb.AppendLine(ids);
+            sb.AppendLine(Thick);
 
-            sb.AppendLine(separator);
-            
-            // --- ITEMS TABLE (4 Columns for 80mm) ---
-            // Item (18) + Qty (6) + Rate (10) + Total (14) = 48
-            sb.AppendLine("Item".PadRight(18) + "Qty".PadLeft(6) + "Rate".PadLeft(10) + "Total".PadLeft(14));
-            sb.AppendLine(separator);
+            // --- BILL INFO ---
+            sb.Append(Left);
+            sb.AppendLine(Justify($"Bill: {receipt.BillNo}", receipt.Date));
+            bool walkIn = string.IsNullOrWhiteSpace(receipt.CustomerName) || receipt.CustomerName == "Walk-in Customer";
+            if (!walkIn || !string.IsNullOrWhiteSpace(receipt.CustomerPhone))
+                sb.AppendLine(Justify($"Customer: {(walkIn ? "Walk-in" : receipt.CustomerName)}",
+                    string.IsNullOrWhiteSpace(receipt.CustomerPhone) ? "" : $"Ph: {receipt.CustomerPhone}"));
+            sb.AppendLine(Thin);
 
+            // --- ITEMS ---
+            sb.Append(Bold).AppendLine(Row("#", "Item", "Qty", "Rate", "Amount")).Append(Normal);
+            sb.AppendLine(Thin);
+            int n = 0;
             foreach (var item in receipt.Items)
             {
-                string itemName = item.Name.Length > 18 ? item.Name.Substring(0, 15) + "..." : item.Name;
-                string qty = item.Quantity.ToString();
-                string rate = item.Price.ToString("F2");
-                string total = item.Total.ToString("F2");
-                
-                sb.AppendLine($"{itemName.PadRight(18)}{qty.PadLeft(6)}{rate.PadLeft(10)}{total.PadLeft(14)}");
+                var name = Wrap(item.Name, NameWidth);
+                sb.AppendLine(Row((++n).ToString(), name[0], item.Quantity.ToString(), item.Price.ToString("N2"), item.Total.ToString("N2")));
+                foreach (var rest in name.Skip(1)) sb.AppendLine("   " + rest);
             }
-            sb.AppendLine(separator);
-            
+            sb.AppendLine(Thin);
+
             // --- TOTALS ---
-            sb.AppendLine(JustifyLine("Subtotal:", $"PKR {receipt.TotalAmount:F2}", width));
-            
-            string taxLabel = receipt.TaxRateText.Contains(":") ? receipt.TaxRateText.Split(':')[0] : receipt.TaxRateText;
-            sb.AppendLine(JustifyLine($"{taxLabel}:", $"PKR {receipt.TaxAmount:F2}", width));
-            
+            sb.AppendLine(Justify($"Items: {receipt.Items.Count}", $"Qty: {receipt.Items.Sum(i => i.Quantity)}"));
+            sb.AppendLine(Justify("Subtotal", receipt.TotalAmount.ToString("N2")));
+            if (receipt.TaxAmount > 0)
+                sb.AppendLine(Justify(receipt.TaxRateText.TrimEnd(':'), receipt.TaxAmount.ToString("N2")));
             if (receipt.DiscountAmount > 0)
-                sb.AppendLine(JustifyLine("Discount:", $"-PKR {receipt.DiscountAmount:F2}", width));
-            
-            sb.AppendLine(separator);
-            
-            // --- GRAND TOTAL ---
-            sb.Append((char)27).Append((char)97).Append((char)1); // Center
-            sb.Append((char)27).Append((char)33).Append((char)48); // Large
-            sb.AppendLine($"TOTAL: PKR {receipt.GrandTotal:N2}");
-            sb.Append((char)27).Append((char)33).Append((char)0);  // Normal
-            sb.AppendLine(separator);
-            
+                sb.AppendLine(Justify("Discount", "-" + receipt.DiscountAmount.ToString("N2")));
+            sb.AppendLine(Thick);
+            sb.Append(Center).Append(Large).AppendLine($"TOTAL Rs {receipt.GrandTotal:N2}").Append(Normal);
+            sb.AppendLine(Thick);
+
+            if (receipt.CashReceived is decimal cash)
+            {
+                sb.Append(Left);
+                sb.AppendLine(Justify("Cash", cash.ToString("N2")));
+                sb.AppendLine(Justify("Change", receipt.Change.ToString("N2")));
+                sb.AppendLine(Thin);
+            }
+
             // --- FOOTER ---
-            sb.Append((char)27).Append((char)97).Append((char)1); // Center
-            sb.AppendLine("For any queries, please call:");
-            sb.AppendLine("+92-332-8787833, 0346-7087833");
-            sb.AppendLine("------------------------------------------------");
-            sb.AppendLine("Thank you for your visit!");
+            sb.Append(Center);
+            if (receipt.DiscountAmount > 0) sb.Append(Bold).AppendLine($"You saved Rs {receipt.DiscountAmount:N2}").Append(Normal);
+            if (!string.IsNullOrWhiteSpace(receipt.FbrInvoiceNo)) sb.AppendLine(receipt.FbrInvoiceNo);
+            foreach (var line in (receipt.ReceiptFooter ?? "").Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None)) // WinUI TextBox uses \r
+                foreach (var w in Wrap(line.Trim(), Width)) sb.AppendLine(w);
+            if (!string.IsNullOrWhiteSpace(receipt.PharmacyPhone)) sb.AppendLine($"For queries call: {receipt.PharmacyPhone}");
 
-            // Feed and Cut
-            sb.AppendLine("\n\n\n\n\n");
-            sb.Append((char)29).Append((char)86).Append((char)66).Append((char)0);
-
+            // Feed and cut
+            sb.Append('\n', 6).Append(Cut);
             return sb.ToString();
         }
 
-        private static string JustifyLine(string label, string value, int width)
+        private static string Row(string no, string name, string qty, string rate, string amount) =>
+            no.PadRight(3) + name.PadRight(NameWidth) + qty.PadLeft(5) + rate.PadLeft(9) + amount.PadLeft(10);
+
+        private static string Justify(string left, string right) =>
+            left.Length + right.Length >= Width ? left + " " + right : left + new string(' ', Width - left.Length - right.Length) + right;
+
+        /// <summary>Word-wraps to <paramref name="width"/>; words longer than a line are split. Always returns at least one line.</summary>
+        internal static List<string> Wrap(string? text, int width)
         {
-            if (label.Length + value.Length >= width)
-                return label + " " + value;
-            
-            int spaces = width - label.Length - value.Length;
-            return label + new string(' ', spaces) + value;
+            var lines = new List<string>();
+            var cur = new StringBuilder();
+            foreach (var word in (text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var w = word;
+                while (w.Length > width)
+                {
+                    if (cur.Length > 0) { lines.Add(cur.ToString()); cur.Clear(); }
+                    lines.Add(w[..width]);
+                    w = w[width..];
+                }
+                if (cur.Length > 0 && cur.Length + 1 + w.Length > width) { lines.Add(cur.ToString()); cur.Clear(); }
+                if (cur.Length > 0) cur.Append(' ');
+                cur.Append(w);
+            }
+            if (cur.Length > 0 || lines.Count == 0) lines.Add(cur.ToString());
+            return lines;
         }
     }
 }

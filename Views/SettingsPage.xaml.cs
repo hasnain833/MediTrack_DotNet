@@ -41,10 +41,23 @@ namespace DChemist.Views
             receipt.Items.Add(new ReceiptItemViewModel { Name = "Panadol 500mg Tab", Quantity = 2, Price = 45 });
             receipt.Items.Add(new ReceiptItemViewModel { Name = "Augmentin 625mg Tablets (long name)", Quantity = 1, Price = 640 });
             receipt.Items.Add(new ReceiptItemViewModel { Name = "Brufen Syrup", Quantity = 2, Price = 200 });
+            receipt.CashReceived = 1100;
             await receipt.LoadStoreDetailsAsync(App.Current.Services.GetRequiredService<SettingsService>());
+            // Show what is on screen now, saved or not
+            receipt.PharmacyName = ViewModel.PharmacyName;
+            receipt.PharmacyAddress = ViewModel.PharmacyAddress;
+            receipt.PharmacyPhone = ViewModel.PharmacyPhone;
+            receipt.PharmacyLicense = ViewModel.PharmacyLicense;
+            receipt.PharmacyNtn = ViewModel.PharmacyNtn;
+            receipt.ReceiptFooter = ViewModel.ReceiptFooter;
 
             DialogPreview.Content = new ReceiptTemplate(receipt);
             RenderEscPos(receipt);
+        }
+
+        private async void OnFooterChanged(object sender, TextChangedEventArgs e)
+        {
+            if (SecPreview.Visibility == Visibility.Visible) await RenderPreviewAsync();
         }
 
         // Interprets the ESC/POS codes ReceiptBuilder emits (align, size, cut) into on-screen lines.

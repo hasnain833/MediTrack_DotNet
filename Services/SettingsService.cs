@@ -57,6 +57,7 @@ namespace DChemist.Services
         public async Task<string> GetPharmacyPhoneAsync() => await GetSettingAsync("pharmacy_phone", "+92-332-8787833");
         public async Task<string> GetPharmacyLicenseAsync() => await GetSettingAsync("pharmacy_license", "01-372-0011-134212M");
         public async Task<string> GetPharmacyNtnAsync() => await GetSettingAsync("pharmacy_ntn", "I736466-5");
+        public async Task<string> GetReceiptFooterAsync() => await GetSettingAsync("receipt_footer", "Thank you for your visit!");
         
         public async Task<bool> IsAutoBackupEnabledAsync()
         {

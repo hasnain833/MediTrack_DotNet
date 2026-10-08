@@ -42,8 +42,8 @@ namespace DChemist.Views
             var query = args.QueryText?.Trim();
             if (string.IsNullOrWhiteSpace(query))
             {
-                // Enter on an empty search = bill is done: go to Cash received (Enter there prints).
-                if (ViewModel.CartItems.Count > 0) { CashBox.Focus(Microsoft.UI.Xaml.FocusState.Programmatic); CashBox.SelectAll(); }
+                // Enter on an empty search = bill is done: Discount -> Cash -> Name -> Phone (Enter there prints).
+                if (ViewModel.CartItems.Count > 0) FocusBox(DiscountBox);
                 return;
             }
 
@@ -213,8 +213,24 @@ namespace DChemist.Views
             }
         }
 
-        // Enter in Cash received prints the bill — the whole sale works with Enter only.
-        private void OnCashKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        // Enter walks the checkout inputs in order; the whole sale works with Enter only.
+        private void OnEnterNext(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
+        {
+            if (e.Key != Windows.System.VirtualKey.Enter) return;
+            if (sender == DiscountBox) FocusBox(CashBox);
+            else if (sender == CashBox) { CustomerExpander.IsExpanded = true; CustomerNameBox.UpdateLayout(); FocusBox(CustomerNameBox); }
+            else if (sender == CustomerNameBox) FocusBox(CustomerPhoneBox);
+            e.Handled = true;
+        }
+
+        private static void FocusBox(TextBox box)
+        {
+            box.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
+            box.SelectAll();
+        }
+
+        // Enter in Phone (last input) prints the bill.
+        private void OnPrintKeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key != Windows.System.VirtualKey.Enter) return;
             if (ViewModel.CompleteSaleReportedCommand.CanExecute(null))

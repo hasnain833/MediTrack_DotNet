@@ -111,7 +111,8 @@ namespace DChemist.Services
                     TaxAmount = request.TaxAmount,
                     TaxRateText = $"Tax ({request.TaxRate * 100:0.##}%):",
                     DiscountAmount = request.DiscountAmount,
-                    GrandTotal = request.GrandTotal
+                    GrandTotal = request.GrandTotal,
+                    CashReceived = request.CashReceived
                 };
                 if (request.SaleDate.HasValue)
                     receiptVm.Date = request.SaleDate.Value.ToLocalTime().ToString("dd-MMM-yyyy HH:mm");

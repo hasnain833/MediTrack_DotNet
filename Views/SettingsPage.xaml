@@ -142,7 +142,13 @@
                 <!-- ============ Receipt preview ============ -->
                 <StackPanel x:Name="SecPreview" Spacing="14" Visibility="Collapsed">
                     <TextBlock Text="Receipt preview" Style="{StaticResource SectionTitle}"/>
-                    <TextBlock Text="A sample bill using your saved pharmacy details. Save changes first to see them here." Foreground="#4B5563" TextWrapping="Wrap"/>
+                    <TextBlock Text="A sample bill using the pharmacy details above. It updates as you type." Foreground="#4B5563" TextWrapping="Wrap"/>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <TextBox Header="Footer message (printed at the bottom, one line per row)" Width="420" Height="96"
+                                 AcceptsReturn="True" TextWrapping="Wrap" TextChanged="OnFooterChanged"
+                                 Text="{x:Bind ViewModel.ReceiptFooter, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Button Content="Save footer" Command="{x:Bind ViewModel.SaveReceiptFooterCommand}" Style="{StaticResource PremiumButtonStyle}" VerticalAlignment="Bottom"/>
+                    </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="24">
                         <StackPanel Spacing="6">
                             <TextBlock Text="Silent print (thermal, 80mm)" FontWeight="SemiBold"/>

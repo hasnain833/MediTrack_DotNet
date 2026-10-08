@@ -431,5 +431,39 @@ namespace DChemist.Repositories
                 return new List<BatchHistory>();
             }
         }
+
+        /// <summary>Batches with stock that are expired or expire within 90 days, with their supplier and purchase invoice.</summary>
+        public async Task<List<ExpiringStockRow>> GetExpiringStockAsync()
+        {
+            try
+            {
+                const string query = @"
+                    SELECT
+                        s.id                                 AS SupplierId,
+                        s.name                               AS SupplierName,
+                        s.phone                              AS SupplierPhone,
+                        m.name                               AS MedicineName,
+                        b.batch_no                           AS BatchNo,
+                        b.expiry_date                        AS ExpiryDate,
+                        b.remaining_units                    AS RemainingUnits,
+                        COALESCE(pi.invoice_no, b.invoice_no) AS InvoiceNo,
+                        COALESCE(pi.invoice_date, b.invoice_date) AS InvoiceDate,
+                        b.unit_cost                          AS UnitCost
+                    FROM inventory_batches b
+                    JOIN medicines m  ON m.id = b.medicine_id
+                    JOIN suppliers s  ON s.id = b.supplier_id
+                    LEFT JOIN purchase_invoices pi ON pi.id = b.purchase_invoice_id
+                    WHERE b.remaining_units > 0 AND b.expiry_date <= CURRENT_DATE + 90
+                    ORDER BY s.name, b.expiry_date, m.name";
+                using var conn = _db.GetConnection();
+                var rows = await conn.QueryAsync<ExpiringStockRow>(query);
+                return rows.ToList();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("BatchRepository.GetExpiringStockAsync failed", ex);
+                throw new DataAccessException("Could not load expiring stock.", ex);
+            }
+        }
     }
 }

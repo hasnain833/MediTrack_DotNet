@@ -50,6 +50,11 @@ namespace DChemist.ViewModels
             RestoreCommand             = new AsyncRelayCommand(async _ => await _backupService.RestoreDatabaseAsync());
             ShowFiscalSettingsCommand  = new AsyncRelayCommand(async _ => await _dialogService.ShowFiscalSettingsDialogAsync());
             SavePharmacyDetailsCommand = new AsyncRelayCommand(ExecuteSavePharmacyDetailsAsync);
+            SaveReceiptFooterCommand   = new AsyncRelayCommand(async _ =>
+            {
+                await _settings.SaveSettingAsync("receipt_footer", ReceiptFooter.Trim());
+                await _dialogService.ShowMessageAsync("Success", "Receipt footer saved.");
+            });
             SavePrintingSettingsCommand = new AsyncRelayCommand(ExecuteSavePrintingSettingsAsync);
             CheckForUpdatesCommand     = new AsyncRelayCommand(async _ => await ExecuteCheckForUpdatesAsync());
             ResetSalesDataCommand      = new AsyncRelayCommand(ExecuteResetSalesDataAsync);
@@ -77,6 +82,8 @@ namespace DChemist.ViewModels
         public string PharmacyPhone   { get => _pharmacyPhone;   set => SetProperty(ref _pharmacyPhone, value);   }
         public string PharmacyLicense { get => _pharmacyLicense; set => SetProperty(ref _pharmacyLicense, value); }
         public string PharmacyNtn     { get => _pharmacyNtn;     set => SetProperty(ref _pharmacyNtn, value);     }
+        private string _receiptFooter = string.Empty;
+        public string ReceiptFooter   { get => _receiptFooter;   set => SetProperty(ref _receiptFooter, value);   }
 
         public string PrinterName         { get => _printerName;          set => SetProperty(ref _printerName, value);          }
         public bool   IsSilentPrintEnabled { get => _isSilentPrintEnabled; set => SetProperty(ref _isSilentPrintEnabled, value); }
@@ -84,6 +91,7 @@ namespace DChemist.ViewModels
 
         // ── Commands ─────────────────────────────────────────────────────────
         public ICommand SavePharmacyDetailsCommand  { get; }
+        public ICommand SaveReceiptFooterCommand    { get; }
         public ICommand SavePrintingSettingsCommand { get; }
         public ICommand BackupCommand               { get; }
         public ICommand RestoreCommand              { get; }
@@ -100,6 +108,7 @@ namespace DChemist.ViewModels
             PharmacyPhone   = await _settings.GetPharmacyPhoneAsync();
             PharmacyLicense = await _settings.GetPharmacyLicenseAsync();
             PharmacyNtn     = await _settings.GetPharmacyNtnAsync();
+            ReceiptFooter   = await _settings.GetReceiptFooterAsync();
 
             PrinterName          = await _settings.GetPrinterNameAsync();
             IsSilentPrintEnabled = await _settings.IsSilentPrintEnabledAsync();

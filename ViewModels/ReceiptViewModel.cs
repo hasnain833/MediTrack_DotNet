@@ -26,6 +26,7 @@ namespace DChemist.ViewModels
             PharmacyPhone = await settings.GetPharmacyPhoneAsync();
             PharmacyLicense = await settings.GetPharmacyLicenseAsync();
             PharmacyNtn = await settings.GetPharmacyNtnAsync();
+            ReceiptFooter = await settings.GetReceiptFooterAsync();
 
             try
             {
@@ -56,6 +57,11 @@ namespace DChemist.ViewModels
         public string TaxRateText { get; set; } = "Tax:";
         public decimal DiscountAmount { get; set; }
         public decimal GrandTotal { get; set; }
+        /// <summary>Null on reprints / when the cashier skipped it.</summary>
+        public decimal? CashReceived { get; set; }
+        /// <summary>Same rounding as the Sales screen's "Change to return".</summary>
+        public decimal Change => CashReceived is decimal c ? Math.Max(0, c - Math.Round(GrandTotal)) : 0;
+        public string ReceiptFooter { get; set; } = "Thank you for your visit!";
         
         public string? FbrInvoiceNo { get; set; }
         public BitmapImage? QrCodeImage { get; set; }

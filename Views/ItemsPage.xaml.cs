@@ -104,6 +104,51 @@ namespace DChemist.Views
             foreach (var c in new[] { FilterAll, FilterLow, FilterExp, FilterNet })
                 c.IsChecked = c == chip;
             ViewModel.Filter = (string)chip.Tag;
+            ExportExpiryButton.Visibility = chip == FilterExp ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        // Expiring → Export: pick one supplier (only those with expiring stock), then the print dialog (Microsoft Print to PDF for a PDF).
+        private async void OnExportExpiryClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var rows = await App.Current.Services.GetRequiredService<DChemist.Repositories.BatchRepository>().GetExpiringStockAsync();
+                var suppliers = rows.GroupBy(r => r.SupplierId).Select(g => g.ToList()).ToList();
+                if (suppliers.Count == 0)
+                {
+                    await new ContentDialog { Title = "Nothing to export", Content = "No supplier has stock that is expired or expiring within 90 days.", CloseButtonText = "OK", XamlRoot = XamlRoot }.ShowAsync();
+                    return;
+                }
+
+                var picker = new ComboBox
+                {
+                    ItemsSource = suppliers.Select(g => $"{g[0].SupplierName}  ({g.Count} batch{(g.Count == 1 ? "" : "es")}, PKR {g.Sum(r => r.Value):N0})").ToList(),
+                    SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch, MinWidth = 360
+                };
+                var dialog = new ContentDialog
+                {
+                    Title = "Expiry return list",
+                    Content = new StackPanel { Spacing = 8, Children = { new TextBlock { Text = "Supplier", Opacity = 0.7 }, picker } },
+                    PrimaryButtonText = "Print / Save PDF",
+                    CloseButtonText = "Cancel",
+                    DefaultButton = ContentDialogButton.Primary,
+                    XamlRoot = XamlRoot
+                };
+                if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+
+                var chosen = suppliers[picker.SelectedIndex];
+                var settings = App.Current.Services.GetRequiredService<DChemist.Services.SettingsService>();
+                string phone = await settings.GetPharmacyPhoneAsync();
+                string info = string.Join("  ·  ", new[] { await settings.GetPharmacyAddressAsync(), string.IsNullOrWhiteSpace(phone) ? "" : $"Ph: {phone}" }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                var pages = ExpiryReturnSheet.BuildPages(chosen, await settings.GetPharmacyNameAsync(), info);
+                await App.Current.Services.GetRequiredService<DChemist.Services.IPrintService>()
+                    .PrintPagesAsync(pages, $"Expiry return - {chosen[0].SupplierName}");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Expiry export failed", ex);
+                await new ContentDialog { Title = "Export failed", Content = ex.Message, CloseButtonText = "OK", XamlRoot = XamlRoot }.ShowAsync();
+            }
         }
 
         private void OnBarcodeKeyDown(object sender, KeyRoutedEventArgs e)

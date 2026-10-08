@@ -47,6 +47,7 @@ namespace DChemist.Models.UseCases
         public decimal DiscountAmount { get; set; }
         public decimal GrandTotal { get; set; }
         public decimal TaxRate { get; set; }
+        public decimal? CashReceived { get; set; }
         public List<SaleLineItemDto> Items { get; set; } = new();
     }
 

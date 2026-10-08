@@ -52,11 +52,13 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="30"/>
+                <ColumnDefinition Width="50"/>
                 <ColumnDefinition Width="60"/>
             </Grid.ColumnDefinitions>
             <TextBlock Text="Item" FontSize="10" FontWeight="Bold"/>
             <TextBlock Grid.Column="1" Text="Qty" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center"/>
-            <TextBlock Grid.Column="2" Text="Total" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"/>
+            <TextBlock Grid.Column="2" Text="Rate" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"/>
+            <TextBlock Grid.Column="3" Text="Amount" FontSize="10" FontWeight="Bold" HorizontalAlignment="Right"/>
         </Grid>
 
         <!-- Dynamic Items -->
@@ -67,11 +69,13 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="30"/>
+                            <ColumnDefinition Width="50"/>
                             <ColumnDefinition Width="60"/>
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="{x:Bind Name}" FontSize="10" TextWrapping="Wrap"/>
                         <TextBlock Grid.Column="1" Text="{x:Bind Quantity}" FontSize="10" HorizontalAlignment="Center"/>
-                        <TextBlock Grid.Column="2" Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
+                        <TextBlock Grid.Column="2" Text="{x:Bind Price}" FontSize="10" HorizontalAlignment="Right"/>
+                        <TextBlock Grid.Column="3" Text="{x:Bind Total, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
                     </Grid>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -97,6 +101,16 @@
             <TextBlock Text="GRAND TOTAL" FontSize="12" FontWeight="Bold" HorizontalAlignment="Left"/>
             <TextBlock Text="{x:Bind ViewModel.GrandTotal, Converter={StaticResource CurrencyConverter}}" FontSize="12" FontWeight="Bold" HorizontalAlignment="Right"/>
         </Grid>
+        <StackPanel Visibility="{x:Bind ViewModel.CashReceived, Converter={StaticResource NullToVisibilityConverter}, ConverterParameter=Inverse}">
+            <Grid Margin="0,2">
+                <TextBlock Text="Cash:" FontSize="10"/>
+                <TextBlock Text="{x:Bind ViewModel.CashReceived, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
+            </Grid>
+            <Grid Margin="0,2">
+                <TextBlock Text="Change:" FontSize="10"/>
+                <TextBlock Text="{x:Bind ViewModel.Change, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
+            </Grid>
+        </StackPanel>
 
         <Rectangle Height="1" Fill="Black" Margin="0,5"/>
 
@@ -106,7 +120,7 @@
             <Image Source="{x:Bind ViewModel.QrCodeImage, Mode=OneWay}" Width="100" Height="100" HorizontalAlignment="Center" Margin="5"/>
         </StackPanel>
 
-        <TextBlock Text="Thank you for your visit!" FontSize="10" FontStyle="Italic" HorizontalAlignment="Center" Margin="0,10,0,0"/>
+        <TextBlock Text="{x:Bind ViewModel.ReceiptFooter}" FontSize="10" FontStyle="Italic" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,10,0,0"/>
     </StackPanel>
 </UserControl>
 

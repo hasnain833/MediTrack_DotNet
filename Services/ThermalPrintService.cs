@@ -13,12 +13,14 @@ namespace DChemist.Services
     {
         private PrintDocument? _printDocument;
         private IPrintDocumentSource? _printDocumentSource;
-        private UIElement? _printElement;
+        private System.Collections.Generic.IReadOnlyList<UIElement> _pages = Array.Empty<UIElement>();
         private string _jobName = "Receipt";
 
-        public async Task PrintReceiptAsync(UIElement receiptElement, string jobName)
+        public Task PrintReceiptAsync(UIElement receiptElement, string jobName) => PrintPagesAsync(new[] { receiptElement }, jobName);
+
+        public async Task PrintPagesAsync(System.Collections.Generic.IReadOnlyList<UIElement> pages, string jobName)
         {
-            _printElement = receiptElement;
+            _pages = pages;
             _jobName = jobName;
 
             // Initialize PrintDocument
@@ -87,18 +89,17 @@ namespace DChemist.Services
 
         private void PrintDocument_Paginate(object sender, PaginateEventArgs e)
         {
-            // For receipts, we usually have a single tall page
-            _printDocument?.SetPreviewPageCount(1, PreviewPageCountType.Final);
+            _printDocument?.SetPreviewPageCount(_pages.Count, PreviewPageCountType.Final);
         }
 
         private void PrintDocument_GetPreviewPage(object sender, GetPreviewPageEventArgs e)
         {
-            _printDocument?.SetPreviewPage(e.PageNumber, _printElement);
+            _printDocument?.SetPreviewPage(e.PageNumber, _pages[e.PageNumber - 1]);
         }
 
         private void PrintDocument_AddPages(object sender, AddPagesEventArgs e)
         {
-            _printDocument?.AddPage(_printElement);
+            foreach (var page in _pages) _printDocument?.AddPage(page);
             _printDocument?.AddPagesComplete();
         }
 
