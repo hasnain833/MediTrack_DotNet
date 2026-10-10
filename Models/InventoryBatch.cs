@@ -36,7 +36,7 @@ namespace DChemist.Models
         public string BonusText => BonusUnits > 0 ? $"{BonusUnits} units" : "—";
         public string DiscOrPaidText => IsNet ? "net price" : DiscountPercent > 0 ? $"{DiscountPercent:0.##}%" : "—";
         public string ExpiryText => ExpiryDate.ToString("MM/yy");
-        public bool IsExpiringSoon => ExpiryDate.Date <= DateTime.Today.AddDays(90);
+        public bool IsExpiringSoon => DChemist.Utils.ExpiryPolicy.NeedsAttention(ExpiryDate, RemainingUnits);
 
         public string FormattedQuantity
         {

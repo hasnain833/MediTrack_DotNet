@@ -44,6 +44,8 @@ namespace DChemist.ViewModels
                 return string.IsNullOrWhiteSpace(name) ? part : $"{part}, {name}";
             }
         }
+        private string _profitLabel = "PROFIT TODAY";
+        public string ProfitLabel { get => _profitLabel; private set => SetProperty(ref _profitLabel, value); }
         public string TodayText => DateTime.Now.ToString("dddd, d MMMM");
 
         // ---- KPI row ----
@@ -104,6 +106,7 @@ namespace DChemist.ViewModels
                 SalesToday = today.Sales;
                 BillsToday = today.Bills;
                 ProfitToday = today.Profit;
+                ProfitLabel = today.EstimatedCostItems > 0 || today.MissingCostItems > 0 ? "PROFIT TODAY (ESTIMATE)" : "PROFIT TODAY";
                 LastBillText = today.LastBill is DateTime t ? $"last at {t.ToLocalTime():HH:mm}" : "no bills yet";
                 OnPropertyChanged(nameof(MarginText));
                 OnPropertyChanged(nameof(Greeting));

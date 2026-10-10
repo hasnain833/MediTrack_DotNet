@@ -11,11 +11,11 @@ namespace DChemist.Repositories
     public interface IDashboardRepository
     {
         Task<long> GetLowStockCountAsync(int threshold = 10);
-        Task<long> GetExpiringSoonCountAsync(int days = 30);
+        Task<long> GetExpiringSoonCountAsync();
         Task<decimal> GetTodaysRevenueAsync();
         Task<List<DashboardSaleItem>> GetRecentSalesAsync(int limit = 15);
         Task<List<DashboardMedicineAlert>> GetLowStockItemsAsync(int threshold = 10, int limit = 15);
-        Task<List<DashboardMedicineAlert>> GetExpiringItemsAsync(int days = 30, int limit = 15);
+        Task<List<DashboardMedicineAlert>> GetExpiringItemsAsync(int limit = 15);
     }
 
     public class DashboardRepository : IDashboardRepository
@@ -40,23 +40,23 @@ namespace DChemist.Repositories
             return await conn.ExecuteScalarAsync<long>(query, new { threshold });
         }
 
-        public async Task<long> GetExpiringSoonCountAsync(int days = 30)
+        public async Task<long> GetExpiringSoonCountAsync()
         {
             string query = $@"
                 SELECT COUNT(*) FROM inventory_batches 
-                WHERE expiry_date <= CURRENT_DATE + INTERVAL '{days} days' 
+                WHERE expiry_date <= @expiryCutoff
                 AND remaining_units > 0";
             
             using var conn = _db.GetConnection();
-            return await conn.ExecuteScalarAsync<long>(query);
+            return await conn.ExecuteScalarAsync<long>(query, new { expiryCutoff = DChemist.Utils.ExpiryPolicy.Cutoff });
         }
 
         public async Task<decimal> GetTodaysRevenueAsync()
         {
-            const string query = "SELECT CAST(COALESCE(SUM(grand_total), 0) AS numeric(20,2)) FROM sales WHERE sale_date >= CURRENT_DATE AND sale_date < CURRENT_DATE + 1";
+            const string query = "SELECT CAST(COALESCE(SUM(grand_total), 0) AS numeric(20,2)) FROM sales WHERE sale_date >= @start AND sale_date < @end AND status <> 'Voided'";
             
             using var conn = _db.GetConnection();
-            return await conn.ExecuteScalarAsync<decimal>(query);
+            return await conn.ExecuteScalarAsync<decimal>(query, FinancialReportQueries.ForDay(DateTime.Today));
         }
 
         public async Task<List<DashboardSaleItem>> GetRecentSalesAsync(int limit = 5)
@@ -67,7 +67,8 @@ namespace DChemist.Repositories
                     sale_date AS Date, 
                     grand_total AS Total,
                     'Cash' AS Method
-                FROM sales 
+                FROM sales
+                WHERE status <> 'Voided'
                 ORDER BY sale_date DESC 
                 LIMIT @limit";
 
@@ -94,7 +95,7 @@ namespace DChemist.Repositories
             return results.ToList();
         }
 
-        public async Task<List<DashboardMedicineAlert>> GetExpiringItemsAsync(int days = 30, int limit = 15)
+        public async Task<List<DashboardMedicineAlert>> GetExpiringItemsAsync(int limit = 15)
         {
             string query = $@"
                 SELECT 
@@ -102,13 +103,13 @@ namespace DChemist.Repositories
                     'Expires: ' || TO_CHAR(b.expiry_date, 'YYYY-MM-DD') as SubText
                 FROM medicines m
                 JOIN inventory_batches b ON m.id = b.medicine_id
-                WHERE b.expiry_date <= CURRENT_DATE + INTERVAL '{days} days'
+                WHERE b.expiry_date <= @expiryCutoff
                 AND b.remaining_units > 0
                 ORDER BY b.expiry_date ASC
                 LIMIT @limit";
             
             using var conn = _db.GetConnection();
-            var results = await conn.QueryAsync<DashboardMedicineAlert>(query, new { limit });
+            var results = await conn.QueryAsync<DashboardMedicineAlert>(query, new { limit, expiryCutoff = DChemist.Utils.ExpiryPolicy.Cutoff });
             return results.ToList();
         }
     }
@@ -119,57 +120,52 @@ namespace DChemist.Repositories
         private readonly DatabaseService _db;
         public DashboardStatsRepository(DatabaseService db) { _db = db; }
 
-        public async Task<(decimal Sales, int Bills, decimal Profit, DateTime? LastBill)> GetTodayAsync()
+        public async Task<(decimal Sales, int Bills, decimal Profit, DateTime? LastBill, int EstimatedCostItems, int MissingCostItems)> GetTodayAsync()
         {
-            const string sql = @"
-                SELECT
-                    COALESCE(SUM(s.grand_total), 0)        AS Sales,
-                    CAST(COUNT(*) AS INTEGER)              AS Bills,
-                    MAX(s.sale_date)                       AS LastBill,
-                    COALESCE((
-                        SELECT SUM((si.quantity - si.returned_qty) * (si.unit_price - COALESCE(ib.unit_cost, 0)))
-                        FROM sale_items si
-                        JOIN sales s2 ON s2.id = si.sale_id
-                        LEFT JOIN inventory_batches ib ON ib.id = si.batch_id
-                        WHERE s2.sale_date >= CURRENT_DATE AND s2.sale_date < CURRENT_DATE + 1 AND s2.status <> 'Voided'
-                    ), 0)                                  AS Profit
-                FROM sales s
-                WHERE s.sale_date >= CURRENT_DATE AND s.sale_date < CURRENT_DATE + 1 AND s.status <> 'Voided'";
             using var conn = _db.GetConnection();
-            var r = await conn.QuerySingleAsync(sql);
-            return ((decimal)r.sales, (int)r.bills, (decimal)r.profit, (DateTime?)r.lastbill);
+            var r = await conn.QuerySingleAsync(FinancialReportQueries.Summary, FinancialReportQueries.ForDay(DateTime.Today));
+            return ((decimal)r.netsales, (int)r.totalsalescount, (decimal)r.totalprofit, (DateTime?)r.lastbill, (int)r.estimatedcostitems, (int)r.missingcostitems);
         }
 
         /// <summary>Net sales per day for the last 14 days (oldest first), zero-filled.</summary>
         public async Task<List<(DateTime Day, decimal Total)>> GetDailySalesAsync()
         {
             const string sql = @"
-                SELECT d::date AS Day, COALESCE(SUM(s.grand_total), 0) AS Total
-                FROM generate_series(CURRENT_DATE - 13, CURRENT_DATE, interval '1 day') d
-                LEFT JOIN sales s ON s.sale_date >= d AND s.sale_date < d + interval '1 day' AND s.status <> 'Voided'
-                GROUP BY d ORDER BY d";
+                SELECT (sale_date AT TIME ZONE @zone)::date AS Day, SUM(grand_total) AS Total
+                FROM sales WHERE sale_date >= @start AND sale_date < @end AND status <> 'Voided'
+                GROUP BY 1";
+            var firstDay = DateTime.Today.AddDays(-13);
             using var conn = _db.GetConnection();
-            var rows = await conn.QueryAsync<(DateTime, decimal)>(sql);
-            return rows.ToList();
+            var zone = TimeZoneInfo.Local.Id;
+            if (OperatingSystem.IsWindows() && TimeZoneInfo.TryConvertWindowsIdToIanaId(zone, out var iana)) zone = iana;
+            var rows = await conn.QueryAsync<(DateTime Day, decimal Total)>(sql, new
+            {
+                start = firstDay.ToUniversalTime(), end = DateTime.Today.AddDays(1).ToUniversalTime(), zone
+            });
+            var totals = rows.ToDictionary(r => r.Day.Date, r => r.Total);
+            return Enumerable.Range(0, 14).Select(i =>
+            {
+                var day = firstDay.AddDays(i);
+                return (day, totals.GetValueOrDefault(day));
+            }).ToList();
         }
 
-        /// <summary>Expired / expiring within 30 days (with stock left) and low stock (under one box, or under 10 units).</summary>
+        /// <summary>Expired / expiring within six months (with stock left) and low stock (under one box, or under 10 units).</summary>
         public async Task<List<AttentionItem>> GetAttentionItemsAsync()
         {
             const string sql = @"
                 SELECT m.name AS Name, 'exp' AS Kind, (b.expiry_date - CURRENT_DATE) AS DaysLeft,
                        b.remaining_units AS Units, b.expiry_date AS ExpiryDate
                 FROM inventory_batches b JOIN medicines m ON m.id = b.medicine_id
-                WHERE b.remaining_units > 0 AND b.expiry_date <= CURRENT_DATE + 30
+                WHERE b.remaining_units > 0 AND b.expiry_date <= @expiryCutoff
                 UNION ALL
                 SELECT m.name, 'low', NULL, COALESCE(SUM(b.remaining_units), 0), NULL
                 FROM medicines m LEFT JOIN inventory_batches b ON b.medicine_id = m.id
                 GROUP BY m.id, m.name, m.packets_per_box, m.units_per_pack
                 HAVING COALESCE(SUM(b.remaining_units), 0) < GREATEST(10, GREATEST(m.packets_per_box, 1) * GREATEST(m.units_per_pack, 1))
-                ORDER BY 2, 3 NULLS LAST, 4
-                LIMIT 200";
+                ORDER BY 2, 3 NULLS LAST, 4";
             using var conn = _db.GetConnection();
-            var rows = await conn.QueryAsync<AttentionItem>(sql);
+            var rows = await conn.QueryAsync<AttentionItem>(sql, new { expiryCutoff = DChemist.Utils.ExpiryPolicy.Cutoff });
             return rows.ToList();
         }
     }
@@ -185,7 +181,7 @@ namespace DChemist.Repositories
         public bool IsExpiry => Kind == "exp";
         public string Tag => !IsExpiry ? "Low stock" : DaysLeft < 0 ? "Expired" : DaysLeft == 0 ? "Today" : $"{DaysLeft} days";
         /// <summary>Red: expired or ≤14 days. Amber: later expiry or low stock.</summary>
-        public bool IsUrgent => IsExpiry && DaysLeft <= 14;
+        public bool IsUrgent => IsExpiry && DaysLeft <= 0;
         public string Info => IsExpiry
             ? $"{(DaysLeft < 0 ? "Expired" : "Expires")} {ExpiryDate:d MMM yyyy} · {Units} units"
             : Units == 0 ? "Out of stock" : $"{Units} units left";

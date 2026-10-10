@@ -64,6 +64,8 @@ namespace DChemist.Services
                 sb.AppendLine(Justify(receipt.TaxRateText.TrimEnd(':'), receipt.TaxAmount.ToString("N2")));
             if (receipt.DiscountAmount > 0)
                 sb.AppendLine(Justify("Discount", "-" + receipt.DiscountAmount.ToString("N2")));
+            if (receipt.ExtraAmount > 0)
+                sb.AppendLine(Justify("Extra amount", receipt.ExtraAmount.ToString("N2")));
             sb.AppendLine(Thick);
             sb.Append(Center).Append(Large).AppendLine($"TOTAL Rs {receipt.GrandTotal:N2}").Append(Normal);
             sb.AppendLine(Thick);

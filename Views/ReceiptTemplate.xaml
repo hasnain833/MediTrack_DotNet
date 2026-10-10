@@ -96,6 +96,10 @@
             <TextBlock Text="Discount:" FontSize="10" HorizontalAlignment="Left"/>
             <TextBlock Text="{x:Bind ViewModel.DiscountAmount, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
         </Grid>
+        <Grid Margin="0,2" Visibility="{x:Bind ViewModel.ExtraAmount, Converter={StaticResource DecimalToVisibilityConverter}, Mode=OneWay}">
+            <TextBlock Text="Extra amount:" FontSize="10" HorizontalAlignment="Left"/>
+            <TextBlock Text="{x:Bind ViewModel.ExtraAmount, Converter={StaticResource CurrencyConverter}}" FontSize="10" HorizontalAlignment="Right"/>
+        </Grid>
         
         <Grid Margin="0,5">
             <TextBlock Text="GRAND TOTAL" FontSize="12" FontWeight="Bold" HorizontalAlignment="Left"/>

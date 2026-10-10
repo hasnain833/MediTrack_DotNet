@@ -13,6 +13,7 @@ namespace DChemist.Models
         public decimal TotalAmount { get; set; }
         public decimal TaxAmount { get; set; }
         public decimal DiscountAmount { get; set; }
+        public decimal ExtraAmount { get; set; }
         public decimal GrandTotal { get; set; }
         public DateTime SaleDate { get; set; }
         public string Status { get; set; } = "Completed";
@@ -23,12 +24,10 @@ namespace DChemist.Models
         {
             get
             {
-                decimal profit = 0;
-                foreach (var item in Items)
-                {
-                    profit += item.Profit;
-                }
-                return profit;
+                if (Status == "Voided") return 0;
+                decimal cost = 0;
+                foreach (var item in Items) cost += item.NetQuantity * item.PurchasePrice;
+                return GrandTotal - TaxAmount - cost;
             }
         }
     }

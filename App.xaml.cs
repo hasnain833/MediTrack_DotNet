@@ -159,7 +159,7 @@ namespace DChemist
             return services.BuildServiceProvider();
         }
 
-        protected override void OnLaunched(LaunchActivatedEventArgs args)
+        protected override async void OnLaunched(LaunchActivatedEventArgs args)
         {
             _window = new MainWindow();
             
@@ -167,15 +167,22 @@ namespace DChemist
             MainRoot = rootFrame;
             _window.Content = rootFrame;
             
-            // Start background initialization
-            var dbService = Services.GetRequiredService<DatabaseService>();
-            _ = Task.Run(async () => {
-                try {
-                    await dbService.InitializeAsync();
-                } catch (Exception ex) {
-                    AppLogger.LogError("Async DB Init failed", ex);
-                }
-            });
+            rootFrame.Content = new TextBlock { Text = "Preparing database...", Margin = new Thickness(24) };
+            _window.Activate();
+            try
+            {
+                await Services.GetRequiredService<DatabaseService>().InitializeAsync();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.LogError("Startup database initialization failed", ex);
+                rootFrame.Content = new TextBlock
+                {
+                    Text = "Database setup could not finish. Check the database connection and application logs, then restart D. Chemist.",
+                    TextWrapping = TextWrapping.Wrap, Margin = new Thickness(24)
+                };
+                return;
+            }
 
             var navService = Services.GetRequiredService<NavigationService>();
             navService.InitializeRoot(rootFrame);

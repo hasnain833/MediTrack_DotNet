@@ -14,7 +14,7 @@ namespace DChemist.ViewModels
     {
         public string PharmacyName { get; set; } = "D. Chemist";
         public string PharmacyAddress { get; set; } = "Khewra Road, Choa Saidan Shah, District Chakwal";
-        public string PharmacyPhone { get; set; } = "+92-332-8787833";
+        public string PharmacyPhone { get; set; } = "+92-332-8787833 +92-346-7087833";
         public string PharmacyLicense { get; set; } = "01-372-0011-134212M";
         public string PharmacyNtn { get; set; } = "I736466-5";
         public BitmapImage? StoreLogo { get; set; }
@@ -56,6 +56,7 @@ namespace DChemist.ViewModels
         public decimal TaxAmount { get; set; }
         public string TaxRateText { get; set; } = "Tax:";
         public decimal DiscountAmount { get; set; }
+        public decimal ExtraAmount { get; set; }
         public decimal GrandTotal { get; set; }
         /// <summary>Null on reprints / when the cashier skipped it.</summary>
         public decimal? CashReceived { get; set; }

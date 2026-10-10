@@ -20,6 +20,7 @@ namespace DChemist.Models.UseCases
         public decimal TotalAmount { get; set; }
         public decimal TaxAmount { get; set; }
         public decimal DiscountAmount { get; set; }
+        public decimal ExtraAmount { get; set; }
         public decimal GrandTotal { get; set; }
         public bool ReportToFbr { get; set; }
         public List<SaleLineItemDto> Items { get; set; } = new();
@@ -45,6 +46,7 @@ namespace DChemist.Models.UseCases
         public decimal TotalAmount { get; set; }
         public decimal TaxAmount { get; set; }
         public decimal DiscountAmount { get; set; }
+        public decimal ExtraAmount { get; set; }
         public decimal GrandTotal { get; set; }
         public decimal TaxRate { get; set; }
         public decimal? CashReceived { get; set; }

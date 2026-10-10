@@ -84,6 +84,11 @@ namespace DChemist.ViewModels
             try
             {
                 Report = await _saleRepo.GetFinancialReportAsync(ReportDate.DateTime);
+                StatusMessage = Report.MissingCostItems > 0
+                    ? $"Profit needs review: {Report.MissingCostItems} sale line(s) have missing or zero batch costs."
+                    : Report.EstimatedCostItems > 0
+                        ? $"Profit uses current batch costs for {Report.EstimatedCostItems} older sale line(s). Verify against purchase invoices."
+                        : string.Empty;
             }
             catch (Exception ex)
             {

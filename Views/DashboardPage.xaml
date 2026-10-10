@@ -78,7 +78,7 @@
                     <!-- Profit reveals cost prices, so admins only -->
                     <Border Grid.Column="2" Style="{StaticResource Kpi}" Visibility="{x:Bind ViewModel.IsAdmin}">
                         <StackPanel Spacing="2">
-                            <TextBlock Text="PROFIT TODAY" Style="{StaticResource KpiLabel}"/>
+                            <TextBlock Text="{x:Bind ViewModel.ProfitLabel, Mode=OneWay}" Style="{StaticResource KpiLabel}"/>
                             <TextBlock Text="{x:Bind ViewModel.ProfitToday, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" FontSize="24" FontWeight="SemiBold"/>
                             <TextBlock Text="{x:Bind ViewModel.MarginText, Mode=OneWay}" FontSize="12" Foreground="#4B5563"/>
                         </StackPanel>

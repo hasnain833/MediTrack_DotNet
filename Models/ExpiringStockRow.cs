@@ -6,7 +6,7 @@ namespace DChemist.Models
     public class ExpiringStockRow
     {
         public int No { get; set; }
-        public int SupplierId { get; set; }
+        public int? SupplierId { get; set; }
         public string SupplierName { get; set; } = string.Empty;
         public string? SupplierPhone { get; set; }
         public string MedicineName { get; set; } = string.Empty;

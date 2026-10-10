@@ -54,7 +54,7 @@ namespace DChemist.Services
 
         public async Task<string> GetPharmacyNameAsync() => await GetSettingAsync("pharmacy_name", "D. Chemist");
         public async Task<string> GetPharmacyAddressAsync() => await GetSettingAsync("pharmacy_address", "Khewra Road, Choa Saidan Shah, District Chakwal");
-        public async Task<string> GetPharmacyPhoneAsync() => await GetSettingAsync("pharmacy_phone", "+92-332-8787833");
+        public async Task<string> GetPharmacyPhoneAsync() => await GetSettingAsync("pharmacy_phone", "+92-332-8787833 +92-346-7087833");
         public async Task<string> GetPharmacyLicenseAsync() => await GetSettingAsync("pharmacy_license", "01-372-0011-134212M");
         public async Task<string> GetPharmacyNtnAsync() => await GetSettingAsync("pharmacy_ntn", "I736466-5");
         public async Task<string> GetReceiptFooterAsync() => await GetSettingAsync("receipt_footer", "Thank you for your visit!");

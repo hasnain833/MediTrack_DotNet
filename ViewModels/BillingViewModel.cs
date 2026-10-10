@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -28,7 +29,10 @@ namespace DChemist.ViewModels
         private decimal _taxAmount;
         private decimal _discountAmount;
         private decimal _discountRupees;
-        private string _discountText = "0";
+        private string _discountText = string.Empty;
+        private string _discountPercentText = string.Empty;
+        private decimal _discountPercent;
+        private bool _usePercentageDiscount;
         private decimal _grandTotal;
         private Medicine? _selectedMedicine;
         private string _barcodeText = string.Empty;
@@ -60,8 +64,8 @@ namespace DChemist.ViewModels
             SearchCommand = new AsyncRelayCommand(async _ => await SearchMedicinesAsync());
             AddToCartCommand = new AsyncRelayCommand(async _ => await ExecuteAddToCartAsync(), _ => SelectedMedicine != null);
             RemoveFromCartCommand = new RelayCommand(item => ExecuteRemoveFromCart(item as SaleItemViewModel), item => item is SaleItemViewModel);
-            CompleteSaleReportedCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(true), _ => CartItems.Any());
-            CompleteSaleInternalCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(false), _ => CartItems.Any());
+            CompleteSaleReportedCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(true), _ => CartItems.Any() && !IsBusy);
+            CompleteSaleInternalCommand = new AsyncRelayCommand(async _ => await ExecuteCompleteSaleAsync(false), _ => CartItems.Any() && !IsBusy);
             PrintBillCommand = new AsyncRelayCommand(async _ => await ExecutePrintBillAsync());
             ClearCartCommand = new RelayCommand(_ => ExecuteClearCart(), _ => CartItems.Any());
         }
@@ -70,6 +74,7 @@ namespace DChemist.ViewModels
         {
             _taxRate = await _settingsService.GetTaxRateAsync();
             OnPropertyChanged(nameof(TaxRateText));
+            UpdateTotals();
         }
 
         public string StatusMessage { get => _statusMessage; set => SetProperty(ref _statusMessage, value); }
@@ -96,21 +101,33 @@ namespace DChemist.ViewModels
         public decimal TotalAmount { get => _totalAmount; set => SetProperty(ref _totalAmount, value); }
         public decimal TaxAmount { get => _taxAmount; set => SetProperty(ref _taxAmount, value); }
         public string TaxRateText => $"Tax ({_taxRate * 100:0.##}%)";
-        public decimal DiscountAmount { get => _discountAmount; set { if (SetProperty(ref _discountAmount, value)) UpdateTotals(); } }
+        public decimal DiscountAmount { get => _discountAmount; private set => SetProperty(ref _discountAmount, value); }
         public string DiscountText
         {
             get => _discountText;
             set
             {
-                if (SetProperty(ref _discountText, value))
-                {
-                    if (decimal.TryParse(value, out var d))
-                        _discountRupees = d;
-                    else if (string.IsNullOrWhiteSpace(value))
-                        _discountRupees = 0;
-
-                    UpdateTotals();
-                }
+                if (!SetProperty(ref _discountText, value)) return;
+                _usePercentageDiscount = false;
+                _discountRupees = decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount) ? amount : 0;
+                _discountPercent = 0;
+                _discountPercentText = string.Empty;
+                OnPropertyChanged(nameof(DiscountPercentText));
+                UpdateTotals();
+            }
+        }
+        public string DiscountPercentText
+        {
+            get => _discountPercentText;
+            set
+            {
+                if (!SetProperty(ref _discountPercentText, value)) return;
+                _usePercentageDiscount = true;
+                _discountPercent = decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out var percent) ? percent : 0;
+                _discountRupees = 0;
+                _discountText = string.Empty;
+                OnPropertyChanged(nameof(DiscountText));
+                UpdateTotals();
             }
         }
         public decimal GrandTotal { get => _grandTotal; set => SetProperty(ref _grandTotal, value); }
@@ -144,7 +161,16 @@ namespace DChemist.ViewModels
             set => SetProperty(ref _barcodeText, value);
         }
         public bool IsContinuousScanMode { get => _isContinuousScanMode; set => SetProperty(ref _isContinuousScanMode, value); }
-        public bool IsBusy { get => _isBusy; set => SetProperty(ref _isBusy, value); }
+        public bool IsBusy
+        {
+            get => _isBusy;
+            set
+            {
+                if (!SetProperty(ref _isBusy, value)) return;
+                ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
+                ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
+            }
+        }
 
         public ICommand SearchCommand { get; }
         public ICommand AddToCartCommand { get; }
@@ -314,7 +340,12 @@ namespace DChemist.ViewModels
             CustomerName = string.Empty;
             CustomerPhone = string.Empty;
             CashReceivedText = string.Empty;
-            DiscountText = "0";
+            _discountText = _discountPercentText = string.Empty;
+            _discountRupees = _discountPercent = 0;
+            _usePercentageDiscount = false;
+            OnPropertyChanged(nameof(DiscountText));
+            OnPropertyChanged(nameof(DiscountPercentText));
+            UpdateTotals();
             ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
             ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
             ((RelayCommand)ClearCartCommand).RaiseCanExecuteChanged();
@@ -329,9 +360,10 @@ namespace DChemist.ViewModels
         private void UpdateTotals()
         {
             TotalAmount = CartItems.Sum(i => i.Subtotal);
-            TaxAmount = TotalAmount * _taxRate;
-            DiscountAmount = Math.Clamp(_discountRupees, 0, TotalAmount + TaxAmount);
-            GrandTotal = TotalAmount + TaxAmount - DiscountAmount;
+            var totals = BillingTotals.Calculate(TotalAmount, _taxRate, _discountRupees, _discountPercent, _usePercentageDiscount, 0);
+            TaxAmount = totals.Tax;
+            DiscountAmount = totals.Discount;
+            GrandTotal = totals.Total;
             OnPropertyChanged(nameof(ChangeText));
             OnPropertyChanged(nameof(IsChangeShort));
             OnPropertyChanged(nameof(IsChangeOk));
@@ -340,6 +372,7 @@ namespace DChemist.ViewModels
 
         private async Task ExecutePrintBillAsync()
         {
+            if (!ValidateAdjustments()) return;
             var req = CreatePrintReceiptRequest("BILL-" + DateTime.Now.Ticks.ToString().Substring(10), null);
             var result = await _salesWorkflow.PrintReceiptAsync(req);
             if (!result.Success)
@@ -376,9 +409,29 @@ namespace DChemist.ViewModels
             };
         }
 
+        private bool ValidateAdjustments()
+        {
+            foreach (var input in new[] { DiscountText, DiscountPercentText })
+            {
+                if (!string.IsNullOrWhiteSpace(input) &&
+                    (!decimal.TryParse(input, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) || value < 0))
+                {
+                    StatusMessage = "Enter a valid, non-negative discount.";
+                    return false;
+                }
+            }
+            if (_usePercentageDiscount && _discountPercent > 100)
+            {
+                StatusMessage = "Discount percentage cannot exceed 100%.";
+                return false;
+            }
+            return true;
+        }
+
         private async Task ExecuteCompleteSaleAsync(bool shouldPrint)
         {
-            if (!CartItems.Any()) return;
+            if (!CartItems.Any() || IsBusy) return;
+            if (!ValidateAdjustments()) return;
 
             IsBusy = true;
             StatusMessage = string.Empty;
@@ -416,9 +469,14 @@ namespace DChemist.ViewModels
                     return;
                 }
 
-                if (shouldPrint && saleResult.BillNo != null)
+                var printReq = shouldPrint && saleResult.BillNo != null
+                    ? CreatePrintReceiptRequest(saleResult.BillNo, saleResult.FbrInvoiceNo)
+                    : null;
+                // The bill is already saved. Clear it before printing so a printer error
+                // cannot let the next shortcut save the same cart a second time.
+                ExecuteClearCart();
+                if (printReq != null)
                 {
-                    var printReq = CreatePrintReceiptRequest(saleResult.BillNo, saleResult.FbrInvoiceNo);
                     var printResult = await _salesWorkflow.PrintReceiptAsync(printReq);
                     if (!printResult.Success)
                     {
@@ -430,8 +488,6 @@ namespace DChemist.ViewModels
 
                 IsStatusSuccess = true;
                 StatusMessage = shouldPrint ? "Sale completed and printed successfully!" : "Sale saved successfully!";
-                ExecuteClearCart();
-
                 ((AsyncRelayCommand)CompleteSaleReportedCommand).RaiseCanExecuteChanged();
                 ((AsyncRelayCommand)CompleteSaleInternalCommand).RaiseCanExecuteChanged();
             }

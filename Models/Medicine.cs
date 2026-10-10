@@ -142,7 +142,7 @@ namespace DChemist.Models
 
         // Items page filters. Low = under one box (or ≤10 units for loose items).
         public bool IsLowStock => StockQty < Math.Max(10, Math.Max(1, PacketsPerBox) * Math.Max(1, UnitsPerPack));
-        public bool IsExpiringSoon => ExpiryDate.HasValue && ExpiryDate.Value.Date <= DateTime.Today.AddDays(90);
+        public bool IsExpiringSoon => ExpiryDate.HasValue && DChemist.Utils.ExpiryPolicy.NeedsAttention(ExpiryDate.Value, StockQty);
 
         public decimal Price { get => SellingPrice; set => SellingPrice = value; }
 

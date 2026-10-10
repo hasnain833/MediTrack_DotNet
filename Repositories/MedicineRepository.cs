@@ -24,7 +24,7 @@ namespace DChemist.Repositories
             _eventBus = eventBus;
         }
 
-        public async Task<List<Medicine>> GetAllAsync(int page = 0, int pageSize = 200)
+        public async Task<List<Medicine>> GetAllAsync(int page = 0, int pageSize = 200, bool expiringOnly = false, string? text = null)
         {
             const string query = @"
                 SELECT 
@@ -50,12 +50,15 @@ namespace DChemist.Repositories
                 LEFT JOIN manufacturers man ON m.manufacturer_id = man.id
                 LEFT JOIN inventory_batches b ON m.id = b.medicine_id
                 LEFT JOIN suppliers s ON b.supplier_id = s.id
+                WHERE (NOT @expiringOnly OR (b.remaining_units > 0 AND b.expiry_date <= @expiryCutoff))
+                  AND (@text IS NULL OR m.name ILIKE @text OR m.generic_name ILIKE @text
+                       OR m.barcode = @exact OR man.name ILIKE @text)
                 ORDER BY m.name ASC, b.expiry_date ASC
                 LIMIT @pageSize OFFSET @offset";
             try
             {
                 using var conn = _db.GetConnection();
-                var results = await conn.QueryAsync<Medicine>(query, new { pageSize, offset = page * pageSize });
+                var results = await conn.QueryAsync<Medicine>(query, new { pageSize = expiringOnly ? (int?)null : pageSize, offset = expiringOnly ? 0 : page * pageSize, expiringOnly, expiryCutoff = DChemist.Utils.ExpiryPolicy.Cutoff, text = string.IsNullOrWhiteSpace(text) ? null : $"%{text}%", exact = text });
                 return results.ToList();
             }
             catch (Exception ex)
@@ -266,7 +269,7 @@ namespace DChemist.Repositories
         private async Task<int> GetOrCreateSupplierAsync(string name, NpgsqlConnection conn, NpgsqlTransaction trans)
             => await GetOrCreateSupplierAsync(conn, name, trans);
 
-        public async Task UpdateAsync(Medicine medicine)
+        public async Task UpdateAsync(Medicine medicine, bool updateInventory = true)
         {
             _auth.EnforceAdmin();
             using var connection = _db.GetConnection();
@@ -308,6 +311,13 @@ namespace DChemist.Repositories
                     WHERE id = @Id";
                 
                 await connection.ExecuteAsync(medQuery, medicine, transaction);
+                // The edit form saves the selected batch separately; avoid modifying another batch.
+                if (!updateInventory)
+                {
+                    await transaction.CommitAsync();
+                    return;
+                }
+
 
                 // 3. Update Inventory Batches
                 AppLogger.LogInfo($"[UpdateAsync] Starting stock update for Medicine ID {medicine.Id}. Requested Total Stock: {medicine.StockQty}");

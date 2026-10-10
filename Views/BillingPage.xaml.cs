@@ -42,8 +42,8 @@ namespace DChemist.Views
             var query = args.QueryText?.Trim();
             if (string.IsNullOrWhiteSpace(query))
             {
-                // Enter on an empty search = bill is done: Discount -> Cash -> Name -> Phone (Enter there prints).
-                if (ViewModel.CartItems.Count > 0) FocusBox(DiscountBox);
+                // Enter on an empty search starts checkout at the percentage discount.
+                if (ViewModel.CartItems.Count > 0) FocusBox(DiscountPercentBox);
                 return;
             }
 
@@ -217,9 +217,10 @@ namespace DChemist.Views
         private void OnEnterNext(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
         {
             if (e.Key != Windows.System.VirtualKey.Enter) return;
-            if (sender == DiscountBox) FocusBox(CashBox);
-            else if (sender == CashBox) { CustomerExpander.IsExpanded = true; CustomerNameBox.UpdateLayout(); FocusBox(CustomerNameBox); }
-            else if (sender == CustomerNameBox) FocusBox(CustomerPhoneBox);
+            if (ReferenceEquals(sender, DiscountPercentBox)) FocusBox(DiscountBox);
+            else if (ReferenceEquals(sender, DiscountBox)) FocusBox(CashBox);
+            else if (ReferenceEquals(sender, CashBox)) { CustomerExpander.IsExpanded = true; CustomerNameBox.UpdateLayout(); FocusBox(CustomerNameBox); }
+            else if (ReferenceEquals(sender, CustomerNameBox)) FocusBox(CustomerPhoneBox);
             e.Handled = true;
         }
 
@@ -227,6 +228,24 @@ namespace DChemist.Views
         {
             box.Focus(Microsoft.UI.Xaml.FocusState.Programmatic);
             box.SelectAll();
+        }
+
+        private void OnSaveAcceleratorInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
+            Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+        {
+            _scannerBuffer.Clear();
+            args.Handled = true;
+            if (ViewModel.CompleteSaleInternalCommand.CanExecute(null))
+                ViewModel.CompleteSaleInternalCommand.Execute(null);
+        }
+
+        private void OnPrintAcceleratorInvoked(Microsoft.UI.Xaml.Input.KeyboardAccelerator sender,
+            Microsoft.UI.Xaml.Input.KeyboardAcceleratorInvokedEventArgs args)
+        {
+            _scannerBuffer.Clear();
+            args.Handled = true;
+            if (ViewModel.CompleteSaleReportedCommand.CanExecute(null))
+                ViewModel.CompleteSaleReportedCommand.Execute(null);
         }
 
         // Enter in Phone (last input) prints the bill.

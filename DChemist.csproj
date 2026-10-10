@@ -10,8 +10,8 @@
     <ApplicationTitle>D. Chemist</ApplicationTitle>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
-    <Version>1.9.3.0</Version>
-    <FileVersion>1.9.3.0</FileVersion>
+    <Version>1.9.6.0</Version>
+    <FileVersion>1.9.6.0</FileVersion>
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
     
     <Platforms>x64</Platforms>
@@ -31,7 +31,7 @@
     
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <DefaultItemExcludes>$(DefaultItemExcludes);DChemistUpdater\**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);DChemistUpdater\**;Tests\**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

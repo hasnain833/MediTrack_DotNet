@@ -1,6 +1,5 @@
-# One-command release: bump version -> publish -> zip -> GitHub release -> push version.json.
-# Usage:  .\release.ps1 1.9.0.0 "What changed in this release"
-# Needs:  GitHub CLI (winget install GitHub.cli, then: gh auth login), a clean git tree.
+# Release from committed source; publish the updater manifest after the ZIP is available.
+# Usage: .\release.ps1 1.9.6.0 "Release notes"
 param(
     [Parameter(Mandatory)][string]$Version,
     [Parameter(Mandatory)][string]$Notes
@@ -8,49 +7,82 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-if (-not [version]::TryParse($Version, [ref]$null)) { throw "Version must look like 1.9.0.0" }
-if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw "GitHub CLI not found. Run: winget install GitHub.cli ; gh auth login" }
-if (git status --porcelain) { throw "Commit or stash your changes first - a release must match what is in git." }
-if (-not (Test-Path updater.exe)) { & .\publish_updater.ps1 }
+$parsedVersion = $null
+if (-not [version]::TryParse($Version, [ref]$parsedVersion) -or $parsedVersion.Revision -lt 0) {
+    throw 'Version must have four components, for example 1.9.6.0.'
+}
+if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'GitHub CLI is required.' }
+$pendingChanges = git status --porcelain
+if ($LASTEXITCODE -ne 0) { throw 'Cannot read git status.' }
+if ($pendingChanges) { throw 'Commit your changes first so the release matches its source.' }
+gh auth status
+if ($LASTEXITCODE -ne 0) { throw 'Sign in using gh auth login before releasing.' }
+if (-not (Test-Path -LiteralPath 'updater.exe')) { & .\publish_updater.ps1 }
 
+$repo = 'hasnain833/MediTrack_DotNet'
 $tag = "v$Version"
 $zipName = "DChemist_${tag}_Release.zip"
-$outDir = Join-Path $env:TEMP "dchemist_release"
-$stage = Join-Path $outDir $tag
-$zip = Join-Path $outDir $zipName
+# Fresh staging avoids deleting an existing release or backup.
+$releaseRoot = Join-Path $PSScriptRoot ('Publish\Releases\' + $tag + '_' + [guid]::NewGuid().ToString('N'))
+$stage = Join-Path $releaseRoot $tag
+$zip = Join-Path $releaseRoot $zipName
+New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 
-Write-Host "[1/5] Bumping version to $Version" -ForegroundColor Yellow
-$csproj = Get-Content DChemist.csproj -Raw
-$csproj = $csproj -replace '<Version>[^<]*</Version>', "<Version>$Version</Version>" `
-                  -replace '<FileVersion>[^<]*</FileVersion>', "<FileVersion>$Version</FileVersion>"
-[IO.File]::WriteAllText("$PWD\DChemist.csproj", $csproj)  # UTF-8 without BOM
+Write-Host '[1/5] Preparing version and source' -ForegroundColor Yellow
+$csproj = Get-Content -LiteralPath 'DChemist.csproj' -Raw
+$updatedCsproj = $csproj -replace '<Version>[^<]*</Version>', "<Version>$Version</Version>" `
+    -replace '<FileVersion>[^<]*</FileVersion>', "<FileVersion>$Version</FileVersion>"
+if ($updatedCsproj -ne $csproj) {
+    [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'DChemist.csproj'), $updatedCsproj)
+    git add -- DChemist.csproj
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot stage the version.' }
+    git commit -m "Prepare $tag"
+    if ($LASTEXITCODE -ne 0) { throw 'Cannot commit the version.' }
+}
+$sourceCommit = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Cannot resolve release source commit.' }
 
-Write-Host "[2/5] Publishing" -ForegroundColor Yellow
-if (Test-Path $outDir) { Remove-Item $outDir -Recurse -Force }
-dotnet publish DChemist.csproj -c Release -r win-x64 --self-contained -p:Platform=x64 -o $stage
-if ($LASTEXITCODE -ne 0) { git checkout -- DChemist.csproj; throw "Publish failed." }
+Write-Host '[2/5] Building release' -ForegroundColor Yellow
+dotnet publish DChemist.csproj --no-restore -c Release -r win-x64 --self-contained -p:Platform=x64 -o $stage
+if ($LASTEXITCODE -ne 0) { throw 'Publish failed. No release or manifest was published.' }
+if (-not (Test-Path -LiteralPath (Join-Path $stage 'DChemist.dll'))) { throw 'Missing application assembly.' }
+$builtVersion = (Get-Item -LiteralPath (Join-Path $stage 'DChemist.dll')).VersionInfo.FileVersion
+if ($builtVersion -ne $Version) { throw "Built version $builtVersion differs from requested $Version." }
 
-Write-Host "[3/5] Zipping" -ForegroundColor Yellow
+# Preserve each shop's connection settings; debug symbols are unnecessary on shop PCs.
+$devConfig = Join-Path $stage 'appsettings.json'
+if (Test-Path -LiteralPath $devConfig) { Remove-Item -LiteralPath $devConfig }
+Get-ChildItem -LiteralPath $stage -Recurse -File -Filter '*.pdb' | ForEach-Object {
+    Remove-Item -LiteralPath $_.FullName
+}
+if (Test-Path -LiteralPath 'SHOP_PC_UPDATE.md') { Copy-Item -LiteralPath 'SHOP_PC_UPDATE.md' -Destination $stage }
+
+Write-Host '[3/5] Creating package' -ForegroundColor Yellow
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory($stage, $zip, 'Optimal', $true)
-$sha = (Get-FileHash $zip -Algorithm SHA256).Hash
+$sha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash
+$notesFile = Join-Path $releaseRoot 'release-notes.md'
+[IO.File]::WriteAllText($notesFile, $Notes)
 
-Write-Host "[4/5] Uploading GitHub release $tag" -ForegroundColor Yellow
-gh release create $tag $zip --title $tag --notes $Notes
-if ($LASTEXITCODE -ne 0) { git checkout -- DChemist.csproj; throw "gh release failed." }
+Write-Host '[4/5] Publishing source and GitHub release' -ForegroundColor Yellow
+git push origin HEAD
+if ($LASTEXITCODE -ne 0) { throw 'Source push failed; no release or manifest was published.' }
+gh release create $tag $zip --repo $repo --target $sourceCommit --title $tag --notes-file $notesFile --latest
+if ($LASTEXITCODE -ne 0) { throw 'GitHub release failed; the updater manifest was not changed.' }
 
-# version.json is pushed LAST: shop PCs only see the update once the zip is downloadable.
-Write-Host "[5/5] Publishing version.json" -ForegroundColor Yellow
+Write-Host '[5/5] Publishing updater manifest' -ForegroundColor Yellow
 [ordered]@{
     LatestVersion = $Version
-    DownloadUrl   = "https://github.com/hasnain833/MediTrack_DotNet/releases/download/$tag/$zipName"
-    ReleaseNotes  = $Notes
+    DownloadUrl = "https://github.com/$repo/releases/download/$tag/$zipName"
+    ReleaseNotes = $Notes
     PackageSha256 = $sha
-} | ConvertTo-Json | ForEach-Object { [IO.File]::WriteAllText("$PWD\version.json", $_) }
-
-git add DChemist.csproj version.json
+} | ConvertTo-Json | ForEach-Object { [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'version.json'), $_) }
+git add -- version.json
+if ($LASTEXITCODE -ne 0) { throw 'Cannot stage the manifest.' }
 git commit -m "Release $tag"
+if ($LASTEXITCODE -ne 0) { throw 'Cannot commit the manifest.' }
 git push origin HEAD
-if ($LASTEXITCODE -ne 0) { throw "Push failed - release is on GitHub but shops won't see it until version.json is pushed." }
+if ($LASTEXITCODE -ne 0) { throw 'Manifest push failed. The GitHub release exists; push version.json before shops can see it.' }
 
-Write-Host "`nReleased $tag. Shop PCs will pick it up on next app start." -ForegroundColor Green
+Write-Host "Released $tag. Shop PCs will see it on their next update check." -ForegroundColor Green
+Write-Host "Package: $zip"

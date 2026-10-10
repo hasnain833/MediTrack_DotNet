@@ -48,7 +48,7 @@ namespace DChemist.Services
             if (_authService.CurrentUser == null)
                 return new CompleteSaleResult { Success = false, Message = "You are not logged in." };
 
-            if (request.Items == null || request.Items.Count == 0)
+            if (request.Items == null || (request.Items.Count == 0 && request.ExtraAmount <= 0))
                 return new CompleteSaleResult { Success = false, Message = "No cart items to process." };
 
             // Stock validation is handled inside SaleRepository.CreateTransactionAsync
@@ -83,7 +83,8 @@ namespace DChemist.Services
                 request.GrandTotal,
                 false,
                 null,
-                null);
+                null,
+                request.ExtraAmount);
 
             // FBR integration is intentionally disabled.
             string? fbrInvNo = null;
@@ -111,6 +112,7 @@ namespace DChemist.Services
                     TaxAmount = request.TaxAmount,
                     TaxRateText = $"Tax ({request.TaxRate * 100:0.##}%):",
                     DiscountAmount = request.DiscountAmount,
+                    ExtraAmount = request.ExtraAmount,
                     GrandTotal = request.GrandTotal,
                     CashReceived = request.CashReceived
                 };

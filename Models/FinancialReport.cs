@@ -18,6 +18,8 @@ namespace DChemist.Models
         public int ReturnsCount { get; set; }
         
         public decimal TotalProfit { get; set; }
+        public int MissingCostItems { get; set; }
+        public int EstimatedCostItems { get; set; }
         public System.Collections.Generic.List<SaleSummary> DailyBills { get; set; } = new();
     }
 }

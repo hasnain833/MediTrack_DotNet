@@ -10,6 +10,10 @@
 
     <!-- Layout: cart on the left (search on top, keys hint below), totals panel on the right. -->
     <Grid Background="{ThemeResource AppBackgroundBrush}" RequestedTheme="Light" KeyDown="PageRoot_KeyDown">
+        <Grid.KeyboardAccelerators>
+            <KeyboardAccelerator Key="S" Modifiers="Control" Invoked="OnSaveAcceleratorInvoked"/>
+            <KeyboardAccelerator Key="P" Modifiers="Control" Invoked="OnPrintAcceleratorInvoked"/>
+        </Grid.KeyboardAccelerators>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="320"/>
@@ -146,7 +150,7 @@
             <!-- Keyboard hints -->
             <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="18">
                 <TextBlock FontSize="12" Foreground="#8A94A6"><Run Text="Enter" FontWeight="SemiBold"/> add / next box</TextBlock>
-                <TextBlock FontSize="12" Foreground="#8A94A6">Press <Run Text="Enter" FontWeight="SemiBold"/> to move through Discount, Cash, Name, Phone; Enter on Phone prints the bill</TextBlock>
+                <TextBlock FontSize="12" Foreground="#8A94A6">Press <Run Text="Enter" FontWeight="SemiBold"/> to move through Discount %, Discount PKR, Cash, Name, Phone; Enter on Phone prints the bill. Ctrl+S saves; Ctrl+P saves and prints.</TextBlock>
             </StackPanel>
         </Grid>
 
@@ -179,14 +183,25 @@
                             <TextBlock Text="{x:Bind ViewModel.TaxRateText, Mode=OneWay}" Foreground="{StaticResource TextSecondaryBrush}"/>
                             <TextBlock Text="{x:Bind ViewModel.TaxAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" HorizontalAlignment="Right"/>
                         </Grid>
-                        <Grid>
-                            <TextBlock Text="Discount (Rs)" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
-                            <TextBox x:Name="DiscountBox" KeyDown="OnEnterNext" Text="{x:Bind ViewModel.DiscountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                     PlaceholderText="0" Width="96" HorizontalAlignment="Right" TextAlignment="Right"/>
-                        </Grid>
-                        <Grid>
-                            <TextBlock Text="Discount" Foreground="{StaticResource TextSecondaryBrush}"/>
-                            <TextBlock Text="{x:Bind ViewModel.DiscountAmount, Mode=OneWay, Converter={StaticResource CurrencyConverter}}" HorizontalAlignment="Right"/>
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Discount" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                            <Grid Grid.Column="1" ColumnSpacing="4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="%" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="DiscountPercentBox" KeyDown="OnEnterNext" Text="{x:Bind ViewModel.DiscountPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.Name="Discount percentage" PlaceholderText="0" MinWidth="0" TextAlignment="Right"/>
+                            </Grid>
+                            <Grid Grid.Column="2" ColumnSpacing="4">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                                <TextBlock Text="PKR" Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                <TextBox Grid.Column="1" x:Name="DiscountBox" KeyDown="OnEnterNext" Text="{x:Bind ViewModel.DiscountText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.Name="Discount amount in PKR" PlaceholderText="0" MinWidth="0" TextAlignment="Right"/>
+                            </Grid>
                         </Grid>
 
                         <Border Height="1" Background="#E5E9EF" Margin="0,4"/>
@@ -224,7 +239,7 @@
                     <Button Command="{x:Bind ViewModel.CompleteSaleReportedCommand}" Style="{StaticResource PremiumButtonStyle}"
                             HorizontalAlignment="Stretch" Height="46" FontSize="15" FontWeight="Bold" Content="Print bill"/>
                     <Button Command="{x:Bind ViewModel.CompleteSaleInternalCommand}" Style="{StaticResource SecondaryButtonStyle}"
-                            HorizontalAlignment="Stretch" Height="38" Content="Save without printing"/>
+                            HorizontalAlignment="Stretch" Height="38" Content="Save"/>
                 </StackPanel>
             </Grid>
         </Border>

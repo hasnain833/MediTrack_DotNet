@@ -11,6 +11,9 @@
     x:Name="PageRoot">
 
     <Page.Resources>
+        <DataTemplate x:Key="InputHeaderTemplate">
+            <TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="12"/>
+        </DataTemplate>
         <utils:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <utils:InverseBooleanToVisibilityConverter x:Key="InverseBooleanToVisibilityConverter"/>
         <utils:CurrencyConverter x:Key="CurrencyConverter"/>
@@ -226,10 +229,10 @@
                                     <ColumnDefinition/>
                                     <ColumnDefinition/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Header="Packs / box" x:Name="PacketsPerBoxBox"
+                                <TextBox Header="Packets in one box" HeaderTemplate="{StaticResource InputHeaderTemplate}" x:Name="PacketsPerBoxBox"
                                          Text="{x:Bind ViewModel.PacketsPerBoxText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          PlaceholderText="e.g. 10" KeyDown="OnInputKeyDown"/>
-                                <TextBox Grid.Column="1" Header="Tabs / pack" x:Name="UnitsPerPacketBox"
+                                <TextBox Grid.Column="1" Header="Tablets in one packet" HeaderTemplate="{StaticResource InputHeaderTemplate}" x:Name="UnitsPerPacketBox"
                                          Text="{x:Bind ViewModel.UnitsPerPacketText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          PlaceholderText="e.g. 10" KeyDown="OnInputKeyDown"/>
                             </Grid>
@@ -247,24 +250,12 @@
                                          Text="{x:Bind ViewModel.ExpiryDateText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                          PlaceholderText="MM/YY" KeyDown="OnInputKeyDown" LostFocus="ExpiryDateBox_LostFocus"/>
                             </Grid>
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition/>
-                                    <ColumnDefinition/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Header="No. of boxes" x:Name="PackQuantityBox"
-                                         Visibility="{x:Bind ViewModel.IsBoxMode, Mode=OneWay}"
-                                         Text="{x:Bind ViewModel.PackQuantityText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         PlaceholderText="e.g. 10" KeyDown="OnInputKeyDown"/>
-                                <TextBox Header="Quantity (tabs)" x:Name="QuantityBox"
-                                         Visibility="{x:Bind ViewModel.IsTabletMode, Mode=OneWay}"
-                                         Text="{x:Bind ViewModel.QuantityUnitsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                         KeyDown="OnInputKeyDown"/>
-                                <TextBox Grid.Column="1" x:Name="SellingPriceBox" Header="Selling price"
-                                         Text="{x:Bind ViewModel.SellingPriceText, Mode=TwoWay}"
-                                         PlaceholderText="0.00" KeyDown="OnInputKeyDown"/>
-                            </Grid>
-                            <TextBlock Text="{x:Bind ViewModel.TotalUnitsPreviewText, Mode=OneWay}" FontSize="12" Foreground="#0B6E99"
+                            <TextBox x:Name="SellingPriceBox" Header="{x:Bind ViewModel.SellingPriceHeader, Mode=OneWay}" HeaderTemplate="{StaticResource InputHeaderTemplate}"
+                                     Text="{x:Bind ViewModel.SellingPriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     PlaceholderText="0.00" KeyDown="OnInputKeyDown"/>
+                            <TextBlock Text="Stock is added through Purchase." TextWrapping="Wrap" FontSize="12" Foreground="#4B5563"
+                                       Visibility="{x:Bind ViewModel.IsNewMedicine, Mode=OneWay}"/>
+                            <TextBlock Text="{x:Bind ViewModel.TotalUnitsPreviewText, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="#0B6E99"
                                        Visibility="{x:Bind ViewModel.IsBoxMode, Mode=OneWay}"/>
 
                             <!-- Corrections that only make sense for an existing medicine -->
@@ -273,9 +264,12 @@
                                     <ColumnDefinition/>
                                     <ColumnDefinition/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Header="Cost / tab" Text="{x:Bind ViewModel.EditPurchasePriceText, Mode=TwoWay}" PlaceholderText="0.00"/>
-                                <TextBox Grid.Column="1" Header="Stock (tabs)" Text="{x:Bind ViewModel.EditStockQtyText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBox x:Name="PurchaseCostBox" Header="{x:Bind ViewModel.PurchasePriceHeader, Mode=OneWay}" HeaderTemplate="{StaticResource InputHeaderTemplate}" Text="{x:Bind ViewModel.EditPurchasePriceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="0.00" KeyDown="OnInputKeyDown"/>
+                                <TextBox Grid.Column="1" x:Name="EditStockBox" Header="Stock (tablets)" Text="{x:Bind ViewModel.EditStockQtyText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" KeyDown="OnInputKeyDown"/>
                             </Grid>
+
+                            <TextBlock Text="{x:Bind ViewModel.PurchasePricePreview, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="#0B6E99"
+                                       Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}"/>
 
                             <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}" TextWrapping="Wrap" FontSize="12" Foreground="#4B5563"/>
                         </StackPanel>

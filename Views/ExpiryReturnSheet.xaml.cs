@@ -28,7 +28,7 @@ namespace DChemist.Views
                 page.DateText.Text = $"Date: {DateTime.Now:dd MMM yyyy}";
                 page.PageText.Text = $"Page {p + 1} of {chunks.Count}";
                 page.SupplierText.Text = string.IsNullOrWhiteSpace(first.SupplierPhone) ? first.SupplierName : $"{first.SupplierName}  ·  {first.SupplierPhone}";
-                page.ScopeText.Text = "Expired or expiring within 90 days\nQty in units (tabs)";
+                page.ScopeText.Text = DChemist.Utils.ExpiryPolicy.ScopeText + "\nQty in units (tabs)";
                 page.RowsList.ItemsSource = chunks[p];
                 if (p == chunks.Count - 1)
                 {

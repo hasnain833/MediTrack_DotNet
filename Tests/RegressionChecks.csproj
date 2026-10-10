@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Utils/ExpiryPolicy.cs" Link="ExpiryPolicy.cs" />
+    <Compile Include="../Utils/MedicinePricing.cs" Link="MedicinePricing.cs" />
+    <Compile Include="../Utils/BillingTotals.cs" Link="BillingTotals.cs" />
+    <Compile Include="../Services/ReceiptBuilder.cs" Link="ReceiptBuilder.cs" />
+    <Compile Include="../Repositories/FinancialReportQueries.cs" Link="FinancialReportQueries.cs" />
+    <PackageReference Include="Dapper" Version="2.1.72" />
+    <PackageReference Include="Npgsql" Version="8.0.3" />
+  </ItemGroup>
+</Project>

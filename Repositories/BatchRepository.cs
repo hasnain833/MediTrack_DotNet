@@ -65,7 +65,7 @@ namespace DChemist.Repositories
                     GROUP BY m.id, m.name
                     HAVING SUM(b.remaining_units) <= @threshold
                     ORDER BY SUM(b.remaining_units) ASC
-                    LIMIT 50";
+";
                 using var conn = _db.GetConnection();
                 var rows = await conn.QueryAsync<AlertBatchItem>(query, new { threshold });
                 return rows.ToList();
@@ -77,7 +77,7 @@ namespace DChemist.Repositories
             }
         }
 
-        public async Task<List<AlertBatchItem>> GetNearExpiryAsync(int daysAhead = 90)
+        public async Task<List<AlertBatchItem>> GetNearExpiryAsync()
         {
             try
             {
@@ -86,11 +86,11 @@ namespace DChemist.Repositories
                     FROM inventory_batches b
                     JOIN medicines m ON m.id = b.medicine_id
                     WHERE b.remaining_units > 0
-                      AND b.expiry_date <= CURRENT_DATE + @daysAhead
+                      AND b.expiry_date <= @expiryCutoff
                     ORDER BY b.expiry_date ASC
-                    LIMIT 50";
+";
                 using var conn = _db.GetConnection();
-                var rows = await conn.QueryAsync<AlertBatchItem>(query, new { daysAhead });
+                var rows = await conn.QueryAsync<AlertBatchItem>(query, new { expiryCutoff = ExpiryPolicy.Cutoff });
                 return rows.ToList();
             }
             catch (Exception ex)
@@ -419,7 +419,7 @@ namespace DChemist.Repositories
                         created_at            AS CreatedAt
                     FROM batch_history
                     ORDER BY created_at DESC
-                    LIMIT 500";
+0";
 
                 using var conn = _db.GetConnection();
                 var rows = await conn.QueryAsync<BatchHistory>(query);
@@ -432,7 +432,7 @@ namespace DChemist.Repositories
             }
         }
 
-        /// <summary>Batches with stock that are expired or expire within 90 days, with their supplier and purchase invoice.</summary>
+        /// <summary>Batches with stock that are expired or expire within six months, with their supplier and purchase invoice.</summary>
         public async Task<List<ExpiringStockRow>> GetExpiringStockAsync()
         {
             try
@@ -440,7 +440,7 @@ namespace DChemist.Repositories
                 const string query = @"
                     SELECT
                         s.id                                 AS SupplierId,
-                        s.name                               AS SupplierName,
+                        COALESCE(s.name, 'No supplier assigned') AS SupplierName,
                         s.phone                              AS SupplierPhone,
                         m.name                               AS MedicineName,
                         b.batch_no                           AS BatchNo,
@@ -451,12 +451,12 @@ namespace DChemist.Repositories
                         b.unit_cost                          AS UnitCost
                     FROM inventory_batches b
                     JOIN medicines m  ON m.id = b.medicine_id
-                    JOIN suppliers s  ON s.id = b.supplier_id
+                    LEFT JOIN suppliers s ON s.id = b.supplier_id
                     LEFT JOIN purchase_invoices pi ON pi.id = b.purchase_invoice_id
-                    WHERE b.remaining_units > 0 AND b.expiry_date <= CURRENT_DATE + 90
+                    WHERE b.remaining_units > 0 AND b.expiry_date <= @expiryCutoff
                     ORDER BY s.name, b.expiry_date, m.name";
                 using var conn = _db.GetConnection();
-                var rows = await conn.QueryAsync<ExpiringStockRow>(query);
+                var rows = await conn.QueryAsync<ExpiringStockRow>(query, new { expiryCutoff = ExpiryPolicy.Cutoff });
                 return rows.ToList();
             }
             catch (Exception ex)

@@ -54,6 +54,7 @@ namespace DChemist.Database
             catch (Exception ex)
             {
                 AppLogger.LogError("Database initialization failed", ex);
+                throw;
             }
         }
 

@@ -113,10 +113,13 @@ namespace DChemist.Views
             try
             {
                 var rows = await App.Current.Services.GetRequiredService<DChemist.Repositories.BatchRepository>().GetExpiringStockAsync();
-                var suppliers = rows.GroupBy(r => r.SupplierId).Select(g => g.ToList()).ToList();
+                var missingSupplier = rows.Count(r => !r.SupplierId.HasValue);
+                var suppliers = rows.Where(r => r.SupplierId.HasValue).GroupBy(r => r.SupplierId).Select(g => g.ToList()).ToList();
                 if (suppliers.Count == 0)
                 {
-                    await new ContentDialog { Title = "Nothing to export", Content = "No supplier has stock that is expired or expiring within 90 days.", CloseButtonText = "OK", XamlRoot = XamlRoot }.ShowAsync();
+                    await new ContentDialog { Title = "Nothing to export", Content = missingSupplier > 0
+                        ? $"{missingSupplier} batch(es) are expired or expiring within 6 months, but have no supplier assigned. Assign a supplier to export their return list."
+                        : "No remaining stock is expired or expiring within 6 months.", CloseButtonText = "OK", XamlRoot = XamlRoot }.ShowAsync();
                     return;
                 }
 
@@ -128,7 +131,7 @@ namespace DChemist.Views
                 var dialog = new ContentDialog
                 {
                     Title = "Expiry return list",
-                    Content = new StackPanel { Spacing = 8, Children = { new TextBlock { Text = "Supplier", Opacity = 0.7 }, picker } },
+                    Content = new StackPanel { Spacing = 8, Children = { new TextBlock { Text = missingSupplier > 0 ? $"Supplier: {missingSupplier} batch(es) without a supplier cannot be exported." : "Supplier", TextWrapping = TextWrapping.Wrap, Opacity = 0.7 }, picker } },
                     PrimaryButtonText = "Print / Save PDF",
                     CloseButtonText = "Cancel",
                     DefaultButton = ContentDialogButton.Primary,
@@ -186,8 +189,8 @@ namespace DChemist.Views
         {
             BarcodeBox, MedicineNameBox, CategoryBox, NetCheckBox,
             BoxModeBtn, TabletModeBtn, PacketsPerBoxBox, UnitsPerPacketBox,
-            BatchNumberBox, ExpiryDateBox, PackQuantityBox, QuantityBox,
-            SellingPriceBox
+            BatchNumberBox, ExpiryDateBox,
+            SellingPriceBox, PurchaseCostBox, EditStockBox
         };
 
         /// <summary>

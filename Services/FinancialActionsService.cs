@@ -93,6 +93,7 @@ namespace DChemist.Services
                     TotalAmount = sale.TotalAmount,
                     TaxAmount = sale.TaxAmount,
                     DiscountAmount = sale.DiscountAmount,
+                    ExtraAmount = sale.ExtraAmount,
                     GrandTotal = sale.GrandTotal,
                     FbrInvoiceNo = sale.Status == "Voided" ? "VOIDED - DO NOT USE" : null,
                     TaxRate = taxRate,

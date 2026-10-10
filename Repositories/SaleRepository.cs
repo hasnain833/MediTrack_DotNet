@@ -29,7 +29,7 @@ namespace DChemist.Repositories
         }
 
         public async Task<int> CreateTransactionAsync(string billNo, int userId, int? customerId, List<SaleItem> items,
-            decimal total, decimal tax, decimal discount, decimal grandTotal, bool fbrReported = false, string? fbrInvoiceNo = null, string? fbrResponse = null)
+            decimal total, decimal tax, decimal discount, decimal grandTotal, bool fbrReported = false, string? fbrInvoiceNo = null, string? fbrResponse = null, decimal extraAmount = 0)
         {
             _auth.EnforceAdmin();
             using var connection = _db.GetConnection();
@@ -46,9 +46,9 @@ namespace DChemist.Repositories
                     const string totalStockQuery = @"
                         SELECT COALESCE(SUM(remaining_units), 0)
                         FROM inventory_batches
-                        WHERE medicine_id = @medId AND remaining_units > 0";
+                        WHERE medicine_id = @medId AND remaining_units > 0 AND expiry_date > @today";
                     
-                    var totalAvailable = await connection.ExecuteScalarAsync<int>(totalStockQuery, new { medId = item.MedicineId.Value }, transaction);
+                    var totalAvailable = await connection.ExecuteScalarAsync<int>(totalStockQuery, new { medId = item.MedicineId.Value, today = DateTime.Today }, transaction);
 
                     if (totalAvailable < item.Quantity)
                     {
@@ -60,13 +60,13 @@ namespace DChemist.Repositories
 
                 // -- Step 2: Insert Sale Record --
                 const string saleQuery = @"
-                    INSERT INTO sales (bill_no, customer_id, user_id, total_amount, tax_amount, discount_amount, grand_total, fbr_reported, fbr_invoice_no, fbr_response, sale_date)
-                    VALUES (@billNo, @customerId, @userId, @total, @tax, @discount, @grandTotal, @fbrReported, @fbrInvoiceNo, @fbrResponse, CURRENT_TIMESTAMP)
+                    INSERT INTO sales (bill_no, customer_id, user_id, total_amount, tax_amount, discount_amount, grand_total, fbr_reported, fbr_invoice_no, fbr_response, extra_amount, sale_date)
+                    VALUES (@billNo, @customerId, @userId, @total, @tax, @discount, @grandTotal, @fbrReported, @fbrInvoiceNo, @fbrResponse, @extraAmount, CURRENT_TIMESTAMP)
                     RETURNING id;";
 
                 int saleId = await connection.ExecuteScalarAsync<int>(saleQuery, new 
                 { 
-                    billNo, customerId, userId, total, tax, discount, grandTotal, fbrReported, fbrInvoiceNo, fbrResponse 
+                    billNo, customerId, userId, total, tax, discount, grandTotal, fbrReported, fbrInvoiceNo, fbrResponse, extraAmount
                 }, transaction);
 
                 // -- Step 3: Insert Sale Items & Deduct Stock (FIFO) --
@@ -74,9 +74,9 @@ namespace DChemist.Repositories
                 {
                     const string itemQuery = @"
                         INSERT INTO sale_items (sale_id, medicine_id, batch_id, quantity, unit_price, subtotal)
-                        VALUES (@saleId, @medicineId, @batchId, @quantity, @unitPrice, @subtotal)";
+                        VALUES (@saleId, @medicineId, @batchId, @quantity, @unitPrice, @subtotal) RETURNING id";
 
-                    await connection.ExecuteAsync(itemQuery, new 
+                    int saleItemId = await connection.ExecuteScalarAsync<int>(itemQuery, new
                     { 
                         saleId, 
                         medicineId = item.MedicineId,
@@ -89,15 +89,16 @@ namespace DChemist.Repositories
                     if (item.MedicineId.HasValue)
                     {
                         const string getBatchesQuery = @"
-                            SELECT id, remaining_units 
+                            SELECT id, remaining_units, unit_cost
                             FROM inventory_batches 
-                            WHERE medicine_id = @medId AND remaining_units > 0 
+                            WHERE medicine_id = @medId AND remaining_units > 0 AND expiry_date > @today
                             ORDER BY expiry_date ASC, created_at ASC 
                             FOR UPDATE";
                         
-                        var batches = await connection.QueryAsync<(int Id, int RemainingUnits)>(getBatchesQuery, new { medId = item.MedicineId.Value }, transaction);
+                        var batches = await connection.QueryAsync<(int Id, int RemainingUnits, decimal UnitCost)>(getBatchesQuery, new { medId = item.MedicineId.Value, today = DateTime.Today }, transaction);
                         
                         int remainingToDeduct = item.Quantity;
+                        decimal allocatedCost = 0;
                         foreach (var batch in batches)
                         {
                             if (remainingToDeduct <= 0) break;
@@ -107,6 +108,7 @@ namespace DChemist.Repositories
                             const string updateQuery = "UPDATE inventory_batches SET remaining_units = remaining_units - @qty WHERE id = @id";
                             await connection.ExecuteAsync(updateQuery, new { qty = deductFromBatch, id = batch.Id }, transaction);
                             
+                            allocatedCost += deductFromBatch * batch.UnitCost;
                             remainingToDeduct -= deductFromBatch;
                         }
 
@@ -114,6 +116,10 @@ namespace DChemist.Repositories
                         {
                             throw new InvalidOperationException($"Insufficient total stock for '{item.MedicineName}' during final processing.");
                         }
+                        if (item.Quantity > 0)
+                            await connection.ExecuteAsync("UPDATE sale_items SET unit_cost_at_sale = @cost WHERE id = @id",
+                                new { cost = allocatedCost / item.Quantity, id = saleItemId }, transaction);
+
                     }
                 }
 
@@ -256,7 +262,7 @@ namespace DChemist.Repositories
                 SELECT 
                     id, bill_no as BillNo, user_id as UserId, customer_id as CustomerId, 
                     total_amount as TotalAmount, tax_amount as TaxAmount, 
-                    discount_amount as DiscountAmount, grand_total as GrandTotal, 
+                    discount_amount as DiscountAmount, extra_amount as ExtraAmount, grand_total as GrandTotal,
                     sale_date as SaleDate, status as Status,
                     (SELECT username FROM users WHERE users.id = sales.user_id) as CashierName
                 FROM sales WHERE bill_no = @billNo";
@@ -271,7 +277,7 @@ namespace DChemist.Repositories
                         si.batch_id as BatchId, si.quantity, si.returned_qty as ReturnedQuantity, 
                         si.unit_price as UnitPrice, si.subtotal, 
                         m.name as MedicineName,
-                        COALESCE(ib.unit_cost, 0) as PurchasePrice
+                        COALESCE(si.unit_cost_at_sale, ib.unit_cost, 0) as PurchasePrice
                     FROM sale_items si 
                     LEFT JOIN medicines m ON si.medicine_id = m.id 
                     LEFT JOIN inventory_batches ib ON si.batch_id = ib.id
@@ -377,7 +383,7 @@ namespace DChemist.Repositories
                 // Everything on the bill came back: the sale no longer exists, so it drops off the Bills list.
                 await connection.ExecuteAsync(@"
                     UPDATE sales SET status = 'Voided'
-                    WHERE id = @saleId AND NOT EXISTS (SELECT 1 FROM sale_items WHERE sale_id = @saleId AND returned_qty < quantity)",
+                    WHERE id = @saleId AND extra_amount = 0 AND NOT EXISTS (SELECT 1 FROM sale_items WHERE sale_id = @saleId AND returned_qty < quantity)",
                     new { saleId = (int)item.sale_id }, transaction);
 
                 // 5. Audit Log
@@ -399,34 +405,6 @@ namespace DChemist.Repositories
 
         public async Task<FinancialReport> GetFinancialReportAsync(DateTime date)
         {
-            // Explicitly cast COUNT(*) to integer to avoid Dapper mapping issues (Postgres returns bigint)
-            const string query = @"
-                SELECT 
-                    CAST(COUNT(*) AS INTEGER) as TotalSalesCount,
-                    ROUND(COALESCE(SUM(grand_total), 0), 2) as GrossSales,
-                    ROUND(COALESCE(SUM(tax_amount), 0), 2) as TotalTax,
-                    ROUND(COALESCE(SUM(discount_amount), 0), 2) as TotalDiscount,
-                    CAST(COUNT(*) FILTER (WHERE fbr_reported = true) AS INTEGER) as FbrSalesCount,
-                    CAST(COUNT(*) FILTER (WHERE fbr_reported = false) AS INTEGER) as InternalSalesCount
-                FROM sales 
-                WHERE sale_date::date = @date AND status != 'Voided'";
-
-            const string returnsQuery = @"
-                SELECT 
-                    CAST(COUNT(*) AS INTEGER) as ReturnsCount,
-                    ROUND(COALESCE(SUM(returned_qty * unit_price), 0), 2) as TotalReturns
-                FROM sale_items si
-                JOIN sales s ON si.sale_id = s.id
-                WHERE s.sale_date::date = @date AND si.returned_qty > 0";
-
-            const string profitQuery = @"
-                SELECT ROUND(COALESCE(SUM((si.quantity - si.returned_qty) * (si.unit_price - COALESCE(ib.unit_cost, 0))), 0), 2)
-                FROM sale_items si
-                JOIN sales s ON si.sale_id = s.id
-                LEFT JOIN medicines m ON si.medicine_id = m.id
-                LEFT JOIN inventory_batches ib ON si.batch_id = ib.id
-                WHERE s.sale_date::date = @date AND s.status != 'Voided'";
-
             const string dailyBillsQuery = @"
                 SELECT 
                     s.bill_no as BillNo, 
@@ -438,20 +416,14 @@ namespace DChemist.Repositories
                     s.fbr_reported as FbrReported
                 FROM sales s
                 LEFT JOIN customers c ON s.customer_id = c.id
-                WHERE s.sale_date::date = @date AND s.status != 'Voided'
+                WHERE s.sale_date >= @start AND s.sale_date < @end AND s.status != 'Voided'
                 ORDER BY s.sale_date DESC";
 
             using var conn = _db.GetConnection();
-            var report = await conn.QuerySingleAsync<FinancialReport>(query, new { date = date.Date });
-            var returnData = await conn.QuerySingleAsync(returnsQuery, new { date = date.Date });
-            var totalProfit = await conn.ExecuteScalarAsync<decimal>(profitQuery, new { date = date.Date });
-            var dailyBills = await conn.QueryAsync<SaleSummary>(dailyBillsQuery, new { date = date.Date });
-
+            var parameters = FinancialReportQueries.ForDay(date);
+            var report = await conn.QuerySingleAsync<FinancialReport>(FinancialReportQueries.Summary, parameters);
+            var dailyBills = await conn.QueryAsync<SaleSummary>(dailyBillsQuery, parameters);
             report.ReportDate = date;
-            report.ReturnsCount = returnData.returnscount;
-            report.TotalReturns = returnData.totalreturns;
-            report.NetSales = report.GrossSales - report.TotalReturns;
-            report.TotalProfit = totalProfit;
             report.DailyBills = dailyBills.ToList();
 
             return report;

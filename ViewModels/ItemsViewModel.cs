@@ -123,7 +123,7 @@ namespace DChemist.ViewModels
             try
             {
                 // ponytail: filters run in memory over the loaded rows; with a filter on we load up to 5000 so it covers the whole shop.
-                var list = ApplyFilter(await _medicineRepo.GetAllAsync(pageSize: Filter == "all" ? 200 : 5000));
+                var list = ApplyFilter(await _medicineRepo.GetAllAsync(pageSize: Filter == "all" ? 200 : 5000, expiringOnly: Filter == "exp"));
                 if (cts.Token.IsCancellationRequested) return;
                 _dispatcher.TryEnqueue(() => _medicines.ReplaceAll(list));
             }
@@ -196,10 +196,14 @@ namespace DChemist.ViewModels
         {
             _searchCts?.Cancel();
             if (string.IsNullOrWhiteSpace(SearchText)) return null;
-            var list = ApplyFilter(await _medicineRepo.SearchAsync(SearchText));
+            var list = ApplyFilter(await LoadSearchRowsAsync());
             _medicines.ReplaceAll(list);
             return list.FirstOrDefault();
         }
+
+        private Task<List<Medicine>> LoadSearchRowsAsync() => Filter == "exp"
+            ? _medicineRepo.GetAllAsync(expiringOnly: true, text: SearchText)
+            : _medicineRepo.SearchAsync(SearchText);
 
         private async Task SearchAsync()
         {
@@ -212,7 +216,7 @@ namespace DChemist.ViewModels
             IsBusy = true;
             try
             {
-                var list = ApplyFilter(await _medicineRepo.SearchAsync(SearchText));
+                var list = ApplyFilter(await LoadSearchRowsAsync());
                 if (cts.Token.IsCancellationRequested) return;
                 _dispatcher.TryEnqueue(() => _medicines.ReplaceAll(list));
             }
@@ -238,10 +242,20 @@ namespace DChemist.ViewModels
             get => _selectedQuantityMode;
             set
             {
+                bool wasBox = IsBoxMode;
+                int units = Math.Max(1, PacketsPerBox) * Math.Max(1, UnitsPerPacket);
+                decimal perTabletSelling = MedicinePricing.ToTabletPrice(SellingPrice, wasBox, units);
+                bool hasCost = decimal.TryParse(EditPurchasePriceText, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal enteredCost);
+                decimal perTabletCost = hasCost ? MedicinePricing.ToTabletPrice(enteredCost, wasBox, units) : 0;
                 if (SetProperty(ref _selectedQuantityMode, value))
                 {
                     OnPropertyChanged(nameof(IsBoxMode));
                     OnPropertyChanged(nameof(IsTabletMode));
+                    SellingPrice = MedicinePricing.ToEntryPrice(perTabletSelling, IsBoxMode, units);
+                    if (hasCost) EditPurchasePriceText = MedicinePricing.ToEntryPrice(perTabletCost, IsBoxMode, units).ToString("G29", CultureInfo.InvariantCulture);
+                    OnPropertyChanged(nameof(SellingPriceHeader));
+                    OnPropertyChanged(nameof(PurchasePriceHeader));
+                    OnPropertyChanged(nameof(PurchasePricePreview));
                     RecalculateTotalUnits();
                 }
             }
@@ -356,8 +370,8 @@ namespace DChemist.ViewModels
         {
             get
             {
-                if (IsTabletMode) return string.Empty;
-                return $"({PackQuantity} box × {PacketsPerBox} pack × {UnitsPerPacket} tab = {QuantityUnits} tabs)";
+                if (IsTabletMode || PacketsPerBox < 1 || UnitsPerPacket < 1) return string.Empty;
+                return $"1 box = {PacketsPerBox} packets x {UnitsPerPacket} tablets = {Math.Max(1, PacketsPerBox) * Math.Max(1, UnitsPerPacket)} tablets";
             }
         }
 
@@ -376,7 +390,12 @@ namespace DChemist.ViewModels
 
         // Edit mode flag - shows extra fields (Category, Purchase Price, Stock Qty) only when editing
         private bool _isEditMode;
-        public bool IsEditMode { get => _isEditMode; set => SetProperty(ref _isEditMode, value); }
+        public bool IsEditMode
+        {
+            get => _isEditMode;
+            set { if (SetProperty(ref _isEditMode, value)) OnPropertyChanged(nameof(IsNewMedicine)); }
+        }
+        public bool IsNewMedicine => !IsEditMode;
 
         // Edit-only extra fields
         private string _editCategory = string.Empty;
@@ -386,7 +405,10 @@ namespace DChemist.ViewModels
         public string EditPurchasePriceText
         {
             get => _editPurchasePriceText;
-            set => SetProperty(ref _editPurchasePriceText, value);
+            set
+            {
+                if (SetProperty(ref _editPurchasePriceText, value)) OnPropertyChanged(nameof(PurchasePricePreview));
+            }
         }
 
         private string _editStockQtyText = string.Empty;
@@ -396,10 +418,24 @@ namespace DChemist.ViewModels
             set => SetProperty(ref _editStockQtyText, value);
         }
 
+        public string SellingPriceHeader => IsBoxMode ? "Selling price per box" : "Selling price per tablet";
+        public string PurchasePriceHeader => IsBoxMode ? "Purchase cost per box" : "Purchase cost per tablet";
+        public string PurchasePricePreview
+        {
+            get
+            {
+                if (!decimal.TryParse(EditPurchasePriceText, NumberStyles.Number, CultureInfo.InvariantCulture, out var price)) return string.Empty;
+                int units = Math.Max(1, PacketsPerBox) * Math.Max(1, UnitsPerPacket);
+                return $"Cost per tablet: PKR {MedicinePricing.ToTabletPrice(price, IsBoxMode, units):0.####}";
+            }
+        }
+
         private Medicine? _foundMedicine;
 
         private void RecalculateTotalUnits()
         {
+            OnPropertyChanged(nameof(TotalUnitsPreviewText));
+            OnPropertyChanged(nameof(PurchasePricePreview));
             if (SelectedQuantityMode == QuantityInputMode.Tablet) return;
             QuantityUnits = Math.Max(0, PackQuantity * PacketsPerBox * UnitsPerPacket);
         }
@@ -448,10 +484,23 @@ namespace DChemist.ViewModels
             FormatExpiryDate();
             if (string.IsNullOrWhiteSpace(EntryName)) { StatusMessage = "⚠ Medicine name required."; return; }
             
+            if (IsBoxMode && (PacketsPerBox < 1 || UnitsPerPacket < 1))
+            {
+                StatusMessage = "Packets in one box and tablets in one packet must both be at least 1.";
+                return;
+            }
+            decimal enteredPurchasePrice = 0;
+            if (IsEditMode && !string.IsNullOrWhiteSpace(EditPurchasePriceText) &&
+                (!decimal.TryParse(EditPurchasePriceText, NumberStyles.Number, CultureInfo.InvariantCulture, out enteredPurchasePrice) || enteredPurchasePrice < 0))
+            {
+                StatusMessage = "Enter a valid, non-negative purchase cost.";
+                return;
+            }
             IsBusy = true;
             try
             {
-                int totalUnitsPerBox = (PacketsPerBox > 0 ? PacketsPerBox : 1) * (UnitsPerPacket > 0 ? UnitsPerPacket : 1);
+                int totalUnitsPerBox = MedicinePricing.TabletsPerBox(Math.Max(1, PacketsPerBox), Math.Max(1, UnitsPerPacket));
+                decimal purchasePricePerUnit = MedicinePricing.ToTabletPrice(enteredPurchasePrice, IsBoxMode, totalUnitsPerBox);
                 decimal sellingPricePerUnit = SelectedQuantityMode == QuantityInputMode.Box
                     ? SellingPrice / totalUnitsPerBox
                     : SellingPrice;
@@ -473,14 +522,12 @@ namespace DChemist.ViewModels
                     {
                         if (!string.IsNullOrWhiteSpace(EditCategory))
                             med.CategoryName = EditCategory;
-                        if (decimal.TryParse(EditPurchasePriceText, System.Globalization.NumberStyles.Any,
-                                System.Globalization.CultureInfo.InvariantCulture, out decimal pp))
-                            med.PurchasePrice = pp;
+                        med.PurchasePrice = purchasePricePerUnit;
                         if (int.TryParse(EditStockQtyText, out int sq))
                             med.StockQty = sq;
                     }
 
-                    await _medicineRepo.UpdateAsync(med);
+                    await _medicineRepo.UpdateAsync(med, updateInventory: false);
                 }
                 else
                 {
@@ -509,7 +556,7 @@ namespace DChemist.ViewModels
                         med.IsNet = IsNetItem;
                         med.UnitsPerPack = UnitsPerPacket > 0 ? UnitsPerPacket : 1;
                         med.PacketsPerBox = PacketsPerBox > 0 ? PacketsPerBox : 1;
-                        await _medicineRepo.UpdateAsync(med);
+                        await _medicineRepo.UpdateAsync(med, updateInventory: false);
                     }
                 }
 
@@ -528,9 +575,7 @@ namespace DChemist.ViewModels
                         // Apply purchase price and stock qty if editing
                         if (IsEditMode)
                         {
-                            if (decimal.TryParse(EditPurchasePriceText, System.Globalization.NumberStyles.Any,
-                                    System.Globalization.CultureInfo.InvariantCulture, out decimal pp))
-                                batch.UnitCost = pp;
+                            batch.UnitCost = purchasePricePerUnit;
                             if (int.TryParse(EditStockQtyText, out int sq))
                             {
                                 batch.QuantityUnits = sq;
@@ -538,6 +583,9 @@ namespace DChemist.ViewModels
                             }
                         }
 
+                        if (IsEditMode) batch.PurchaseTotalPrice = batch.UnitCost * batch.QuantityUnits;
+                        batch.PacketsPerBox = PacketsPerBox;
+                        batch.EntryMode = SelectedQuantityMode.ToString();
                         await _batchRepo.UpdateAsync(batch);
                     }
                 }
@@ -594,8 +642,8 @@ namespace DChemist.ViewModels
                 ExpiryDateText = string.Empty;
             }
 
-            PacketsPerBox = medicine.PacketsPerBox;
-            UnitsPerPacket = medicine.UnitsPerPack;
+            PacketsPerBox = Math.Max(1, medicine.PacketsPerBox);
+            UnitsPerPacket = Math.Max(1, medicine.UnitsPerPack);
             IsNetItem = medicine.IsNet;
             
             // For price, if it's stored as price-per-tablet, we might want to convert it back to price-per-box if that's the default
@@ -615,7 +663,7 @@ namespace DChemist.ViewModels
             // Populate edit-only extra fields
             EditCategory = medicine.CategoryName ?? string.Empty;
             EditPurchasePriceText = medicine.PurchasePrice > 0
-                ? medicine.PurchasePrice.ToString("G29", System.Globalization.CultureInfo.InvariantCulture)
+                ? MedicinePricing.ToEntryPrice(medicine.PurchasePrice, isBox, MedicinePricing.TabletsPerBox(PacketsPerBox, UnitsPerPacket)).ToString("G29", CultureInfo.InvariantCulture)
                 : string.Empty;
             EditStockQtyText = medicine.StockQty > 0 ? medicine.StockQty.ToString() : string.Empty;
 
@@ -689,6 +737,7 @@ namespace DChemist.ViewModels
             EditCategory = string.Empty;
             EditPurchasePriceText = string.Empty;
             EditStockQtyText = string.Empty;
+            SelectedQuantityMode = QuantityInputMode.Box;
             OnPropertyChanged(nameof(PackQuantityText));
             OnPropertyChanged(nameof(PacketsPerBoxText));
             OnPropertyChanged(nameof(UnitsPerPacketText));

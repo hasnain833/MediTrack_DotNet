@@ -115,7 +115,7 @@
                             <RowDefinition/>
                         </Grid.RowDefinitions>
                         <TextBox Header="Pharmacy name" Text="{x:Bind ViewModel.PharmacyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. D. Chemist"/>
-                        <TextBox Grid.Column="1" Header="Phone" Text="{x:Bind ViewModel.PharmacyPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. +92-332-8787833"/>
+                        <TextBox Grid.Column="1" Header="Phone" Text="{x:Bind ViewModel.PharmacyPhone, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. +92-332-8787833 +92-346-7087833"/>
                         <TextBox Grid.Row="1" Grid.ColumnSpan="2" Header="Address" Text="{x:Bind ViewModel.PharmacyAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="Full address"/>
                         <TextBox Grid.Row="2" Header="Drug licence no." Text="{x:Bind ViewModel.PharmacyLicense, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. 01-372-0011-134212M"/>
                         <TextBox Grid.Row="2" Grid.Column="1" Header="NTN" Text="{x:Bind ViewModel.PharmacyNtn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" PlaceholderText="e.g. I736466-5"/>

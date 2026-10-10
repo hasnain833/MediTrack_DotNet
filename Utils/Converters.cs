@@ -150,18 +150,13 @@ namespace DChemist.Utils
         {
             if (value is DateTime dt)
             {
-                var daysUntilExpiry = (dt - DateTime.Now).TotalDays;
-                if (daysUntilExpiry <= 0) // Already Expired
+                if (dt.Date <= DateTime.Today)
                 {
-                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 38, 38)); // Dark Red (#DC2626)
+                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 220, 38, 38));
                 }
-                if (daysUntilExpiry <= 30) // Within 1 month
+                if (dt.Date <= ExpiryPolicy.Cutoff)
                 {
-                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 239, 68, 68)); // Red (#EF4444)
-                }
-                if (daysUntilExpiry <= 60) // Near Expiry (Section 2)
-                {
-                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 217, 119, 6)); // Orange (#D97706)
+                    return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 217, 119, 6));
                 }
             }
             return new Microsoft.UI.Xaml.Media.SolidColorBrush(Windows.UI.Color.FromArgb(255, 75, 85, 99)); // Gray (#4B5563)
@@ -176,7 +171,7 @@ namespace DChemist.Utils
         {
             if (value is DateTime dt)
             {
-                return (dt - DateTime.Now).TotalDays <= 60 ? Visibility.Visible : Visibility.Collapsed;
+                return dt.Date <= ExpiryPolicy.Cutoff ? Visibility.Visible : Visibility.Collapsed;
             }
             return Visibility.Collapsed;
         }
