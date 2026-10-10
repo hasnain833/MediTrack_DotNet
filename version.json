@@ -1,6 +1,6 @@
 {
-    "LatestVersion":  "1.9.3.0",
-    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.3.0/DChemist_v1.9.3.0_Release.zip",
-    "ReleaseNotes":  "Fixes dashboard crash (decimal overflow). Sales: discount in rupees, Enter moves Discount \u003e Cash \u003e Name \u003e Phone \u003e Print. Bills: returning everything removes the bill; Void no longer double-counts stock. New receipt layout with cash/change and editable footer. Items \u003e Expiring: print/PDF expiry return list per supplier.",
-    "PackageSha256":  "C5E43776DA1E0F67DDEF248200B478943C86EFC273809325A891FB3560E0A2D4"
+    "LatestVersion":  "1.9.6.0",
+    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.6.0/DChemist_v1.9.6.0_Release.zip",
+    "ReleaseNotes":  "Six-month expiry warnings include expired stock and consistent supplier exports. Dashboard and daily report share corrected sales and profit calculations; new sales snapshot stock cost. Medicine packaging fields start empty, labels explain packets and tablets, and stock is added through Purchase. Box purchase costs convert correctly to per-tablet cost. Billing shows percentage and PKR discount inputs on one row, with one active method and no automatic cross-filling. Extra is removed from new billing; historical bills retain saved charges. Ctrl+S saves, Ctrl+P saves and prints, Enter checkout still works, and the save button is named Save. Shop database configuration is preserved.",
+    "PackageSha256":  "2D9779F8397B1CA15503CF2E93110D7269F5732F467E3E61BF1AD97BDC5DBEA2"
 }
