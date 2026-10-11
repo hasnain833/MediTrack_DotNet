@@ -451,8 +451,8 @@ namespace DChemist.Repositories
                         b.unit_cost                          AS UnitCost
                     FROM inventory_batches b
                     JOIN medicines m  ON m.id = b.medicine_id
-                    LEFT JOIN suppliers s ON s.id = b.supplier_id
                     LEFT JOIN purchase_invoices pi ON pi.id = b.purchase_invoice_id
+                    LEFT JOIN suppliers s ON s.id = COALESCE(b.supplier_id, pi.supplier_id)
                     WHERE b.remaining_units > 0 AND b.expiry_date <= @expiryCutoff
                     ORDER BY s.name, b.expiry_date, m.name";
                 using var conn = _db.GetConnection();

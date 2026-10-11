@@ -33,6 +33,7 @@ Obj/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
+.vs.backup-*/
 
 # Visual Studio 2017 auto generated files
 Generated\ Files/

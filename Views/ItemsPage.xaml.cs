@@ -114,24 +114,50 @@ namespace DChemist.Views
             {
                 var rows = await App.Current.Services.GetRequiredService<DChemist.Repositories.BatchRepository>().GetExpiringStockAsync();
                 var missingSupplier = rows.Count(r => !r.SupplierId.HasValue);
-                var suppliers = rows.Where(r => r.SupplierId.HasValue).GroupBy(r => r.SupplierId).Select(g => g.ToList()).ToList();
+                var suppliers = rows.GroupBy(r => r.SupplierId).Select(g => g.ToList()).ToList();
                 if (suppliers.Count == 0)
                 {
-                    await new ContentDialog { Title = "Nothing to export", Content = missingSupplier > 0
-                        ? $"{missingSupplier} batch(es) are expired or expiring within 6 months, but have no supplier assigned. Assign a supplier to export their return list."
-                        : "No remaining stock is expired or expiring within 6 months.", CloseButtonText = "OK", XamlRoot = XamlRoot }.ShowAsync();
+                    await new ContentDialog { Title = "Nothing to export",
+                        Content = "No remaining stock is expired or expiring within 6 months.",
+                        CloseButtonText = "OK", RequestedTheme = ElementTheme.Light,
+                        CornerRadius = new CornerRadius(12), XamlRoot = XamlRoot }.ShowAsync();
                     return;
                 }
 
                 var picker = new ComboBox
                 {
                     ItemsSource = suppliers.Select(g => $"{g[0].SupplierName}  ({g.Count} batch{(g.Count == 1 ? "" : "es")}, PKR {g.Sum(r => r.Value):N0})").ToList(),
-                    SelectedIndex = 0, HorizontalAlignment = HorizontalAlignment.Stretch, MinWidth = 360
+                    SelectedIndex = 0,
+                    Header = "Supplier",
+                    RequestedTheme = ElementTheme.Light,
+                    Foreground = (Microsoft.UI.Xaml.Media.Brush)App.Current.Resources["TextPrimaryBrush"],
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    MinWidth = 360, MinHeight = 40
                 };
                 var dialog = new ContentDialog
                 {
                     Title = "Expiry return list",
-                    Content = new StackPanel { Spacing = 8, Children = { new TextBlock { Text = missingSupplier > 0 ? $"Supplier: {missingSupplier} batch(es) without a supplier cannot be exported." : "Supplier", TextWrapping = TextWrapping.Wrap, Opacity = 0.7 }, picker } },
+                    RequestedTheme = ElementTheme.Light,
+                    CornerRadius = new CornerRadius(12),
+                    PrimaryButtonStyle = (Style)App.Current.Resources["PremiumButtonStyle"],
+                    CloseButtonStyle = (Style)App.Current.Resources["SecondaryButtonStyle"],
+                    Content = new StackPanel
+                    {
+                        Spacing = 16,
+                        Children =
+                        {
+                            new TextBlock
+                            {
+                                Text = missingSupplier > 0
+                                    ? $"{missingSupplier} batch{(missingSupplier == 1 ? " has" : "es have")} no supplier assigned. Choose 'No supplier assigned' to include this stock."
+                                    : "Choose a supplier to print their expiry return list or save it as a PDF.",
+                                FontSize = 14,
+                                Foreground = (Microsoft.UI.Xaml.Media.Brush)App.Current.Resources["TextSecondaryBrush"],
+                                TextWrapping = TextWrapping.Wrap
+                            },
+                            picker
+                        }
+                    },
                     PrimaryButtonText = "Print / Save PDF",
                     CloseButtonText = "Cancel",
                     DefaultButton = ContentDialogButton.Primary,
@@ -150,7 +176,8 @@ namespace DChemist.Views
             catch (Exception ex)
             {
                 AppLogger.LogError("Expiry export failed", ex);
-                await new ContentDialog { Title = "Export failed", Content = ex.Message, CloseButtonText = "OK", XamlRoot = XamlRoot }.ShowAsync();
+                await new ContentDialog { Title = "Export failed", Content = ex.Message, CloseButtonText = "OK",
+                    RequestedTheme = ElementTheme.Light, CornerRadius = new CornerRadius(12), XamlRoot = XamlRoot }.ShowAsync();
             }
         }
 

@@ -58,7 +58,6 @@ namespace DChemist.Services
             sb.AppendLine(Thin);
 
             // --- TOTALS ---
-            sb.AppendLine(Justify($"Items: {receipt.Items.Count}", $"Qty: {receipt.Items.Sum(i => i.Quantity)}"));
             sb.AppendLine(Justify("Subtotal", receipt.TotalAmount.ToString("N2")));
             if (receipt.TaxAmount > 0)
                 sb.AppendLine(Justify(receipt.TaxRateText.TrimEnd(':'), receipt.TaxAmount.ToString("N2")));
@@ -80,7 +79,6 @@ namespace DChemist.Services
 
             // --- FOOTER ---
             sb.Append(Center);
-            if (receipt.DiscountAmount > 0) sb.Append(Bold).AppendLine($"You saved Rs {receipt.DiscountAmount:N2}").Append(Normal);
             if (!string.IsNullOrWhiteSpace(receipt.FbrInvoiceNo)) sb.AppendLine(receipt.FbrInvoiceNo);
             foreach (var line in (receipt.ReceiptFooter ?? "").Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None)) // WinUI TextBox uses \r
                 foreach (var w in Wrap(line.Trim(), Width)) sb.AppendLine(w);

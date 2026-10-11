@@ -330,10 +330,17 @@ namespace DChemist.ViewModels
         }
 
         private decimal _sellingPrice = 0;
+        private string _sellingPriceText = string.Empty;
         public decimal SellingPrice
         {
             get => _sellingPrice;
-            set { if (SetProperty(ref _sellingPrice, value)) OnPropertyChanged(nameof(SellingPriceText)); }
+            set
+            {
+                SetProperty(ref _sellingPrice, value);
+                SetProperty(ref _sellingPriceText,
+                    value == 0 ? string.Empty : value.ToString("G29", CultureInfo.InvariantCulture),
+                    nameof(SellingPriceText));
+            }
         }
 
         public string PacketsPerBoxText
@@ -362,8 +369,17 @@ namespace DChemist.ViewModels
 
         public string SellingPriceText
         {
-            get => _sellingPrice == 0 ? string.Empty : _sellingPrice.ToString("G29", CultureInfo.InvariantCulture);
-            set { if (string.IsNullOrWhiteSpace(value)) SellingPrice = 0; else if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal res)) SellingPrice = res; OnPropertyChanged(nameof(SellingPriceText)); }
+            get => _sellingPriceText;
+            set
+            {
+                // Keep in-progress text (e.g. "120.") so the binding does not
+                // rewrite the TextBox and move its caret while the user types.
+                _sellingPriceText = value;
+                if (string.IsNullOrWhiteSpace(value))
+                    SetProperty(ref _sellingPrice, 0m, nameof(SellingPrice));
+                else if (decimal.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out decimal res))
+                    SetProperty(ref _sellingPrice, res, nameof(SellingPrice));
+            }
         }
 
         public string TotalUnitsPreviewText
