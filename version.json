@@ -1,6 +1,6 @@
 {
-    "LatestVersion":  "1.9.6.0",
-    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.6.0/DChemist_v1.9.6.0_Release.zip",
-    "ReleaseNotes":  "Six-month expiry warnings include expired stock and consistent supplier exports. Dashboard and daily report share corrected sales and profit calculations; new sales snapshot stock cost. Medicine packaging fields start empty, labels explain packets and tablets, and stock is added through Purchase. Box purchase costs convert correctly to per-tablet cost. Billing shows percentage and PKR discount inputs on one row, with one active method and no automatic cross-filling. Extra is removed from new billing; historical bills retain saved charges. Ctrl+S saves, Ctrl+P saves and prints, Enter checkout still works, and the save button is named Save. Shop database configuration is preserved.",
-    "PackageSha256":  "2D9779F8397B1CA15503CF2E93110D7269F5732F467E3E61BF1AD97BDC5DBEA2"
+    "LatestVersion":  "1.9.7.0",
+    "DownloadUrl":  "https://github.com/hasnain833/MediTrack_DotNet/releases/download/v1.9.7.0/DChemist_v1.9.7.0_Release.zip",
+    "ReleaseNotes":  "- Fixed decimal selling-price entry so typing values such as 120.50 preserves the cursor position.\n- Removed the Items/Qty summary and You saved Rs line from receipts.\n- Expiry exports now include a No supplier assigned group and use the purchase invoice supplier when the batch supplier is missing.\n- Improved expiry export dialog styling with readable supplier selection, a light theme and the app\u0027s blue action buttons.\n- Removed unused diagnostic SQL, the old database backup and obsolete shop update notes; excluded Visual Studio cache backups.\nExisting shop database connection settings are preserved during updates.",
+    "PackageSha256":  "AF47076AA64D27ACE9AA1A6ED1A337F530C533119093B0347D5500201617F333"
 }
